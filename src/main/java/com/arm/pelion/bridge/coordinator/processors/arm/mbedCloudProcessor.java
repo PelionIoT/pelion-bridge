@@ -178,9 +178,6 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             orchestrator.errorLogger().warning("mbedCloudProcessor: webhook/subscription validator ENABLED (interval: " + this.m_webhook_validator_poll_ms + "ms)");
         }
        
-        // we are versioning our REST calls
-        orchestrator.errorLogger().warning("mbedCloudProcessor: Versioning of REST calls ENABLED (" + "v" + this.m_rest_version + ")");
-
         // configure the callback - defaulted for Cloud
         this.setupWebhookType();
         
