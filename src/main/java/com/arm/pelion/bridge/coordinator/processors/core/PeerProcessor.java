@@ -48,9 +48,13 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     private SubscriptionManager m_subscriptions_manager = null;
     private String m_mds_topic_root = null;
     private TypeDecoder m_type_decoder = null;
-    private boolean m_unified_format_enabled = false;
-    protected boolean m_auto_subscribe_to_obs_resources = false;
     private String m_mds_request_tag = null;
+    
+    // auto subscribe to observable resources true by default
+    protected boolean m_auto_subscribe_to_obs_resources = true;
+    
+    // unified format now true by default
+    private boolean m_unified_format_enabled = true;
     
     // enable this if you want to have re-subscription even if the subscription already exists (i.e. wipe/reset)
     protected boolean m_re_subscribe = true;
@@ -60,6 +64,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     protected String m_cmd_response_key = "cmd-response";           // common for both legacy and unified
     protected String m_api_response_key = "api-response";           // API response tag key
     
+    // endpoint type hashmap
     private SerializableHashMap m_endpoint_type_list = null;
     
     // default constructor

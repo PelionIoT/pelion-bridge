@@ -346,30 +346,34 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
     protected String createObservation(String verb, String ep_name, String uri, String value) {
         Map notification = new HashMap<>();
 
-        // needs to look like this:  {"path":"/303/0/5700","payload":"MjkuNzU\u003d","max-age":"60","ep":"350e67be-9270-406b-8802-dd5e5f20","value":"29.75"}    
+        // Classic Observation Format:  {"path":"/303/0/5700","payload":"MjkuNzU\u003d","max-age":"60","ep":"350e67be-9270-406b-8802-dd5e5f20","value":"29.75"}    
+        
+        // value of the observation decoded into a string
         if (value != null && value.length() > 0) {
             notification.put("value", this.fundamentalTypeDecoder().getFundamentalValue(value));
         }
         else {
             notification.put("value", this.fundamentalTypeDecoder().getFundamentalValue("0"));
         }
-        notification.put("path", uri);
-        notification.put("ep", ep_name);
+        
+        // add default values to the observation
+        notification.put("path", uri);                          // URI - full
+        notification.put("ep", ep_name);                        // EP Name
+        notification.put("coap_verb", verb);                    // VERB
 
-        // add a new field to denote its a GET
-        notification.put("coap_verb", verb);
-
-        // Unified Format?
+        // Unified Format - replicates path == resourceId, ep == deviceID, method == coap_verb, then +payload
         if (this.unifiedFormatEnabled() == true) {
-            notification.put("resourceId", uri.substring(1)); // strip off leading /
-            notification.put("deviceId", ep_name);
+            notification.put("resourceId", uri.substring(1));   // URI, strip off leading /
+            notification.put("deviceId", ep_name);              // EP Name
+            notification.put("method", verb.toUpperCase());     // VERB is upper case
+            
+            // add a base64 encoded payload of the value
             if (value != null) {
                 notification.put("payload", Base64.encodeBase64String(value.getBytes()));  // Base64 Encoded payload
             }
             else {
                 notification.put("payload", Base64.encodeBase64String("0".getBytes()));    // Base64 Encoded payload
             }
-            notification.put("method", verb.toUpperCase()); // VERB is upper case
         }
 
         // we will send the raw CoAP JSON... 

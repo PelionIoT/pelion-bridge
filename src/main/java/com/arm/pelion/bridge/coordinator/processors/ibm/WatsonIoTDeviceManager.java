@@ -1,5 +1,5 @@
 /**
- * @file    WatsonIoTDeviceManager.java
+ * @file WatsonIoTDeviceManager.java
  * @brief IBM WatsonIoT Device Manager for the IBM WatsonIoT Peer Processor
  * @author Doug Anson
  * @version 1.0
@@ -40,7 +40,7 @@ import java.util.Map;
  */
 public class WatsonIoTDeviceManager extends DeviceManager {
     // defaulted endpoint type
-    protected static String DEFAULT_ENDPOINT_TYPE="mbed-endpoint";
+    protected static String DEFAULT_ENDPOINT_TYPE="default";
     
     private String m_watson_iot_rest_uri_template = null;
     private String m_watson_iot_add_device_template = null;

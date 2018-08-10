@@ -1,5 +1,5 @@
 /**
- * @file    WatsonIoTMQTTProcessor.java
+ * @file WatsonIoTMQTTProcessor.java
  * @brief IBM WatsonIoT MQTT Peer Processor
  * @author Doug Anson
  * @version 1.0
@@ -62,9 +62,6 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
     private String m_watson_iot_api_key = null;
     private String m_watson_iot_auth_token = null;
 
-    // Legacy bridge
-    private boolean m_watson_legacy_bridge = false;
-
     // WatsonIoT Device Manager
     private WatsonIoTDeviceManager m_device_manager = null;
 
@@ -90,45 +87,15 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
         this.m_observation_key = "notify";
         this.m_cmd_response_key = "cmd-response";
 
-        // legacy bridge?
-        this.m_watson_legacy_bridge = this.orchestrator().preferences().booleanValueOf("iotf_legacy_bridge", this.m_suffix);
-        if (this.m_watson_legacy_bridge == true) {
-            this.errorLogger().warning("Watson IoT Bridge in Legacy Mode");
-            this.m_observation_key = "observation";
-        }
-
-        // get our configured device data key (legacy mode only)
-        if (this.m_watson_legacy_bridge == true) {
-            this.m_watson_iot_device_data_key = this.orchestrator().preferences().valueOf("iotf_device_data_key", this.m_suffix);
-            if (this.m_watson_iot_device_data_key == null || this.m_watson_iot_device_data_key.length() <= 0) {
-                // default
-                this.m_watson_iot_device_data_key = "off";
-            }
-            if (this.m_watson_iot_device_data_key.equalsIgnoreCase("off")) {
-                this.m_watson_iot_device_data_key = null;
-            }
-        }
-
         // Observation notifications
         this.m_watson_iot_observe_notification_topic = this.orchestrator().preferences().valueOf("iotf_observe_notification_topic", this.m_suffix).replace("__EVENT_TYPE__", this.m_observation_key);
 
         // Send CoAP commands back through mDS into the endpoint via these Topics... 
-        if (this.legacyBridge() == true) {
-            // lower-case for the topics
-            this.m_watson_iot_coap_cmd_topic_get = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "get");
-            this.m_watson_iot_coap_cmd_topic_put = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "put");
-            this.m_watson_iot_coap_cmd_topic_post = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "post");
-            this.m_watson_iot_coap_cmd_topic_delete = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "delete");
-            this.m_watson_iot_coap_cmd_topic_api = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "api");
-        }
-        else {
-            // upper-case for the topics
-            this.m_watson_iot_coap_cmd_topic_get = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "GET");
-            this.m_watson_iot_coap_cmd_topic_put = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "PUT");
-            this.m_watson_iot_coap_cmd_topic_post = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "POST");
-            this.m_watson_iot_coap_cmd_topic_delete = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "DELETE");
-            this.m_watson_iot_coap_cmd_topic_api = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "API");
-        }
+        this.m_watson_iot_coap_cmd_topic_get = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "GET");
+        this.m_watson_iot_coap_cmd_topic_put = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "PUT");
+        this.m_watson_iot_coap_cmd_topic_post = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "POST");
+        this.m_watson_iot_coap_cmd_topic_delete = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "DELETE");
+        this.m_watson_iot_coap_cmd_topic_api = this.orchestrator().preferences().valueOf("iotf_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "API");
 
         // establish default bindings
         this.m_watson_iot_api_key = this.orchestrator().preferences().valueOf("iotf_api_key", this.m_suffix).replace("__ORG_ID__", this.m_watson_iot_org_id).replace("__ORG_KEY__", this.m_watson_iot_org_key);
@@ -313,11 +280,9 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
             String ep_name = (String) notification.get("ep");
             String path = (String) notification.get("path");
 
-            if (this.legacyBridge() == false) {
-                // add compatibility with the production version of IBM's Connector Bridge
-                notification.put("resourceId", path.substring(1));           // strip leading "/" off of the URI...
-                notification.put("deviceId", notification.get("ep"));        // ep
-            }
+            // add compatibility with the production version of IBM's Connector Bridge
+            notification.put("resourceId", path.substring(1));           // strip leading "/" off of the URI...
+            notification.put("deviceId", notification.get("ep"));        // ep
 
             // we will send the raw CoAP JSON... WatsonIoT can parse that... 
             String coap_raw_json = this.jsonGenerator().generateJson(notification);
@@ -400,11 +365,6 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
     @Override
     protected void subscribeToMQTTTopics() {
         // unused: WatsonIoT will have "listenable" topics for the CoAP verbs via the CMD event type...
-    }
-
-    // legacy mode
-    private boolean legacyBridge() {
-        return this.m_watson_legacy_bridge;
     }
     
     // parse the WatsonIoT Username
