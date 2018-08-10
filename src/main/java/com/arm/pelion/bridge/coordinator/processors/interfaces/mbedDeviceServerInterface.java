@@ -66,14 +66,8 @@ public interface mbedDeviceServerInterface {
     // Device Metadata extraction
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor);
 
-    // Begin mDS/mDS webhook and subscription validation polling...
-    public void beginValidationPolling();
-
     // create the mDS/mDC URI for subscriptions
     public String createSubscriptionURI(String ep_name, String resource_uri);
-    
-    // using mbed cloud integration
-    public boolean usingMbedCloud();
     
     // device removal on deregistration?
     public boolean deviceRemovedOnDeRegistration();

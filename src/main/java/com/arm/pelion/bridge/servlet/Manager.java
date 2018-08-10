@@ -22,14 +22,11 @@
  */
 package com.arm.pelion.bridge.servlet;
 
-import com.arm.pelion.bridge.coordinator.domains.DomainChecker;
-import com.arm.pelion.bridge.coordinator.domains.DomainManager;
+import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.preferences.PreferenceManager;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -41,20 +38,17 @@ import javax.servlet.http.HttpServletResponse;
  * @author Doug Anson
  */
 public final class Manager {
+    // MOVE THESE INTO THE BUILD ENV
     public static final String LOG_TAG = "Pelion-Bridge";               // Log Tag
     public static final String BRIDGE_VERSION_STR = "1.0.0";            // our version (need to tie to build...)
-    public static final Double MDS_NON_DOMAIN_VER_BASE = 2.5;           // first version of mDS without domain usage...
+    
+    private Orchestrator m_orchestrator = null;
     private HttpServlet m_servlet = null;
     private static volatile Manager m_manager = null;
     private ErrorLogger m_error_logger = null;
     private PreferenceManager m_preference_manager = null;
-    private HashMap<String, DomainManager> m_domain_managers = null;
-    private Runnable m_domain_listener = null;
-    private Thread m_domain_listener_thread = null;
-    private DomainChecker m_domain_checker = null;
-    private String m_mds_version = null;
-    private boolean m_mds_uses_domains = true;
-    private String m_mds_gw_events_path = null;
+    
+    private String m_event_notification_path = null;
 
     // instance factory
     public static Manager getInstance(HttpServlet servlet,ErrorLogger error_logger,PreferenceManager preferences) {
@@ -72,192 +66,44 @@ public final class Manager {
         this.m_error_logger = error_logger;
         this.m_preference_manager = preferences;
         
-        // create the domain manager list
-        this.m_domain_managers = new HashMap<>();
-
         // announce our self
         this.errorLogger().info(LOG_TAG + ": Date: " + Utils.dateToString(Utils.now()) + ". Bridge version: v" + BRIDGE_VERSION_STR);
+        
+        // create the orchestrator
+        this.m_orchestrator = new Orchestrator(this.m_error_logger, this.m_preference_manager, "default");
 
         // configure the error logger logging level
         this.m_error_logger.configureLoggingLevel(this.m_preference_manager);
 
-        // Events URI...
-        this.m_mds_gw_events_path = this.m_preference_manager.valueOf("mds_gw_events_path");
-
-        // determine if we are using mDS v2.5 or greater
-        this.m_mds_version = this.preferences().valueOf("mds_version");
-        try {
-            Double mds_version = Double.valueOf(this.m_mds_version);
-            if (mds_version >= MDS_NON_DOMAIN_VER_BASE) {
-                this.m_mds_uses_domains = false;
-            }
-        }
-        catch (NumberFormatException ex) {
-            // silent
-            ;
-        }
-
-        // setup our domain listener
-        if (this.m_mds_uses_domains) {
-            boolean enable_domain_listener = this.preferences().booleanValueOf("mds_domain_listener");
-            if (enable_domain_listener) {
-                // allocate a domain checker
-                this.m_domain_checker = new DomainChecker(this.m_error_logger, this.m_preference_manager);
-
-                // start a listener to watch for new domains...
-                this.m_domain_listener = new DomainListener(this.preferences().valueOf("mds_address"),
-                        this.preferences().intValueOf("mds_domain_listener_sleep_interval_ms"));
-                this.m_domain_listener_thread = new Thread(this.m_domain_listener);
-                this.m_domain_listener_thread.start();
-            }
-            else {
-                // just add the default configured mDS domain per the config file...
-                this.addDomainManager(new DomainManager(this.m_error_logger, this.m_preference_manager, this.preferences().valueOf("mds_domain")));
-            }
-        }
-        else {
-            // no domains are used... (so we will account for a single domain using the non-domain value for internal accounting...)
-            this.addDomainManager(new DomainManager(this.m_error_logger, this.m_preference_manager, this.preferences().valueOf("mds_def_domain")));
-        }
-    }
-
-    public void initListeners() {
-        for (DomainManager manager : this.m_domain_managers.values()) {
-            if (manager.getOrchestrator().peerListenerActive() == false) {
-                manager.getOrchestrator().initPeerListener();
-            }
-        }
-    }
-
-    public void stopListeners() {
-        for (DomainManager manager : this.m_domain_managers.values()) {
-            if (manager.getOrchestrator().peerListenerActive() == true) {
-                manager.getOrchestrator().stopPeerListener();
-            }
-        }
-    }
-
-    public void initWebhooks() {
-        for (DomainManager manager : this.m_domain_managers.values()) {
-            manager.getOrchestrator().initializeDeviceServerWebhook();
-        }
-    }
-
-    public void resetNotifications() {
-        for (DomainManager manager : this.m_domain_managers.values()) {
-            manager.getOrchestrator().resetDeviceServerWebhook();
-        }
+        // Event notification path...
+        this.m_event_notification_path = this.m_preference_manager.valueOf("mds_gw_events_path");
     }
 
     public void processNotification(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        DomainManager manager = this.getDomainManager(request);
-        if (manager != null) {
-            manager.processNotification(request, response);
-        }
+        this.m_orchestrator.processIncomingDeviceServerMessage(request, response);
+    }
+    
+    public void initListeners() {
+        this.m_orchestrator.initPeerListener();
+    }
+    
+    public void stopListeners() {
+        this.m_orchestrator.stopPeerListener();
     }
 
-    public final void addDomainManager(DomainManager domain_manager) {
-        this.m_domain_managers.put(domain_manager.domain(), domain_manager);
+    public void initWebhooks() {
+        this.m_orchestrator.initializeDeviceServerWebhook();
     }
 
-    public DomainManager getDomainManager(HttpServletRequest request) {
-        return this.getDomainManager(this.eventNotificationURIToDomain(request));
-    }
-
-    // TO DO
-    private String eventNotificationURIToDomain(HttpServletRequest request) {
-        String domain = "<unset>";
-
-        // DEBUG
-        //this.errorLogger().info("URI: " + request.getRequestURI()  + " path: " + request.getServletPath() + " method: " + request.getMethod());
-        // make sure that we are looking event notification path
-        if (request.getServletPath().equalsIgnoreCase(this.m_mds_gw_events_path)) {
-            // convert the URI to an array
-            String[] components = request.getRequestURI().replace('/', ' ').split(" ");
-
-            // mDS domain is the last component
-            domain = components[components.length - 1];
-
-            // DEBUG
-            //this.errorLogger().info("servletRequestToDomain: domain=[" + domain + "]");
-        }
-        else {
-            // this is a console request - nail it to "console"
-            domain = "console";
-        }
-
-        // return the domain
-        return domain;
-    }
-
-    private DomainManager getDomainManager(String domain) {
-        return this.m_domain_managers.get(domain);
+    public void resetNotifications() {
+        this.m_orchestrator.resetDeviceServerWebhook();
     }
 
     private void setServlet(HttpServlet servlet) {
         this.m_servlet = servlet;
     }
 
-    public HttpServlet getServlet() {
-        return this.m_servlet;
-    }
-
-    public ErrorLogger errorLogger() {
+    private ErrorLogger errorLogger() {
         return this.m_error_logger;
-    }
-
-    public final PreferenceManager preferences() {
-        return this.m_preference_manager;
-    }
-
-    public void checkForNewDomain() {
-        // get the current domain list
-        ArrayList<String> domains = this.m_domain_checker.getDomainList();
-        for (int i = 0; domains != null && i < domains.size(); ++i) {
-            DomainManager domain_manager = this.getDomainManager(domains.get(i));
-            if (domain_manager == null) {
-                // add the new domain manager
-                this.errorLogger().info(LOG_TAG + ": Adding Domain Manager for domain: " + domains.get(i));
-                this.addDomainManager(new DomainManager(this.m_error_logger, this.m_preference_manager, domains.get(i)));
-            }
-        }
-    }
-
-    public class DomainListener implements Runnable {
-
-        private String m_mds_ip_address = null;
-        private int m_sleep_interval_ms = 0;
-        private boolean m_do_loop = false;
-
-        DomainListener(String mds_ip_address, int sleep_interval_ms) {
-            this.m_mds_ip_address = mds_ip_address;
-            this.m_sleep_interval_ms = sleep_interval_ms;
-            this.m_do_loop = true;
-        }
-
-        @Override
-        @SuppressWarnings("empty-statement")
-        public void run() {
-            while (this.m_do_loop) {
-                try {
-                    // check for a new mDS domain
-                    checkForNewDomain();
-
-                    // initialize any listeners that are not already initialized..
-                    initListeners();
-
-                    // sleep for a bit...
-                    Thread.sleep(this.m_sleep_interval_ms);
-                }
-                catch (InterruptedException ex) {
-                    // silent
-                    ;
-                }
-            }
-        }
-
-        public synchronized void stopListener() {
-            this.m_do_loop = false;
-        }
     }
 }

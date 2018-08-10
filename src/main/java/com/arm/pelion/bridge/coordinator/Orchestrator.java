@@ -235,9 +235,6 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
         if (this.m_mbed_device_server_processor != null) {
             // set the webhook
             this.m_mbed_device_server_processor.setWebhook();
-
-            // begin validation polling
-            this.beginValidationPolling();
         }
     }
 
@@ -501,11 +498,6 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
     }
 
     @Override
-    public void beginValidationPolling() {
-        this.device_server_processor().beginValidationPolling();
-    }
-
-    @Override
     public String createSubscriptionURI(String ep_name, String resource_uri) {
         return this.device_server_processor().createSubscriptionURI(ep_name, resource_uri);
     }
@@ -518,16 +510,6 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
         
         // default is false
         return false;
-    }
-    
-    @Override
-    public boolean usingMbedCloud() {
-        if (this.device_server_processor() != null) {
-            return this.device_server_processor().usingMbedCloud();
-        }
-        
-        // default is false
-        return false;    
     }
 
     @Override

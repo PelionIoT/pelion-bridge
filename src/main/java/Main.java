@@ -97,16 +97,17 @@ public class Main {
 
         // add a shutdown hook for graceful shutdowns...
         Runtime.getRuntime().addShutdownHook(
-                new Thread() {
-            @Override
-            public void run() {
-                System.out.println(Manager.LOG_TAG + ": Resetting notification handlers...");
-                manager.resetNotifications();
+            new Thread() {
+                @Override
+                public void run() {
+                    System.out.println(Manager.LOG_TAG + ": Resetting notification handlers...");
+                    manager.resetNotifications();
 
-                System.out.println(Manager.LOG_TAG + ": Stopping Listeners...");
-                manager.stopListeners();
+                    System.out.println(Manager.LOG_TAG + ": Stopping Listeners...");
+                    manager.stopListeners();
+                }
             }
-        });
+        );
 
         // eventing process servlet bindings (wildcarded)
         context.addServlet(new ServletHolder(eventsProcessor), preferences.valueOf("mds_gw_events_path") + "/*");

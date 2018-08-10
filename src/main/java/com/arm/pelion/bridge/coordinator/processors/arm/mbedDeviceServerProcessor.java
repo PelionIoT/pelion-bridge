@@ -55,7 +55,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
     private static final int MDS_BOOT_DEVICE_DISCOVERY_DELAY_MS = 15000;        // 15 seconds
     
     // default endpoint type
-    private static String DEFAULT_ENDPOINT_TYPE = "mbed-endpoint";              // default endpoint type
+    private static String DEFAULT_ENDPOINT_TYPE = "default";                    // default endpoint type
     
     private HttpTransport m_http = null;
     private String m_mds_host = null;
@@ -72,9 +72,9 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
     private String m_mds_version = null;
     private boolean m_mds_gw_use_ssl = false;
     private boolean m_mds_use_ssl = false;
-    private boolean m_using_callback_webhooks = false;
-    private boolean m_disable_sync = false;
+    private boolean m_using_callback_webhooks = true;
     private boolean m_skip_validation = false;
+    private boolean m_disable_sync = true;
     private long m_device_discovery_delay_ms = MDS_BOOT_DEVICE_DISCOVERY_DELAY_MS;
 
     // device metadata resource URI from configuration
@@ -93,15 +93,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
     private String m_device_attributes_path = null;
     private String m_device_attributes_content_type = null;
 
-    private String m_default_rest_version = "2";
-    private boolean m_use_rest_versions = false;
-    private String m_rest_version = null;
-
-    // Long Poll vs Webhook usage
-    private boolean m_mds_enable_long_poll = false;
-    private String m_mds_long_poll_uri = null;
-    private String m_mds_long_poll_url = null;
-    private LongPollProcessor m_long_poll_processor = null;
+    private String m_rest_version = "2";
     
     // Webhook establishment retries
     private int m_webook_num_retries = MDS_WEBHOOK_RETRIES;
@@ -136,7 +128,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
         this.m_mds_password = orchestrator.preferences().valueOf("mds_password");
         this.m_content_type = orchestrator.preferences().valueOf("mds_content_type");
         this.m_mds_gw_callback = orchestrator.preferences().valueOf("mds_gw_callback");
-        this.m_use_https_dispatch = this.prefBoolValue("mds_use_https_dispatch");
+        this.m_use_https_dispatch = this.prefBoolValue("mds_use_https_dispatch"); 
         this.m_mds_last_message = null;
         this.m_webook_num_retries = orchestrator.preferences().intValueOf("mds_webhook_num_retries");
         if (this.m_webook_num_retries <= 0) {
@@ -144,38 +136,15 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
         }
         this.m_mds_version = this.prefValue("mds_version");
         this.m_mds_gw_use_ssl = this.prefBoolValue("mds_gw_use_ssl");
-        this.m_use_api_token = this.prefBoolValue("mds_use_api_token");
-        this.m_use_rest_versions = this.prefBoolValue("mds_enable_rest_versions");
-        this.m_mds_enable_long_poll = this.prefBoolValue("mds_enable_long_poll");
-        this.m_mds_long_poll_uri = this.prefValue("mds_long_poll_uri");
-        this.m_rest_version = this.prefValueWithDefault("mds_rest_version", this.m_default_rest_version).replace("v", "").replace("//", "");
-        if (this.m_use_api_token == true) {
-            this.m_api_token = this.orchestrator().preferences().valueOf("mds_api_token");
-            if (this.m_api_token == null || this.m_api_token.length() == 0) {
-                // new key to use..
-                this.m_api_token = this.orchestrator().preferences().valueOf("api_key");
-            }
+       
+        this.m_api_token = this.orchestrator().preferences().valueOf("mds_api_token");
+        if (this.m_api_token == null || this.m_api_token.length() == 0) {
+            // new key to use..
+            this.m_api_token = this.orchestrator().preferences().valueOf("api_key");
         }
         
         // display number of webhook setup retries allowed
         this.errorLogger().warning("mbedDeviceServerProcessor: Number of webhook retries set at: " + this.m_webook_num_retries);
-        
-        // adjust mds_username
-        try {
-            Double ver = Double.valueOf(this.m_mds_version);
-            if (ver > 3.0) {
-                // v3.0+ on-prem mDS uses "Basic domain/user:pw"
-                String domain = this.getDomain(true).replace("/", "");
-                this.m_mds_username = domain + "/" + this.m_mds_username;
-
-                // DEBUG
-                this.errorLogger().info("mbedDeviceServerProcessor Updated username: " + this.m_mds_username);
-            }
-        }
-        catch (NumberFormatException ex) {
-            // parsing error... fail silently...
-            ;
-        }
 
         // get the device attributes path
         this.m_device_attributes_path = orchestrator.preferences().valueOf("mds_device_attributes_path");
@@ -209,21 +178,12 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
             // DEBUG
             orchestrator.errorLogger().warning("mbedDeviceServerProcessor: webhook/subscription validator ENABLED (interval: " + this.m_webhook_validator_poll_ms + "ms)");
         }
+       
+        // we are versioning our REST calls
+        orchestrator.errorLogger().warning("mbedDeviceServerProcessor: Versioning of REST calls ENABLED (" + "v" + this.m_rest_version + ")");
 
-        // Announce version supported
-        if (this.m_use_rest_versions == true) {
-            // we are versioning our REST calls
-            orchestrator.errorLogger().warning("mbedDeviceServerProcessor: Versioning of REST calls ENABLED (" + "v" + this.m_rest_version + ")");
-        }
-        else {
-            // we are not versioning our REST calls
-            orchestrator.errorLogger().warning("mbedDeviceServerProcessor: Versioning of REST calls DISABLED");
-        }
-
-        // configure the callback type based on the version of mDS (only if not using long polling)
-        if (this.longPollEnabled() == false) {
-            this.setupWebhookType();
-        }
+        // configure the callback - defaulted for Cloud
+        this.setupWebhookType();
         
         // default device type in case we need it
         this.m_def_ep_type = orchestrator.preferences().valueOf("mds_def_ep_type");
@@ -231,26 +191,12 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
             this.m_def_ep_type = DEFAULT_ENDPOINT_TYPE;
         }
 
-        // sanity check the configured mDS AUTH type
-        this.sanityCheckAuthType();
-
-        // disable sync usage if with Connector
-        if (this.bridgingToConnector() == true) {
-            this.errorLogger().info("mbedDeviceServerProcessor: Using mbed Device Connector. Sync=true DISABLED");
-            this.m_disable_sync = true;
-        }
-
         // init the device metadata resource URI's
         this.initDeviceMetadataResourceURIs();
         
-        // remove on deregistration - mbed Cloud Override
-        if (this.m_mds_host != null && this.m_mds_host.contains("mbedcloud.com")) {
-            // override - disable remove on deregistration
-            orchestrator.errorLogger().warning("mbedDeviceServerProcessor: mbed Cloud Integration ");
-            
-            // adjust
-            this.m_mbed_cloud_integration = true;
-        }
+        // mbed Cloud Integration defaulted
+        this.m_mbed_cloud_integration = true;
+        orchestrator.errorLogger().warning("mbedDeviceServerProcessor: mbed Cloud Integration ");
         
         // configuration for allowing de-registration messages to remove device shadows...or not.
         this.m_mds_remove_on_deregistration = this.prefBoolValue("mds_remove_on_deregistration");
@@ -260,9 +206,6 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
         else {
             orchestrator.errorLogger().warning("mbedDeviceServerProcessor: device removal on deregistration DISABLED");
         }
-
-        // OVEERRIDE - long polling vs. Webhook
-        this.longPollOverrideSetup();
     }
     
     // sanitize the endpoint type
@@ -370,12 +313,6 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
         }
     }
     
-    // using mbed Cloud?
-    @Override
-    public boolean usingMbedCloud() {
-        return this.m_mbed_cloud_integration;
-    }
-    
     // device removal on deregistration?
     @Override
     public boolean deviceRemovedOnDeRegistration() {
@@ -385,59 +322,6 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
     // using SSL or not for the webhook management set/get
     public boolean usingSSLInWebhookEstablishment() {
         return this.m_use_https_dispatch;
-    }
-
-    // Long polling enabled or disabled?
-    private boolean longPollEnabled() {
-        return (this.m_mds_enable_long_poll == true && this.m_mds_long_poll_uri != null && this.m_mds_long_poll_uri.length() > 0);
-    }
-
-    // get the long polling URL
-    public String longPollURL() {
-        return this.m_mds_long_poll_url;
-    }
-
-    // override use of long polling vs. webhooks for notifications
-    private void longPollOverrideSetup() {
-        if (this.longPollEnabled()) {
-            // DEBUG
-            this.errorLogger().warning("mbedDeviceServerProcessor: Long Poll Override ENABLED. Using Long Polling (webhook DISABLED)");
-
-            // disable webhook validation
-            this.m_webhook_validator_enable = false;
-
-            // override use of long polling vs webhooks for notifications
-            this.m_mds_long_poll_url = this.constructLongPollURL();
-
-            // start the Long polling thread...
-            this.startLongPolling();
-        }
-    }
-
-    // build out the long poll URL
-    private String constructLongPollURL() {
-        String url = this.createBaseURL() + "/" + this.m_mds_long_poll_uri;
-        this.errorLogger().info("constructLongPollURL: Long Poll URL: " + url);
-        return url;
-    }
-
-    // start the long polling thread
-    private void startLongPolling() {
-        // now long poll
-        if (this.m_long_poll_processor == null) {
-            this.m_long_poll_processor = new LongPollProcessor(this);
-            this.m_long_poll_processor.startPolling();
-        }
-    }
-
-    /**
-     * start validation polling
-     */
-    @Override
-    public void beginValidationPolling() {
-        if (this.m_webhook_validator != null) {
-            this.m_webhook_validator.startPolling();
-        }
     }
 
     // initialize the device metadata resource URIs
@@ -464,74 +348,27 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
 
     // setup the connector bridge URI
     private void setupConnectorURI() {
-        this.m_default_gw_uri = "http://";
-        if (this.m_mds_gw_use_ssl) {
-            this.m_default_gw_uri = "https://";
-        }
+        this.m_default_gw_uri = "https://";
     }
 
     // setup the mbed device server default URI
     @SuppressWarnings("empty-statement")
     private void setupDeviceServerURI() {
-        this.m_default_mds_uri = "http://";
-        try {
-            if (this.m_use_api_token && this.m_use_https_dispatch == true) {
-                // we are using mDS Connector... 
-                this.m_default_mds_uri = "https://";
-                this.m_mds_port = 443;
-
-                // we assume mDS is Connector and thus requires use of SSL throughout.
-                this.m_mds_use_ssl = true;
-            }
-        }
-        catch (NumberFormatException ex) {
-            // silent
-            ;
-        }
+        this.m_default_mds_uri = "https://";
+        this.m_mds_port = 443;
+        this.m_mds_use_ssl = true;
     }
 
     // set the callback type we are using
     @SuppressWarnings("empty-statement")
     private void setupWebhookType() {
-        if (this.m_mds_gw_callback.equalsIgnoreCase("push-url") == true) {
-            this.m_mds_gw_callback = "callback";     // force use of callback... push-url no longer used
-        }
-
-        // set the boolean checker...
-        this.m_using_callback_webhooks = (this.m_mds_gw_callback.equalsIgnoreCase("callback") == true);
+        this.m_mds_gw_callback = "callback"; 
+        this.m_using_callback_webhooks = true;
     }
 
     // our the mDS notifications coming in over the webhook validatable?
     private Boolean validatableNotifications() {
         return this.m_using_callback_webhooks;
-    }
-
-    // sanity check the authentication type
-    private void sanityCheckAuthType() {
-        // sanity check...
-        if (this.m_use_api_token == true && (this.m_api_token == null || this.m_api_token.length() == 0)) {
-            this.orchestrator().errorLogger().warning("WARNING: API TOKEN AUTH enabled but no token found/acquired... disabling...");
-            this.m_use_api_token = false;
-        }
-
-        // DEBUG
-        if (this.useAPITokenAuth()) {
-            this.orchestrator().errorLogger().info("Using API TOKEN Authentication");
-        }
-        else {
-            this.orchestrator().errorLogger().info("Using BASIC Authentication");
-        }
-    }
-
-    // is our mDS instance actually mDC?
-    private boolean bridgingToConnector() {
-        return ((this.m_use_api_token == true && this.m_using_callback_webhooks == true && this.m_use_https_dispatch == true)
-                || (this.m_use_api_token == true && this.m_mds_enable_long_poll == true && this.m_use_https_dispatch == true));
-    }
-
-    // mDS is using Token Auth
-    private boolean useAPITokenAuth() {
-        return this.m_use_api_token;
     }
     
     // validate the notification
@@ -729,40 +566,38 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
     @Override
     public void setWebhook() {
         boolean ok = false;
-        if (this.longPollEnabled() == false) {
-            for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
-                this.errorLogger().warning("mbedDeviceServerProcessor: Setting up webhook to mDS...");
-                String target_url = this.createWebhookURL();
-                ok = this.setWebhook(target_url);
+        for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
+            this.errorLogger().warning("mbedDeviceServerProcessor: Setting up webhook to mDS...");
+            String target_url = this.createWebhookURL();
+            ok = this.setWebhook(target_url);
 
-                // EXPERIMENTAL - test for bulk subscriptions setting
-                if (ok && this.m_enable_bulk_subscriptions == true) {
-                    // bulk subscriptions enabled
-                    this.errorLogger().warning("mbedDeviceServerProcessor: Webhook to mDS set. Now setting up bulk subscriptions...");
-                    this.setupBulkSubscriptions();
-                }
-                else if (ok) {
-                    // webhook set but not using bulk subscriptions
-                    this.errorLogger().warning("mbedDeviceServerProcessor: Webhook to mDS set (SUCCESS).");
-                    
-                    // start device discovery
-                    this.startDeviceDiscovery();
-                }
-                
-                // wait a bit if we have failed
-                if (!ok) {
-                    // log and wait
-                    this.errorLogger().warning("mbedDeviceServerProcessor: Waiting a bit... then retry establishing webhook to mDS...");
-                    Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
-                }
+            // EXPERIMENTAL - test for bulk subscriptions setting
+            if (ok && this.m_enable_bulk_subscriptions == true) {
+                // bulk subscriptions enabled
+                this.errorLogger().warning("mbedDeviceServerProcessor: Webhook to mDS set. Now setting up bulk subscriptions...");
+                this.setupBulkSubscriptions();
+            }
+            else if (ok) {
+                // webhook set but not using bulk subscriptions
+                this.errorLogger().warning("mbedDeviceServerProcessor: Webhook to mDS set (SUCCESS).");
+
+                // start device discovery
+                this.startDeviceDiscovery();
+            }
+
+            // wait a bit if we have failed
+            if (!ok) {
+                // log and wait
+                this.errorLogger().warning("mbedDeviceServerProcessor: Waiting a bit... then retry establishing webhook to mDS...");
+                Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
             }
         }
     }
     
-    // EXPERIMENTAL: establish bulk subscription (disabled by default)
+    // establish bulk subscription 
     private void setupBulkSubscriptions() {
         // DEBUG
-        this.errorLogger().info("setupBulkSubscriptions: setting bulk subscriptions (EXPERIMENTAL)...");
+        this.errorLogger().info("setupBulkSubscriptions: setting bulk subscriptions...");
         
         // JSON for the bulk subscription
         String json = this.createJSONMessage("endpoint-name","*");
@@ -976,12 +811,10 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
     // process device-deletions of endpoints (mbed Cloud only)
     @Override
     public void processDeviceDeletions(String[] endpoints) {
-        if (this.usingMbedCloud() == true) {
-            for (int i = 0; i < endpoints.length; ++i) {
-                // remove from the validator - bookkeeping
-                if (this.m_webhook_validator != null) {
-                    this.m_webhook_validator.removeSubscriptionsforEndpoint(endpoints[i]);
-                }
+        for (int i = 0; i < endpoints.length; ++i) {
+            // remove from the validator - bookkeeping
+            if (this.m_webhook_validator != null) {
+                this.m_webhook_validator.removeSubscriptionsforEndpoint(endpoints[i]);
             }
         }
     }
@@ -1558,13 +1391,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
 
     // add REST version information
     private String connectorVersion() {
-        if (this.m_use_rest_versions == true) {
-            // return the configured version string
-            return "/v" + this.m_rest_version;
-        }
-
-        // not using rest versioning
-        return "";
+        return "/v" + this.m_rest_version;
     }
 
     // create the base URL for mDS operations
@@ -1671,9 +1498,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
     // init any device discovery
     @Override
     public void initDeviceDiscovery() {
-        if (this.longPollEnabled() == true) {
-            this.startDeviceDiscovery();
-        }
+        this.startDeviceDiscovery();
     }
     
     // start device discovery for device shadow setup
@@ -1683,51 +1508,45 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
     
     // setup initial Device Shadows (mbed Cloud only...)
     private void setupExistingDeviceShadows() {
-        if (this.usingMbedCloud() == true) {
-            // query mbed Cloud for the current list of Registered devices
-            List devices = this.discoverRegisteredDevices();
-            
-            // loop through each device, get resource descriptions...
-            HashMap<String,Object> endpoint = new HashMap<>();
-            for(int i=0;devices != null && i<devices.size();++i) {
-                Map device = (Map)devices.get(i);
-                                
-                // sanitize the endpoint type
-                device.put("endpoint_type",this.sanitizeEndpointType((String)device.get("endpoint_type")));
-                
-                // copy over the relevant portions
-                endpoint.put("ep", (String)device.get("id"));
-                endpoint.put("ept",(String)device.get("endpoint_type"));
-                
-                // DEBUG
-                this.errorLogger().warning("mbedDeviceServerProcessor(BOOT): discovered mbed Cloud device ID: " + (String)device.get("id") + " Type: " + (String)device.get("endpoint_type"));
-                
-                // now, query mDS again for each device and get its resources
-                List resources = this.discoverDeviceResources((String)device.get("id"));
-                
-                // For now, we simply add to each resource JSON, a "path" that mimics the "uri" element... we need to use "uri" once done with Connector
-                for(int j=0;resources != null && j<resources.size();++j) {
-                    Map resource = (Map)resources.get(j);
-                    resource.put("path", (String)resource.get("uri"));
-                    
-                    // auto-subscribe to observable resources... if enabled.
-                    this.orchestrator().subscribeToEndpointResource((String) endpoint.get("ep"), (String) resource.get("path"), false);
+        // query mbed Cloud for the current list of Registered devices
+        List devices = this.discoverRegisteredDevices();
 
-                    // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
-                    this.orchestrator().removeSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
-                    this.orchestrator().addSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
-                }
-                
-                // put the resource list into our payload...
-                endpoint.put("resources",resources);
-                
-                // process as new device registration...
-                this.orchestrator().completeNewDeviceRegistration(endpoint);
+        // loop through each device, get resource descriptions...
+        HashMap<String,Object> endpoint = new HashMap<>();
+        for(int i=0;devices != null && i<devices.size();++i) {
+            Map device = (Map)devices.get(i);
+
+            // sanitize the endpoint type
+            device.put("endpoint_type",this.sanitizeEndpointType((String)device.get("endpoint_type")));
+
+            // copy over the relevant portions
+            endpoint.put("ep", (String)device.get("id"));
+            endpoint.put("ept",(String)device.get("endpoint_type"));
+
+            // DEBUG
+            this.errorLogger().warning("mbedDeviceServerProcessor(BOOT): discovered mbed Cloud device ID: " + (String)device.get("id") + " Type: " + (String)device.get("endpoint_type"));
+
+            // now, query mDS again for each device and get its resources
+            List resources = this.discoverDeviceResources((String)device.get("id"));
+
+            // For now, we simply add to each resource JSON, a "path" that mimics the "uri" element... we need to use "uri" once done with Connector
+            for(int j=0;resources != null && j<resources.size();++j) {
+                Map resource = (Map)resources.get(j);
+                resource.put("path", (String)resource.get("uri"));
+
+                // auto-subscribe to observable resources... if enabled.
+                this.orchestrator().subscribeToEndpointResource((String) endpoint.get("ep"), (String) resource.get("path"), false);
+
+                // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
+                this.orchestrator().removeSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
+                this.orchestrator().addSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
             }
-        }
-        else {
-            // not using mbed Cloud
-            this.errorLogger().warning("setupExistingDeviceShadows: Not bound to mbed Cloud. Device discovery is by device registration/reg-updates only...");
+
+            // put the resource list into our payload...
+            endpoint.put("resources",resources);
+
+            // process as new device registration...
+            this.orchestrator().completeNewDeviceRegistration(endpoint);
         }
     }
     
@@ -1821,13 +1640,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
 
     // invoke peristent HTTPS Get
     private String persistentHTTPGet(String url, String content_type) {
-        String response = null;
-        if (this.useAPITokenAuth()) {
-            response = this.m_http.httpPersistentGetApiTokenAuth(url, this.m_api_token, null, content_type, this.m_mds_domain);
-        }
-        else {
-            response = this.m_http.httpPeristentGet(url, this.m_mds_username, this.m_mds_password, null, content_type, this.m_mds_domain);
-        }
+        String response = this.m_http.httpPersistentGetApiTokenAuth(url, this.m_api_token, null, content_type, this.m_mds_domain);
         this.errorLogger().info("persistentHTTPGet: response: " + this.m_http.getLastResponseCode());
         return response;
     }
@@ -1839,13 +1652,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
 
     // invoke peristent HTTPS Get
     private String persistentHTTPSGet(String url, String content_type) {
-        String response = null;
-        if (this.useAPITokenAuth()) {
-            response = this.m_http.httpsPersistentGetApiTokenAuth(url, this.m_api_token, null, content_type, this.m_mds_domain);
-        }
-        else {
-            response = this.m_http.httpsPeristentGet(url, this.m_mds_username, this.m_mds_password, null, content_type, this.m_mds_domain);
-        }
+        String response = this.m_http.httpsPersistentGetApiTokenAuth(url, this.m_api_token, null, content_type, this.m_mds_domain);
         this.errorLogger().info("persistentHTTPSGet: response: " + this.m_http.getLastResponseCode());
         return response;
     }
@@ -1857,13 +1664,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
 
     // invoke HTTP GET request (SSL)
     private String httpsGet(String url, String content_type,String api_key) {
-        String response = null;
-        if (this.useAPITokenAuth()) {
-            response = this.m_http.httpsGetApiTokenAuth(url, api_key, null, content_type, this.m_mds_domain);
-        }
-        else {
-            response = this.m_http.httpsGet(url, this.m_mds_username, this.m_mds_password, null, content_type, this.m_mds_domain);
-        }
+        String response = this.m_http.httpsGetApiTokenAuth(url, api_key, null, content_type, this.m_mds_domain);
         this.errorLogger().info("httpsGet: response: " + this.m_http.getLastResponseCode());
         return response;
     }
@@ -1875,13 +1676,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
 
     // invoke HTTP GET request
     private String httpGet(String url, String content_type, String api_key) {
-        String response = null;
-        if (this.useAPITokenAuth()) {
-            response = this.m_http.httpGetApiTokenAuth(url, api_key, null, content_type, this.m_mds_domain);
-        }
-        else {
-            response = this.m_http.httpGet(url, this.m_mds_username, this.m_mds_password, null, content_type, this.m_mds_domain);
-        }
+        String response = this.m_http.httpGetApiTokenAuth(url, api_key, null, content_type, this.m_mds_domain);
         this.errorLogger().info("httpGet: response: " + this.m_http.getLastResponseCode());
         return response;
     }
@@ -1898,13 +1693,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
 
     // invoke HTTP PUT request (SSL)
     private String httpsPut(String url, String data, String content_type, String api_key) {
-        String response = null;
-        if (this.useAPITokenAuth()) {
-            response = this.m_http.httpsPutApiTokenAuth(url, api_key, data, content_type, this.m_mds_domain);
-        }
-        else {
-            response = this.m_http.httpsPut(url, this.m_mds_username, this.m_mds_password, data, content_type, this.m_mds_domain);
-        }
+        String response = this.m_http.httpsPutApiTokenAuth(url, api_key, data, content_type, this.m_mds_domain);
         this.errorLogger().info("httpsPut: response: " + this.m_http.getLastResponseCode());
         return response;
     }
@@ -1921,13 +1710,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
 
     // invoke HTTP PUT request
     private String httpPut(String url, String data, String content_type, String api_key) {
-        String response = null;
-        if (this.useAPITokenAuth()) {
-            response = this.m_http.httpPutApiTokenAuth(url, api_key, data, content_type, this.m_mds_domain);
-        }
-        else {
-            response = this.m_http.httpPut(url, this.m_mds_username, this.m_mds_password, data, content_type, this.m_mds_domain);
-        }
+        String response = this.m_http.httpPutApiTokenAuth(url, api_key, data, content_type, this.m_mds_domain);
         this.errorLogger().info("httpPut: response: " + this.m_http.getLastResponseCode());
         return response;
     }
@@ -1939,26 +1722,14 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
     
     // invoke HTTP POST request (SSL)
     private String httpsPost(String url, String data, String content_type, String api_key) {
-        String response = null;
-        if (this.useAPITokenAuth()) {
-            response = this.m_http.httpsPostApiTokenAuth(url, api_key, data, content_type, this.m_mds_domain);
-        }
-        else {
-            response = this.m_http.httpsPost(url, this.m_mds_username, this.m_mds_password, data, content_type, this.m_mds_domain);
-        }
+        String response = this.m_http.httpsPostApiTokenAuth(url, api_key, data, content_type, this.m_mds_domain);
         this.errorLogger().info("httpsPost: response: " + this.m_http.getLastResponseCode());
         return response;
     }
 
     // invoke HTTP POST request - set the content_type to "plain/text" forcefully...
     private String httpPost(String url, String data, String content_type, String api_key) {
-        String response = null;
-        if (this.useAPITokenAuth()) {
-            response = this.m_http.httpPostApiTokenAuth(url, api_key, data, content_type, this.m_mds_domain);
-        }
-        else {
-            response = this.m_http.httpPost(url, this.m_mds_username, this.m_mds_password, data, content_type, this.m_mds_domain);
-        }
+        String response = this.m_http.httpPostApiTokenAuth(url, api_key, data, content_type, this.m_mds_domain);
         this.errorLogger().info("httpPost: response: " + this.m_http.getLastResponseCode());
         return response;
     }
@@ -1970,13 +1741,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
 
     // invoke HTTP DELETE request
     private String httpsDelete(String url, String content_type, String api_key) {
-        String response = null;
-        if (this.useAPITokenAuth()) {
-            response = this.m_http.httpsDeleteApiTokenAuth(url, api_key, null, content_type, this.m_mds_domain);
-        }
-        else {
-            response = this.m_http.httpsDelete(url, this.m_mds_username, this.m_mds_password, null, content_type, this.m_mds_domain);
-        }
+        String response = this.m_http.httpsDeleteApiTokenAuth(url, api_key, null, content_type, this.m_mds_domain);
         this.errorLogger().info("httpDelete: response: " + this.m_http.getLastResponseCode());
         return response;
     }
@@ -1988,13 +1753,7 @@ public class mbedDeviceServerProcessor extends Processor implements Runnable, mb
 
     // invoke HTTP DELETE request
     private String httpDelete(String url, String content_type, String api_key) {
-        String response = null;
-        if (this.useAPITokenAuth()) {
-            response = this.m_http.httpDeleteApiTokenAuth(url, api_key, null, content_type, this.m_mds_domain);
-        }
-        else {
-            response = this.m_http.httpDelete(url, this.m_mds_username, this.m_mds_password, null, content_type, this.m_mds_domain);
-        }
+        String response = this.m_http.httpDeleteApiTokenAuth(url, api_key, null, content_type, this.m_mds_domain);
         this.errorLogger().info("httpDelete: response: " + this.m_http.getLastResponseCode());
         return response;
     }
