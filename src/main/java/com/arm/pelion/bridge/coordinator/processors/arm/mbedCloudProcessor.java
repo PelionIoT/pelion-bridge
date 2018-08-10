@@ -143,7 +143,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         }
         
         // display number of webhook setup retries allowed
-        this.errorLogger().warning("mbedDeviceServerProcessor: Number of webhook retries set at: " + this.m_webook_num_retries);
+        this.errorLogger().warning("mbedCloudProcessor: Number of webhook retries set at: " + this.m_webook_num_retries);
 
         // get the device attributes path
         this.m_device_attributes_path = orchestrator.preferences().valueOf("mds_device_attributes_path");
@@ -154,7 +154,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         // validation check override
         this.m_skip_validation = orchestrator.preferences().booleanValueOf("mds_skip_validation_override");
         if (this.m_skip_validation == true) {
-            orchestrator.errorLogger().info("mbedDeviceServerProcessor: Validation Skip Override ENABLED");
+            orchestrator.errorLogger().info("mbedCloudProcessor: Validation Skip Override ENABLED");
         }
 
         // initialize our webhook validator
@@ -175,11 +175,11 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             this.m_webhook_validator = new WebhookValidator(this, this.m_webhook_validator_poll_ms);
 
             // DEBUG
-            orchestrator.errorLogger().warning("mbedDeviceServerProcessor: webhook/subscription validator ENABLED (interval: " + this.m_webhook_validator_poll_ms + "ms)");
+            orchestrator.errorLogger().warning("mbedCloudProcessor: webhook/subscription validator ENABLED (interval: " + this.m_webhook_validator_poll_ms + "ms)");
         }
        
         // we are versioning our REST calls
-        orchestrator.errorLogger().warning("mbedDeviceServerProcessor: Versioning of REST calls ENABLED (" + "v" + this.m_rest_version + ")");
+        orchestrator.errorLogger().warning("mbedCloudProcessor: Versioning of REST calls ENABLED (" + "v" + this.m_rest_version + ")");
 
         // configure the callback - defaulted for Cloud
         this.setupWebhookType();
@@ -195,15 +195,15 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         
         // mbed Cloud Integration defaulted
         this.m_mbed_cloud_integration = true;
-        orchestrator.errorLogger().warning("mbedDeviceServerProcessor: mbed Cloud Integration ");
+        orchestrator.errorLogger().warning("mbedCloudProcessor: mbed Cloud Integration ");
         
         // configuration for allowing de-registration messages to remove device shadows...or not.
         this.m_mds_remove_on_deregistration = this.prefBoolValue("mds_remove_on_deregistration");
         if (this.m_mds_remove_on_deregistration == true) {
-            orchestrator.errorLogger().warning("mbedDeviceServerProcessor: device removal on deregistration ENABLED");
+            orchestrator.errorLogger().warning("mbedCloudProcessor: device removal on deregistration ENABLED");
         }
         else {
-            orchestrator.errorLogger().warning("mbedDeviceServerProcessor: device removal on deregistration DISABLED");
+            orchestrator.errorLogger().warning("mbedCloudProcessor: device removal on deregistration DISABLED");
         }
     }
     
@@ -566,24 +566,21 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     public void setWebhook() {
         boolean ok = false;
         for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
-            this.errorLogger().warning("mbedDeviceServerProcessor: Setting up webhook to mbed Cloud...");
+            this.errorLogger().warning("mbedCloudProcessor: Setting up webhook to mbed Cloud...");
             String target_url = this.createWebhookURL();
             ok = this.setWebhook(target_url);
 
             // EXPERIMENTAL - test for bulk subscriptions setting
             if (ok) {
                 // bulk subscriptions enabled
-                this.errorLogger().warning("mbedDeviceServerProcessor: Webhook to mbed Cloud set. Now setting up bulk subscriptions...");
+                this.errorLogger().warning("mbedCloudProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
                 this.setupBulkSubscriptions();
-                
-                // start device discovery
-                this.startDeviceDiscovery();
             }
            
             // wait a bit if we have failed
             else {
                 // log and wait
-                this.errorLogger().warning("mbedDeviceServerProcessor: Waiting a bit... then retry establishing webhook to mbed Cloud...");
+                this.errorLogger().warning("mbedCloudProcessor: Waiting a bit... then retry establishing webhook to mbed Cloud...");
                 Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
             }
         }
@@ -1507,7 +1504,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             endpoint.put("ept",(String)device.get("endpoint_type"));
 
             // DEBUG
-            this.errorLogger().warning("mbedDeviceServerProcessor(BOOT): discovered mbed Cloud device ID: " + (String)device.get("id") + " Type: " + (String)device.get("endpoint_type"));
+            this.errorLogger().warning("mbedCloudProcessor(BOOT): discovered mbed Cloud device ID: " + (String)device.get("id") + " Type: " + (String)device.get("endpoint_type"));
 
             // now, query mbed Cloud again for each device and get its resources
             List resources = this.discoverDeviceResources((String)device.get("id"));
