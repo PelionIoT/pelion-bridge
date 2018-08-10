@@ -572,6 +572,10 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
                 // bulk subscriptions enabled
                 this.errorLogger().warning("mbedCloudProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
                 this.setupBulkSubscriptions();
+                
+                // scan for devices now
+                this.errorLogger().warning("mbedCloudProcessor: Initial scan for mbed devices...");
+                this.startDeviceDiscovery();
             }
            
             // wait a bit if we have failed
@@ -1470,12 +1474,6 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     private void pullDeviceTotalMemoryInfo(Map endpoint) {
         //this.m_device_descriptive_location_res
         endpoint.put("meta_total_mem", "128K");  // typical min: 128k
-    }
-    
-    // init any device discovery
-    @Override
-    public void initDeviceDiscovery() {
-        this.startDeviceDiscovery();
     }
     
     // start device discovery for device shadow setup

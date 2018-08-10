@@ -123,9 +123,6 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
       
         // initialize our peer processor list
         this.initPeerProcessorList();
-        
-        // start any needed device discovery
-        this.initDeviceDiscovery();
     }
     
     // get the tablename delimiter
@@ -504,10 +501,5 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
     public SubscriptionManager subscriptionsManager() {
         // unused
         return null;
-    }
-
-    @Override
-    public void initDeviceDiscovery() {
-        this.mbed_cloud_processor().initDeviceDiscovery();
     }
 }
