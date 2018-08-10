@@ -21,12 +21,10 @@
  * limitations under the License.
  *
  */
-import com.arm.connector.bridge.servlet.Manager;
-import com.arm.connector.bridge.core.ErrorLogger;
-import com.arm.connector.bridge.preferences.PreferenceManager;
-import com.arm.connector.bridge.servlet.Console;
-import com.arm.connector.bridge.servlet.EventsProcessor;
-import static com.arm.connector.bridge.servlet.Manager.LOG_TAG;
+import com.arm.pelion.bridge.core.ErrorLogger;
+import com.arm.pelion.bridge.preferences.PreferenceManager;
+import com.arm.pelion.bridge.servlet.EventsProcessor;
+import com.arm.pelion.bridge.servlet.Manager;
 import java.util.concurrent.TimeUnit;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ssl.SslSocketConnector;
@@ -47,8 +45,6 @@ public class Main {
     
     // Main entry point for the Bridge...
     public static void main(String[] args) throws Exception {
-        // optional console...
-        Console console = null;
         
         // Error Logger
         ErrorLogger error_logger = new ErrorLogger();
@@ -92,13 +88,6 @@ public class Main {
             server.addConnector(sslConnector);
         }
         
-        // Console enabled or disabled (default)?
-        boolean console_enabled = preferences.booleanValueOf("enable_bridge_console");
-        if (console_enabled == true) {
-            // Create a console
-            console = new Console(error_logger,preferences);
-        }
-        
         // Create the Eventing Processor
         EventsProcessor eventsProcessor = new EventsProcessor(error_logger,preferences);
         
@@ -111,25 +100,19 @@ public class Main {
                 new Thread() {
             @Override
             public void run() {
-                System.out.println(LOG_TAG + ": Resetting notification handlers...");
+                System.out.println(Manager.LOG_TAG + ": Resetting notification handlers...");
                 manager.resetNotifications();
 
-                System.out.println(LOG_TAG + ": Stopping Listeners...");
+                System.out.println(Manager.LOG_TAG + ": Stopping Listeners...");
                 manager.stopListeners();
             }
         });
-
-        // optionally add the console (default is disabled)
-        if (console_enabled == true) {
-            // console servlet binding 
-            context.addServlet(new ServletHolder(console), preferences.valueOf("mds_gw_console_path"));
-        }
 
         // eventing process servlet bindings (wildcarded)
         context.addServlet(new ServletHolder(eventsProcessor), preferences.valueOf("mds_gw_events_path") + "/*");
 
         // DEBUG for the Threading Pool Config
-        System.out.println(LOG_TAG + ": Thread Executor Pool: corePool: " + core_pool_size + " maxPool: " + max_pool_size + " keepalive (sec): " + keep_alive_time);
+        System.out.println(Manager.LOG_TAG + ": Thread Executor Pool: corePool: " + core_pool_size + " maxPool: " + max_pool_size + " keepalive (sec): " + keep_alive_time);
         
         // set the max threads in our thread pool
         server.setThreadPool(new ExecutorThreadPool(core_pool_size, max_pool_size, keep_alive_time, TimeUnit.SECONDS));
