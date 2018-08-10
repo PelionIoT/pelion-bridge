@@ -571,21 +571,17 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             ok = this.setWebhook(target_url);
 
             // EXPERIMENTAL - test for bulk subscriptions setting
-            if (ok && this.m_enable_bulk_subscriptions == true) {
+            if (ok) {
                 // bulk subscriptions enabled
                 this.errorLogger().warning("mbedDeviceServerProcessor: Webhook to mbed Cloud set. Now setting up bulk subscriptions...");
                 this.setupBulkSubscriptions();
-            }
-            else if (ok) {
-                // webhook set but not using bulk subscriptions
-                this.errorLogger().warning("mbedDeviceServerProcessor: Webhook to mbed Cloud set (SUCCESS).");
-
+                
                 // start device discovery
                 this.startDeviceDiscovery();
             }
-
+           
             // wait a bit if we have failed
-            if (!ok) {
+            else {
                 // log and wait
                 this.errorLogger().warning("mbedDeviceServerProcessor: Waiting a bit... then retry establishing webhook to mbed Cloud...");
                 Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
@@ -968,27 +964,15 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     // process an endpoint resource subscription request
     @Override
     public String subscribeToEndpointResource(String uri, Map options, Boolean init_webhook) {
-        if (this.m_enable_bulk_subscriptions == false) {
-            String url = this.createEndpointResourceSubscriptionURL(uri, options);
-            return this.subscribeToEndpointResource(url, init_webhook);
-        }
-        else {
-            this.errorLogger().info("subscribeToEndpointResource: Using bulk subscriptions: URI: " + uri + " Map: " + options + " webhook: " + init_webhook);
-            return "";
-        }
+        this.errorLogger().info("subscribeToEndpointResource: Using bulk subscriptions: URI: " + uri + " Map: " + options + " webhook: " + init_webhook);
+        return "";
     }
 
     // process an endpoint resource subscription request
     @Override
     public String subscribeToEndpointResource(String ep_name, String uri, Boolean init_webhook) {
-        if (this.m_enable_bulk_subscriptions == false) {
-            String url = this.createEndpointResourceSubscriptionURL(ep_name, uri);
-            return this.subscribeToEndpointResource(url, init_webhook);
-        }
-        else {
-            this.errorLogger().info("subscribeToEndpointResource: Using bulk subscriptions: URI: " + uri + " EP: " + ep_name + " webhook: " + init_webhook);
-            return "";
-        }
+        this.errorLogger().info("subscribeToEndpointResource: Using bulk subscriptions: URI: " + uri + " EP: " + ep_name + " webhook: " + init_webhook);
+        return "";
     }
 
     // subscribe to endpoint resources

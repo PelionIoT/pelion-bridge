@@ -24,7 +24,6 @@ package com.arm.pelion.bridge.coordinator.processors.core;
 
 import com.arm.pelion.bridge.core.Processor;
 import com.arm.pelion.bridge.subscription.managers.BulkSubscriptionManager;
-import com.arm.pelion.bridge.subscription.managers.InMemorySubscriptionManager;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
@@ -66,19 +65,12 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     // default constructor
     public PeerProcessor(Orchestrator orchestrator, String suffix) {
         super(orchestrator, suffix);
-        
+                
         // allocate our AsyncResponse orchestrator
         this.m_async_response_manager = new AsyncResponseManager(orchestrator);
         
-        // initialize subscriptions
-        if (this.m_enable_bulk_subscriptions == true) {
-            // Use the bulk subscription manager
-            this.m_subscriptions_manager = (SubscriptionManager)new BulkSubscriptionManager(orchestrator);
-        }
-        else {
-            // Use the in-memory/database subscription manager
-            this.m_subscriptions_manager = (SubscriptionManager)new InMemorySubscriptionManager(orchestrator);
-        }
+        // Use the bulk subscription manager
+        this.m_subscriptions_manager = (SubscriptionManager)new BulkSubscriptionManager(orchestrator);
         
         // initial topic root
         this.m_mds_topic_root = "";
