@@ -27,8 +27,8 @@ package com.arm.pelion.bridge.coordinator.processors.interfaces;
  */
 public interface SubscriptionProcessor {
     // subscription
-    public void subscribe(String domain, String ep, String ept, String path, boolean is_observable);
+    public void subscribe(String ep, String ept, String path, boolean is_observable);
     
     // unsubscribe
-    public void unsubscribe(String domain, String ep, String ept, String path);
+    public void unsubscribe(String ep, String ept, String path);
 }

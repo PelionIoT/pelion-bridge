@@ -23,10 +23,9 @@
 package com.arm.pelion.bridge.coordinator;
 
 // Interfaces
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerInterface;
 
 // Processors
-import com.arm.pelion.bridge.coordinator.processors.arm.mbedDeviceServerProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.mbedCloudProcessor;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.processors.factories.WatsonIoTPeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.factories.MSIoTHubPeerProcessorFactory;
@@ -48,15 +47,16 @@ import java.util.Map;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.mbedDeviceServerInterface;
 import com.arm.pelion.bridge.data.DatabaseConnector;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.mbedCloudProcessorInterface;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
  * This the primary orchestrator for the connector bridge
  *
  * @author Doug Anson
  */
-public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
+public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorInterface {
     private static String DEF_TABLENAME_DELIMITER = "_";
 
     private final HttpServlet m_servlet = null;
@@ -64,11 +64,11 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
     private ErrorLogger m_error_logger = null;
     private PreferenceManager m_preference_manager = null;
 
-    // mDS processor
-    private mbedDeviceServerInterface m_mbed_device_server_processor = null;
+    // mbed Cloud processor
+    private mbedCloudProcessorInterface m_mbed_cloud_processor = null;
 
     // Peer processor list
-    private ArrayList<PeerInterface> m_peer_processor_list = null;
+    private ArrayList<PeerProcessorInterface> m_peer_processor_list = null;
 
     private HttpTransport m_http = null;
 
@@ -76,22 +76,15 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
     private JSONGenerator m_json_generator = null;
     private JSONParser m_json_parser = null;
     private boolean m_listeners_initialized = false;
-
-    private String m_mds_domain = null;
     
     private DatabaseConnector m_db = null;
     private String m_tablename_delimiter = null;
     private boolean m_is_master_node = true;        // default is to be a master node
 
-    public Orchestrator(ErrorLogger error_logger, PreferenceManager preference_manager, String domain) {
+    public Orchestrator(ErrorLogger error_logger, PreferenceManager preference_manager) {
         // save the error handler
         this.m_error_logger = error_logger;
         this.m_preference_manager = preference_manager;
-
-        // MDS domain is required 
-        if (domain != null && domain.equalsIgnoreCase(this.preferences().valueOf("mds_def_domain")) == false) {
-            this.m_mds_domain = domain;
-        }
         
         // get our master node designation
         this.m_is_master_node = this.m_preference_manager.booleanValueOf("is_master_node");
@@ -125,8 +118,8 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
         // build out the HTTP transport
         this.m_http = new HttpTransport(this.m_error_logger, this.m_preference_manager);
 
-        // REQUIRED: We always create the mDS REST processor
-        this.m_mbed_device_server_processor = new mbedDeviceServerProcessor(this, this.m_http);
+        // REQUIRED: We always create the mbed Cloud REST processor
+        this.m_mbed_cloud_processor = new mbedCloudProcessor(this, this.m_http);
       
         // initialize our peer processor list
         this.initPeerProcessorList();
@@ -232,17 +225,17 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
 
     // initialize the mbed Device Server webhook
     public void initializeDeviceServerWebhook() {
-        if (this.m_mbed_device_server_processor != null) {
+        if (this.m_mbed_cloud_processor != null) {
             // set the webhook
-            this.m_mbed_device_server_processor.setWebhook();
+            this.m_mbed_cloud_processor.setWebhook();
         }
     }
 
     // reset mbed Device Server webhook
     public void resetDeviceServerWebhook() {
-        // REST (mDS)
-        if (this.m_mbed_device_server_processor != null) {
-            this.m_mbed_device_server_processor.resetWebhook();
+        // REST (mbed Cloud)
+        if (this.m_mbed_cloud_processor != null) {
+            this.m_mbed_cloud_processor.resetWebhook();
         }
     }
 
@@ -250,7 +243,7 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
     public void processIncomingDeviceServerMessage(HttpServletRequest request, HttpServletResponse response) {
         // process the received REST message
         //this.errorLogger().info("events (REST-" + request.getMethod() + "): " + request.getRequestURI());
-        this.device_server_processor().processNotificationMessage(request, response);
+        this.mbed_cloud_processor().processNotificationMessage(request, response);
     }
 
     // get the HttpServlet
@@ -269,18 +262,13 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
     }
 
     // get the Peer processor
-    public ArrayList<PeerInterface> peer_processor_list() {
+    public ArrayList<PeerProcessorInterface> peer_processor_list() {
         return this.m_peer_processor_list;
     }
 
-    // get the mDS processor
-    public mbedDeviceServerInterface device_server_processor() {
-        return this.m_mbed_device_server_processor;
-    }
-
-    // get our mDS domain
-    public String getDomain() {
-        return this.m_mds_domain;
+    // get the mbed Cloud processor
+    public mbedCloudProcessorInterface mbed_cloud_processor() {
+        return this.m_mbed_cloud_processor;
     }
 
     // get the JSON parser instance
@@ -294,7 +282,7 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
     }
 
     // get our ith peer processor
-    private PeerInterface peerProcessor(int index) {
+    private PeerProcessorInterface peerProcessor(int index) {
         if (index >= 0 && this.m_peer_processor_list != null && index < this.m_peer_processor_list.size()) {
             return this.m_peer_processor_list.get(index);
         }
@@ -304,69 +292,69 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
     // Message: API Request
     @Override
     public ApiResponse processApiRequestOperation(String uri,String data,String options,String verb,int request_id,String api_key,String caller_id, String content_type) {
-        return this.device_server_processor().processApiRequestOperation(uri, data, options, verb, request_id, api_key, caller_id, content_type);
+        return this.mbed_cloud_processor().processApiRequestOperation(uri, data, options, verb, request_id, api_key, caller_id, content_type);
     }
     
     // Message: notifications
     @Override
     public void processNotificationMessage(HttpServletRequest request, HttpServletResponse response) {
-        this.device_server_processor().processNotificationMessage(request, response);
+        this.mbed_cloud_processor().processNotificationMessage(request, response);
     }
     
     // Message: device-deletions (mbed Cloud)
     @Override
     public void processDeviceDeletions(String[] endpoints) {
-        this.device_server_processor().processDeviceDeletions(endpoints);
+        this.mbed_cloud_processor().processDeviceDeletions(endpoints);
     }
 
     // Message: de-registrations
     @Override
     public void processDeregistrations(String[] endpoints) {
-        this.device_server_processor().processDeregistrations(endpoints);
+        this.mbed_cloud_processor().processDeregistrations(endpoints);
     }
     
     // Message: registrations-expired
     @Override
     public void processRegistrationsExpired(String[] endpoints) {
-        this.device_server_processor().processRegistrationsExpired(endpoints);
+        this.mbed_cloud_processor().processRegistrationsExpired(endpoints);
     }
 
     @Override
     public String subscribeToEndpointResource(String uri, Map options, Boolean init_webhook) {
-        return this.device_server_processor().subscribeToEndpointResource(uri, options, init_webhook);
+        return this.mbed_cloud_processor().subscribeToEndpointResource(uri, options, init_webhook);
     }
 
     @Override
     public String subscribeToEndpointResource(String ep_name, String uri, Boolean init_webhook) {
-        return this.device_server_processor().subscribeToEndpointResource(ep_name, uri, init_webhook);
+        return this.mbed_cloud_processor().subscribeToEndpointResource(ep_name, uri, init_webhook);
     }
 
     @Override
     public String unsubscribeFromEndpointResource(String uri, Map options) {
-        return this.device_server_processor().unsubscribeFromEndpointResource(uri, options);
+        return this.mbed_cloud_processor().unsubscribeFromEndpointResource(uri, options);
     }
 
     @Override
     public String processEndpointResourceOperation(String verb, String ep_name, String uri, String value, String options) {
-        return this.device_server_processor().processEndpointResourceOperation(verb, ep_name, uri, value, options);
+        return this.mbed_cloud_processor().processEndpointResourceOperation(verb, ep_name, uri, value, options);
     }
 
     @Override
     public void setWebhook() {
-        this.device_server_processor().setWebhook();
+        this.mbed_cloud_processor().setWebhook();
     }
 
     @Override
     public void resetWebhook() {
-        this.device_server_processor().resetWebhook();
+        this.mbed_cloud_processor().resetWebhook();
     }
 
     @Override
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {
-        this.device_server_processor().pullDeviceMetadata(endpoint, processor);
+        this.mbed_cloud_processor().pullDeviceMetadata(endpoint, processor);
     }
 
-    // PeerInterface Orchestration
+    // PeerProcessorInterface Orchestration
     @Override
     public String createAuthenticationHash() {
         StringBuilder buf = new StringBuilder();
@@ -471,15 +459,15 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
         }
     }
     
-    public void removeSubscription(String domain, String endpoint, String ep_type, String uri) {
+    public void removeSubscription(String endpoint, String ep_type, String uri) {
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
-            this.peerProcessor(i).subscriptionsManager().removeSubscription(domain,endpoint,ep_type,uri);
+            this.peerProcessor(i).subscriptionsManager().removeSubscription(endpoint,ep_type,uri);
         }
     }
     
-    public void addSubscription(String domain, String endpoint, String ep_type, String uri, boolean is_observable) {
+    public void addSubscription(String endpoint, String ep_type, String uri, boolean is_observable) {
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
-            this.peerProcessor(i).subscriptionsManager().addSubscription(domain,endpoint,ep_type,uri,is_observable);
+            this.peerProcessor(i).subscriptionsManager().addSubscription(endpoint,ep_type,uri,is_observable);
         }
     }
 
@@ -499,13 +487,13 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
 
     @Override
     public String createSubscriptionURI(String ep_name, String resource_uri) {
-        return this.device_server_processor().createSubscriptionURI(ep_name, resource_uri);
+        return this.mbed_cloud_processor().createSubscriptionURI(ep_name, resource_uri);
     }
 
     @Override
     public boolean deviceRemovedOnDeRegistration() {
-        if (this.device_server_processor() != null) {
-            return this.device_server_processor().deviceRemovedOnDeRegistration();
+        if (this.mbed_cloud_processor() != null) {
+            return this.mbed_cloud_processor().deviceRemovedOnDeRegistration();
         }
         
         // default is false
@@ -520,6 +508,6 @@ public class Orchestrator implements mbedDeviceServerInterface, PeerInterface {
 
     @Override
     public void initDeviceDiscovery() {
-        this.device_server_processor().initDeviceDiscovery();
+        this.mbed_cloud_processor().initDeviceDiscovery();
     }
 }

@@ -319,21 +319,21 @@ public class WatsonIoTDeviceManager extends DeviceManager {
 
     // GET specific URL contents
     private String get(String url) {
-        String result = this.m_http.httpGet(url, this.m_watson_iot_api_key, this.m_watson_iot_auth_token, null, "application/json", null);
+        String result = this.m_http.httpGet(url, this.m_watson_iot_api_key, this.m_watson_iot_auth_token, null, "application/json");
         //this.errorLogger().info("get: URL: " + url + " RESULT: " + result);
         return result;
     }
 
     // POST specific data to a given URL
     private String post(String url, String payload) {
-        String result = this.m_http.httpsPost(url, this.m_watson_iot_api_key, this.m_watson_iot_auth_token, payload, "application/json", null);
+        String result = this.m_http.httpsPost(url, this.m_watson_iot_api_key, this.m_watson_iot_auth_token, payload, "application/json");
         //this.errorLogger().info("post: URL: " + url + " DATA: " + payload + " RESULT: " + result);
         return result;
     }
 
     // POST specific data to a given URL
     private String gwpost(String url, String payload) {
-        String result = this.m_http.httpsPost(url, this.m_watson_iot_gw_key, this.m_gw_iotf_auth_token, payload, "application/json", null);
+        String result = this.m_http.httpsPost(url, this.m_watson_iot_gw_key, this.m_gw_iotf_auth_token, payload, "application/json");
         //this.errorLogger().info("post: URL: " + url + " DATA: " + payload + " RESULT: " + result);
         return result;
     }
@@ -347,7 +347,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
      */
     // DELETE specific data to a given URL (with data)
     private String delete(String url, String payload) {
-        return this.m_http.httpsDelete(url, this.m_watson_iot_api_key, this.m_watson_iot_auth_token, payload, "application/json", null);
+        return this.m_http.httpsDelete(url, this.m_watson_iot_api_key, this.m_watson_iot_auth_token, payload, "application/json");
     }
 
     // DELETE specific data to a given URL

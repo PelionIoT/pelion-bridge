@@ -22,7 +22,6 @@
 package com.arm.pelion.bridge.core;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.core.BaseClass;
 import com.arm.pelion.bridge.json.JSONGenerator;
 import com.arm.pelion.bridge.json.JSONParser;
 import java.util.HashMap;
@@ -36,14 +35,12 @@ public class Processor extends BaseClass {
     public static int NUM_COAP_VERBS = 4;                                   // GET, PUT, POST, DELETE
     private static final String DEFAULT_EMPTY_STRING = " ";
     private String m_empty_string = Processor.DEFAULT_EMPTY_STRING;
-    protected String m_mds_domain = null;
-    private String m_def_domain = null;
     protected String m_suffix = null;
     private Orchestrator m_orchestrator = null;
     private JSONGenerator m_json_generator = null;
     private JSONParser m_json_parser = null;
-    
-    // EXPERIMENTAL: bulk subscriptions
+        
+    // bulk subscriptions
     protected boolean m_enable_bulk_subscriptions = false;
     
     // Sync lock
@@ -54,7 +51,6 @@ public class Processor extends BaseClass {
         super(orchestrator.errorLogger(), orchestrator.preferences());
         this.m_suffix = suffix;
         this.m_orchestrator = orchestrator;
-        this.m_def_domain = orchestrator.preferences().valueOf("mds_def_domain", suffix);
         this.m_json_parser = orchestrator.getJSONParser();
         this.m_json_generator = orchestrator.getJSONGenerator();
         
@@ -69,6 +65,9 @@ public class Processor extends BaseClass {
         if (this.m_enable_bulk_subscriptions == true) {
             this.errorLogger().info("Bulk subscriptions ENABLED (EXPERIMENTAL)");
         }
+        
+        // suffix setup
+        this.m_suffix = suffix;
         
         // unlock
         this.operationStop();
@@ -162,26 +161,5 @@ public class Processor extends BaseClass {
     // get the orchestrator
     public Orchestrator orchestrator() {
         return this.m_orchestrator;
-    }
-
-    // set our MDS Domain
-    protected void setDomain(String mds_domain) {
-        this.m_mds_domain = mds_domain;
-    }
-
-    // get our MDS Domain
-    protected String getDomain() {
-        return this.getDomain(false);
-    }
-
-    // get our MDS Domain (defaulted)
-    protected String getDomain(boolean show_default) {
-        if (this.m_mds_domain != null) {
-            return "/" + this.m_mds_domain;
-        }
-        if (show_default == true) {
-            return "/" + this.m_def_domain;
-        }
-        return "";
     }
 }

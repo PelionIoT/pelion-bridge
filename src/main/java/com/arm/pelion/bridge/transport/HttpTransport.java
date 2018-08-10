@@ -119,8 +119,8 @@ public class HttpTransport extends BaseClass {
      * @param auth_domain
      * @return
      */
-    public String httpGet(String url_str, String username, String password, String data, String content_type, String auth_domain) {
-        return this.doHTTP("GET", url_str, username, password, data, content_type, auth_domain, true, false, false, false, null);
+    public String httpGet(String url_str, String username, String password, String data, String content_type) {
+        return this.doHTTP("GET", url_str, username, password, data, content_type, true, false, false, false, null);
     }
 
     /**
@@ -132,8 +132,8 @@ public class HttpTransport extends BaseClass {
      * @param auth_domain
      * @return
      */
-    public String httpGetApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain) {
-        return this.doHTTP("GET", url_str, null, null, data, content_type, auth_domain, true, false, false, true, api_token);
+    public String httpGetApiTokenAuth(String url_str, String api_token, String data, String content_type) {
+        return this.doHTTP("GET", url_str, null, null, data, content_type, true, false, false, true, api_token);
     }
 
     // execute GET over https
@@ -147,8 +147,8 @@ public class HttpTransport extends BaseClass {
      * @param auth_domain
      * @return
      */
-    public String httpPeristentGet(String url_str, String username, String password, String data, String content_type, String auth_domain) {
-        return this.doHTTP("GET", url_str, username, password, data, content_type, auth_domain, true, false, false, false, null, true);
+    public String httpPeristentGet(String url_str, String username, String password, String data, String content_type) {
+        return this.doHTTP("GET", url_str, username, password, data, content_type, true, false, false, false, null, true);
     }
 
     /**
@@ -160,8 +160,8 @@ public class HttpTransport extends BaseClass {
      * @param auth_domain
      * @return
      */
-    public String httpPersistentGetApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain) {
-        return this.doHTTP("GET", url_str, null, null, data, content_type, auth_domain, true, false, false, true, api_token, true);
+    public String httpPersistentGetApiTokenAuth(String url_str, String api_token, String data, String content_type) {
+        return this.doHTTP("GET", url_str, null, null, data, content_type, true, false, false, true, api_token, true);
     }
 
     // execute GET over https
@@ -172,11 +172,10 @@ public class HttpTransport extends BaseClass {
      * @param password
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpsPeristentGet(String url_str, String username, String password, String data, String content_type, String auth_domain) {
-        return this.doHTTP("GET", url_str, username, password, data, content_type, auth_domain, true, false, true, false, null, true);
+    public String httpsPeristentGet(String url_str, String username, String password, String data, String content_type) {
+        return this.doHTTP("GET", url_str, username, password, data, content_type, true, false, true, false, null, true);
     }
 
     /**
@@ -185,11 +184,10 @@ public class HttpTransport extends BaseClass {
      * @param api_token
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpsPersistentGetApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain) {
-        return this.doHTTP("GET", url_str, null, null, data, content_type, auth_domain, true, false, true, true, api_token, true);
+    public String httpsPersistentGetApiTokenAuth(String url_str, String api_token, String data, String content_type) {
+        return this.doHTTP("GET", url_str, null, null, data, content_type, true, false, true, true, api_token, true);
     }
 
     // execute GET over https
@@ -200,11 +198,10 @@ public class HttpTransport extends BaseClass {
      * @param password
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpsGet(String url_str, String username, String password, String data, String content_type, String auth_domain) {
-        return this.doHTTP("GET", url_str, username, password, data, content_type, auth_domain, true, false, true, false, null);
+    public String httpsGet(String url_str, String username, String password, String data, String content_type) {
+        return this.doHTTP("GET", url_str, username, password, data, content_type, true, false, true, false, null);
     }
 
     /**
@@ -213,11 +210,10 @@ public class HttpTransport extends BaseClass {
      * @param api_token
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpsGetApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain) {
-        return this.doHTTP("GET", url_str, null, null, data, content_type, auth_domain, true, false, true, true, api_token);
+    public String httpsGetApiTokenAuth(String url_str, String api_token, String data, String content_type) {
+        return this.doHTTP("GET", url_str, null, null, data, content_type, true, false, true, true, api_token);
     }
 
     // execute POST over https
@@ -228,11 +224,10 @@ public class HttpTransport extends BaseClass {
      * @param password
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpPost(String url_str, String username, String password, String data, String content_type, String auth_domain) {
-        return this.doHTTP("POST", url_str, username, password, data, content_type, auth_domain, true, true, false, false, null);
+    public String httpPost(String url_str, String username, String password, String data, String content_type) {
+        return this.doHTTP("POST", url_str, username, password, data, content_type, true, true, false, false, null);
     }
 
     /**
@@ -241,11 +236,10 @@ public class HttpTransport extends BaseClass {
      * @param api_token
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpPostApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain) {
-        return this.doHTTP("POST", url_str, null, null, data, content_type, auth_domain, true, true, false, true, api_token);
+    public String httpPostApiTokenAuth(String url_str, String api_token, String data, String content_type) {
+        return this.doHTTP("POST", url_str, null, null, data, content_type, true, true, false, true, api_token);
     }
 
     // execute POST over https
@@ -256,11 +250,10 @@ public class HttpTransport extends BaseClass {
      * @param password
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpsPost(String url_str, String username, String password, String data, String content_type, String auth_domain) {
-        return this.doHTTP("POST", url_str, username, password, data, content_type, auth_domain, true, true, true, false, null);
+    public String httpsPost(String url_str, String username, String password, String data, String content_type) {
+        return this.doHTTP("POST", url_str, username, password, data, content_type, true, true, true, false, null);
     }
 
     /**
@@ -269,11 +262,10 @@ public class HttpTransport extends BaseClass {
      * @param api_token
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpsPostApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain) {
-        return this.doHTTP("POST", url_str, null, null, data, content_type, auth_domain, true, true, true, true, api_token);
+    public String httpsPostApiTokenAuth(String url_str, String api_token, String data, String content_type) {
+        return this.doHTTP("POST", url_str, null, null, data, content_type, true, true, true, true, api_token);
     }
 
     // execute PUT over http
@@ -284,11 +276,10 @@ public class HttpTransport extends BaseClass {
      * @param password
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpPut(String url_str, String username, String password, String data, String content_type, String auth_domain) {
-        return this.doHTTP("PUT", url_str, username, password, data, content_type, auth_domain, true, true, false, false, null);
+    public String httpPut(String url_str, String username, String password, String data, String content_type) {
+        return this.doHTTP("PUT", url_str, username, password, data, content_type, true, true, false, false, null);
     }
 
     /**
@@ -297,11 +288,10 @@ public class HttpTransport extends BaseClass {
      * @param api_token
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpPutApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain) {
-        return this.doHTTP("PUT", url_str, null, null, data, content_type, auth_domain, true, true, false, true, api_token);
+    public String httpPutApiTokenAuth(String url_str, String api_token, String data, String content_type) {
+        return this.doHTTP("PUT", url_str, null, null, data, content_type, true, true, false, true, api_token);
     }
 
     // execute PUT over https
@@ -312,11 +302,10 @@ public class HttpTransport extends BaseClass {
      * @param password
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpsPut(String url_str, String username, String password, String data, String content_type, String auth_domain) {
-        return this.doHTTP("PUT", url_str, username, password, data, content_type, auth_domain, true, true, true, false, null);
+    public String httpsPut(String url_str, String username, String password, String data, String content_type) {
+        return this.doHTTP("PUT", url_str, username, password, data, content_type, true, true, true, false, null);
     }
 
     /**
@@ -325,11 +314,10 @@ public class HttpTransport extends BaseClass {
      * @param api_token
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpsPutApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain) {
-        return this.doHTTP("PUT", url_str, null, null, data, content_type, auth_domain, true, true, true, true, api_token);
+    public String httpsPutApiTokenAuth(String url_str, String api_token, String data, String content_type) {
+        return this.doHTTP("PUT", url_str, null, null, data, content_type, true, true, true, true, api_token);
     }
 
     // execute PUT over http
@@ -340,12 +328,11 @@ public class HttpTransport extends BaseClass {
      * @param password
      * @param data
      * @param content_type
-     * @param auth_domain
      * @param expect_response
      * @return
      */
-    public String httpPut(String url_str, String username, String password, String data, String content_type, String auth_domain, boolean expect_response) {
-        return this.doHTTP("PUT", url_str, username, password, data, content_type, auth_domain, expect_response, true, false, false, null);
+    public String httpPut(String url_str, String username, String password, String data, String content_type, boolean expect_response) {
+        return this.doHTTP("PUT", url_str, username, password, data, content_type, expect_response, true, false, false, null);
     }
 
     /**
@@ -354,12 +341,11 @@ public class HttpTransport extends BaseClass {
      * @param api_token
      * @param data
      * @param content_type
-     * @param auth_domain
      * @param expect_response
      * @return
      */
-    public String httpPutApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain, boolean expect_response) {
-        return this.doHTTP("PUT", url_str, null, null, data, content_type, auth_domain, expect_response, true, false, true, api_token);
+    public String httpPutApiTokenAuth(String url_str, String api_token, String data, String content_type, boolean expect_response) {
+        return this.doHTTP("PUT", url_str, null, null, data, content_type, expect_response, true, false, true, api_token);
     }
 
     // execute PUT over https
@@ -370,12 +356,11 @@ public class HttpTransport extends BaseClass {
      * @param password
      * @param data
      * @param content_type
-     * @param auth_domain
      * @param expect_response
      * @return
      */
-    public String httpsPut(String url_str, String username, String password, String data, String content_type, String auth_domain, boolean expect_response) {
-        return this.doHTTP("PUT", url_str, username, password, data, content_type, auth_domain, expect_response, true, true, false, null);
+    public String httpsPut(String url_str, String username, String password, String data, String content_type, boolean expect_response) {
+        return this.doHTTP("PUT", url_str, username, password, data, content_type, expect_response, true, true, false, null);
     }
 
     /**
@@ -384,12 +369,11 @@ public class HttpTransport extends BaseClass {
      * @param api_token
      * @param data
      * @param content_type
-     * @param auth_domain
      * @param expect_response
      * @return
      */
-    public String httpsPutApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain, boolean expect_response) {
-        return this.doHTTP("PUT", url_str, null, null, data, content_type, auth_domain, expect_response, true, true, true, api_token);
+    public String httpsPutApiTokenAuth(String url_str, String api_token, String data, String content_type, boolean expect_response) {
+        return this.doHTTP("PUT", url_str, null, null, data, content_type, expect_response, true, true, true, api_token);
     }
 
     // execute DELETE over http
@@ -400,11 +384,10 @@ public class HttpTransport extends BaseClass {
      * @param password
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpDelete(String url_str, String username, String password, String data, String content_type, String auth_domain) {
-        return this.doHTTP("DELETE", url_str, username, password, data, content_type, auth_domain, true, true, false, false, null);
+    public String httpDelete(String url_str, String username, String password, String data, String content_type) {
+        return this.doHTTP("DELETE", url_str, username, password, data, content_type, true, true, false, false, null);
     }
 
     /**
@@ -413,11 +396,10 @@ public class HttpTransport extends BaseClass {
      * @param api_token
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpDeleteApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain) {
-        return this.doHTTP("DELETE", url_str, null, null, data, content_type, auth_domain, true, true, false, true, api_token);
+    public String httpDeleteApiTokenAuth(String url_str, String api_token, String data, String content_type) {
+        return this.doHTTP("DELETE", url_str, null, null, data, content_type, true, true, false, true, api_token);
     }
 
     // execute DELETE over https
@@ -428,11 +410,10 @@ public class HttpTransport extends BaseClass {
      * @param password
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpsDelete(String url_str, String username, String password, String data, String content_type, String auth_domain) {
-        return this.doHTTP("DELETE", url_str, username, password, data, content_type, auth_domain, true, true, true, false, null);
+    public String httpsDelete(String url_str, String username, String password, String data, String content_type) {
+        return this.doHTTP("DELETE", url_str, username, password, data, content_type, true, true, true, false, null);
     }
 
     /**
@@ -441,11 +422,10 @@ public class HttpTransport extends BaseClass {
      * @param api_token
      * @param data
      * @param content_type
-     * @param auth_domain
      * @return
      */
-    public String httpsDeleteApiTokenAuth(String url_str, String api_token, String data, String content_type, String auth_domain) {
-        return this.doHTTP("DELETE", url_str, null, null, data, content_type, auth_domain, true, true, true, true, api_token);
+    public String httpsDeleteApiTokenAuth(String url_str, String api_token, String data, String content_type) {
+        return this.doHTTP("DELETE", url_str, null, null, data, content_type, true, true, true, true, api_token);
     }
 
     // get the requested path component of a given URL
@@ -494,13 +474,13 @@ public class HttpTransport extends BaseClass {
 
     // perform an authenticated HTML operation
     @SuppressWarnings("empty-statement")
-    private String doHTTP(String verb, String url_str, String username, String password, String data, String content_type, String auth_domain, boolean doInput, boolean doOutput, boolean doSSL, boolean use_api_token, String api_token) {
-        return this.doHTTP(verb, url_str, username, password, data, content_type, auth_domain, doInput, doOutput, doSSL, use_api_token, api_token, false);
+    private String doHTTP(String verb, String url_str, String username, String password, String data, String content_type, boolean doInput, boolean doOutput, boolean doSSL, boolean use_api_token, String api_token) {
+        return this.doHTTP(verb, url_str, username, password, data, content_type, doInput, doOutput, doSSL, use_api_token, api_token, false);
     }
 
     // perform an authenticated HTML operation
     @SuppressWarnings("empty-statement")
-    private String doHTTP(String verb, String url_str, String username, String password, String data, String content_type, String auth_domain, boolean doInput, boolean doOutput, boolean doSSL, boolean use_api_token, String api_token, boolean persistent) {
+    private String doHTTP(String verb, String url_str, String username, String password, String data, String content_type, boolean doInput, boolean doOutput, boolean doSSL, boolean use_api_token, String api_token, boolean persistent) {
         String result = "";
         String line = "";
         URLConnection connection = null;
@@ -619,11 +599,6 @@ public class HttpTransport extends BaseClass {
             // special gorp for HTTP DELETE
             if (verb != null && verb.equalsIgnoreCase("delete")) {
                 connection.setRequestProperty("Access-Control-Allow-Methods", "OPTIONS, DELETE");
-            }
-
-            // specify domain if requested
-            if (auth_domain != null && auth_domain.length() > 0) {
-                connection.setRequestProperty("Domain", auth_domain);
             }
 
             // specify a persistent connection or not

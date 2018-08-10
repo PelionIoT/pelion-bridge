@@ -290,14 +290,14 @@ public class IoTHubDeviceManager extends DeviceManager {
     // GET specific data to a given URL 
     private String get(String url) {
         this.m_http.setAuthorizationQualifier(this.m_iot_event_hub_auth_qualifier);
-        String result = this.m_http.httpsGetApiTokenAuth(url, this.m_iot_event_hub_sas_token, null, "application/json", null);
+        String result = this.m_http.httpsGetApiTokenAuth(url, this.m_iot_event_hub_sas_token, null, "application/json");
         return result;
     }
 
     // PUT specific data to a given URL (with data)
     private String put(String url, String payload) {
         this.m_http.setAuthorizationQualifier(this.m_iot_event_hub_auth_qualifier);
-        String result = this.m_http.httpsPutApiTokenAuth(url, this.m_iot_event_hub_sas_token, payload, "application/json", null);
+        String result = this.m_http.httpsPutApiTokenAuth(url, this.m_iot_event_hub_sas_token, payload, "application/json");
         return result;
     }
 
@@ -310,7 +310,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         this.m_http.setAuthorizationQualifier(this.m_iot_event_hub_auth_qualifier);
         this.m_http.setETagValue(etag);             // ETag header required...
         this.m_http.setIfMatchValue("*");           // If-Match header required... 
-        String result = this.m_http.httpsDeleteApiTokenAuth(url, this.m_iot_event_hub_sas_token, payload, "application/json", null);
+        String result = this.m_http.httpsDeleteApiTokenAuth(url, this.m_iot_event_hub_sas_token, payload, "application/json");
         return result;
     }
 

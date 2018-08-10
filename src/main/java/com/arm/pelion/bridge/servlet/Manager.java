@@ -70,7 +70,7 @@ public final class Manager {
         this.errorLogger().info(LOG_TAG + ": Date: " + Utils.dateToString(Utils.now()) + ". Bridge version: v" + BRIDGE_VERSION_STR);
         
         // create the orchestrator
-        this.m_orchestrator = new Orchestrator(this.m_error_logger, this.m_preference_manager, "default");
+        this.m_orchestrator = new Orchestrator(this.m_error_logger, this.m_preference_manager);
 
         // configure the error logger logging level
         this.m_error_logger.configureLoggingLevel(this.m_preference_manager);

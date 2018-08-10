@@ -33,7 +33,7 @@ import javax.servlet.http.HttpServletResponse;
  *
  * @author Doug Anson
  */
-public interface mbedDeviceServerInterface {
+public interface mbedCloudProcessorInterface {
     // process an API request 
     public ApiResponse processApiRequestOperation(String uri,String data,String options,String verb,int request_id,String api_key,String caller_id,String content_type);
     

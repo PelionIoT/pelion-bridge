@@ -53,15 +53,15 @@ public class BulkSubscriptionManager extends BaseClass implements SubscriptionMa
 
     // add a subscription
     @Override
-    public void addSubscription(String domain, String endpoint, String ep_type, String uri, boolean is_observable) {
+    public void addSubscription(String endpoint, String ep_type, String uri, boolean is_observable) {
         if (this.m_subscription_processor != null) {
-            this.m_subscription_processor.subscribe(domain,endpoint,ep_type,uri,is_observable);
+            this.m_subscription_processor.subscribe(endpoint,ep_type,uri,is_observable);
         }
     }
 
     // contains a subscription
     @Override
-    public boolean containsSubscription(String domain, String endpoint, String ep_type, String uri) {
+    public boolean containsSubscription(String endpoint, String ep_type, String uri) {
        // always true
        return true;
     }
@@ -74,9 +74,9 @@ public class BulkSubscriptionManager extends BaseClass implements SubscriptionMa
 
     // remove a subscription
     @Override
-    public void removeSubscription(String domain, String endpoint, String ep_type, String uri) {
+    public void removeSubscription(String endpoint, String ep_type, String uri) {
         if (this.m_subscription_processor != null) {
-            this.m_subscription_processor.unsubscribe(domain,endpoint,ep_type,uri);
+            this.m_subscription_processor.unsubscribe(endpoint,ep_type,uri);
         }
     }
 

@@ -29,7 +29,7 @@ import java.util.Map;
  *
  * @author Doug Anson
  */
-public interface PeerInterface {
+public interface PeerProcessorInterface {
 
     // create peer-centric authentication hash for mDS webhook authentication
     public String createAuthenticationHash();

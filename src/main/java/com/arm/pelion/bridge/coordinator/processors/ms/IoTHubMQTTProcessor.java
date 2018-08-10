@@ -27,7 +27,6 @@ import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ConnectionCreator;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ReconnectionInterface;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -40,13 +39,14 @@ import java.util.List;
 import java.util.Map;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
  * MS IoTHub peer processor based on MQTT
  *
  * @author Doug Anson
  */
-public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerInterface, AsyncResponseProcessor {
+public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {
     private int m_num_coap_topics = 1;                                  // # of MQTT Topics for CoAP verbs in IoTHub implementation
     private String m_iot_hub_observe_notification_topic = null;
     private String m_iot_hub_coap_cmd_topic_base = null;
@@ -118,13 +118,13 @@ public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements Reconne
                 String ep_name = (String) endpoint.get("ep");
 
                 // re-subscribe
-                if (this.subscriptionsManager().containsSubscription(this.m_mds_domain, ep_name, (String) endpoint.get("ept"), (String) resource.get("path"))) {
+                if (this.subscriptionsManager().containsSubscription(ep_name, (String) endpoint.get("ept"), (String) resource.get("path"))) {
                     // re-subscribe to this resource
                     this.orchestrator().subscribeToEndpointResource(ep_name, (String) resource.get("path"), false);
 
                     // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
-                    this.subscriptionsManager().removeSubscription(this.m_mds_domain, ep_name, (String) endpoint.get("ept"), (String) resource.get("path"));
-                    this.subscriptionsManager().addSubscription(this.m_mds_domain, ep_name, (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
+                    this.subscriptionsManager().removeSubscription(ep_name, (String) endpoint.get("ept"), (String) resource.get("path"));
+                    this.subscriptionsManager().addSubscription(ep_name, (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
                 }
 
                 // auto-subscribe
@@ -133,8 +133,8 @@ public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements Reconne
                     this.orchestrator().subscribeToEndpointResource(ep_name, (String) resource.get("path"), false);
 
                     // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
-                    this.subscriptionsManager().removeSubscription(this.m_mds_domain, ep_name, (String) endpoint.get("ept"), (String) resource.get("path"));
-                    this.subscriptionsManager().addSubscription(this.m_mds_domain, ep_name, (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
+                    this.subscriptionsManager().removeSubscription(ep_name, (String) endpoint.get("ept"), (String) resource.get("path"));
+                    this.subscriptionsManager().addSubscription(ep_name, (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
                 }
             }
 

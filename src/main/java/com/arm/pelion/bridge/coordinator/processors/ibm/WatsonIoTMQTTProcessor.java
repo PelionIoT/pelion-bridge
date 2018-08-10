@@ -27,7 +27,6 @@ import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ConnectionCreator;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ReconnectionInterface;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -39,13 +38,14 @@ import java.util.List;
 import java.util.Map;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
  * IBM WatsonIoT peer processor based on MQTT with MessageSight
  *
  * @author Doug Anson
  */
-public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerInterface, AsyncResponseProcessor {
+public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {
     private String m_mqtt_ip_address = null;
     private String m_watson_iot_observe_notification_topic = null;
     private String m_watson_iot_coap_cmd_topic_get = null;
@@ -139,7 +139,7 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
 
         // create the client ID
         this.m_client_id_template = this.orchestrator().preferences().valueOf("iotf_client_id_template", this.m_suffix).replace("__ORG_ID__", this.m_watson_iot_org_id);
-        this.m_client_id = this.createWatsonIoTClientID(this.m_mds_domain);
+        this.m_client_id = this.createWatsonIoTClientID();
 
         // Watson IoT Device Manager - will initialize and upsert our WatsonIoT bindings/metadata
         this.m_device_manager = new WatsonIoTDeviceManager(this.orchestrator().errorLogger(),this.orchestrator().preferences(),this.m_suffix,http,this.orchestrator());
@@ -163,7 +163,7 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
 
             // create the client ID
             this.m_client_id_template = this.orchestrator().preferences().valueOf("iotf_client_id_template", this.m_suffix).replace("__ORG_ID__", this.m_watson_iot_org_id);
-            this.m_client_id = this.createWatsonIoTClientID(this.m_mds_domain);
+            this.m_client_id = this.createWatsonIoTClientID();
         }
 
         // create the transport
@@ -189,13 +189,13 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
                 Map resource = (Map) resources.get(j);
 
                 // re-subscribe
-                if (this.subscriptionsManager().containsSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"))) {
+                if (this.subscriptionsManager().containsSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"))) {
                     // re-subscribe to this resource
                     this.orchestrator().subscribeToEndpointResource((String) endpoint.get("ep"), (String) resource.get("path"), false);
 
                     // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
-                    this.subscriptionsManager().removeSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
-                    this.subscriptionsManager().addSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
+                    this.subscriptionsManager().removeSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
+                    this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
                 }
 
                 // auto-subscribe
@@ -204,8 +204,8 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
                     this.orchestrator().subscribeToEndpointResource((String) endpoint.get("ep"), (String) resource.get("path"), false);
 
                     // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
-                    this.subscriptionsManager().removeSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
-                    this.subscriptionsManager().addSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
+                    this.subscriptionsManager().removeSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
+                    this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
                 }
             }
 
@@ -421,15 +421,8 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
     }
     
     // create the WatsonIoT clientID
-    private String createWatsonIoTClientID(String domain) {
-        int length = 12;
-        if (domain == null) {
-            domain = this.prefValue("mds_def_domain", this.m_suffix);
-        }
-        if (domain.length() < 12) {
-            length = domain.length();
-        }
-        return this.m_client_id_template + domain.substring(0, length);  // 12 digits only of the domain
+    private String createWatsonIoTClientID() {
+        return this.m_client_id_template;
     }
 
     // Watson IoT: create the endpoint WatsonIoT topic data

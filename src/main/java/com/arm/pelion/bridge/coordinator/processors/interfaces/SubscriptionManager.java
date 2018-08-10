@@ -30,16 +30,16 @@ public interface SubscriptionManager {
     public void addSubscriptionProcessor(SubscriptionProcessor subscription_processor);
             
     // add a subscription
-    public void addSubscription(String domain, String endpoint, String ep_type, String uri, boolean is_observable);
+    public void addSubscription(String endpoint, String ep_type, String uri, boolean is_observable);
     
     // contains a given subscription
-    public boolean containsSubscription(String domain, String endpoint, String ep_type, String uri);
+    public boolean containsSubscription(String endpoint, String ep_type, String uri);
     
     // remove subscriptions for a given endpoint (called when a endpoint is deregistered)
     public void removeEndpointSubscriptions(String endpoint);
     
     // remove a specific subscription
-    public void removeSubscription(String domain, String endpoint, String ep_type, String uri);
+    public void removeSubscription(String endpoint, String ep_type, String uri);
     
     // get an endpoint type from the endpoint name (cached)
     public String endpointTypeFromEndpointName(String endpoint);

@@ -25,18 +25,18 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.factories.BasePeerProcessorFactory;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerInterface;
 import com.arm.pelion.bridge.coordinator.processors.ms.IoTHubMQTTProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
  * MS IoTHub Peer Processor Manager: Factory for initiating a peer processor for MS IoTHub Cloud Services
  *
  * @author Doug Anson
  */
-public class MSIoTHubPeerProcessorFactory extends BasePeerProcessorFactory implements Transport.ReceiveListener, PeerInterface {
+public class MSIoTHubPeerProcessorFactory extends BasePeerProcessorFactory implements Transport.ReceiveListener, PeerProcessorInterface {
 
     // Factory method for initializing the MS IoTHub MQTT collection orchestrator
     public static MSIoTHubPeerProcessorFactory createPeerProcessor(Orchestrator manager, HttpTransport http) {

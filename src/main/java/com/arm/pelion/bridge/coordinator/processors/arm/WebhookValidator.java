@@ -32,7 +32,7 @@ import com.arm.pelion.bridge.data.SerializableArrayList;
  */
 public class WebhookValidator extends Thread {
 
-    private mbedDeviceServerProcessor m_mds = null;
+    private mbedCloudProcessor m_mds = null;
     private int m_poll_interval_ms = 0;
     private String m_webhook_url = null;
     private boolean m_running = false;
@@ -41,7 +41,7 @@ public class WebhookValidator extends Thread {
     private SerializableArrayList m_subscriptions = null;
 
     // default constructor
-    public WebhookValidator(mbedDeviceServerProcessor mds, int poll_interval_ms) {
+    public WebhookValidator(mbedCloudProcessor mds, int poll_interval_ms) {
         this.m_mds = mds;
         this.m_poll_interval_ms = poll_interval_ms;
         this.m_webhook_url = null;
@@ -221,7 +221,7 @@ public class WebhookValidator extends Thread {
         // reset the webhook
         this.resetWebhook();
 
-        // direct mbedDeviceServerProcessor to re-establish the webhook
+        // direct mbedCloudProcessor to re-establish the webhook
         this.m_mds.resetWebhook();
         this.m_mds.setWebhook();
 

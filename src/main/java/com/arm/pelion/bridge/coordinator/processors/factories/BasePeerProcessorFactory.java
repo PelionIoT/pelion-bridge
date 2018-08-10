@@ -27,18 +27,18 @@ import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.PeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.PeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerInterface;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
 import java.util.Map;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
  * Base Peer PeerProcessor Manager: Manages a collection of MQTT-based processors (including a generic one) for MS IoTEventHub Services
  *
  * @author Doug Anson
  */
-public class BasePeerProcessorFactory extends PeerProcessor implements Transport.ReceiveListener, PeerInterface {
+public class BasePeerProcessorFactory extends PeerProcessor implements Transport.ReceiveListener, PeerProcessorInterface {
 
     protected ArrayList<GenericMQTTProcessor> m_mqtt_list = null;
     protected HttpTransport m_http = null;

@@ -26,7 +26,6 @@ import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.core.PeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerInterface;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.MQTTTransport;
 import com.arm.pelion.bridge.transport.Transport;
@@ -40,13 +39,14 @@ import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ConnectionCreator;
 import java.util.List;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
  * Generic MQTT peer processor
  *
  * @author Doug Anson
  */
-public class GenericMQTTProcessor extends PeerProcessor implements Transport.ReceiveListener, PeerInterface {
+public class GenericMQTTProcessor extends PeerProcessor implements Transport.ReceiveListener, PeerProcessorInterface {
     // default generic MQTT thread key
     private static String DEFAULT_GENERIC_RT_KEY = "__generic__";
     
@@ -705,7 +705,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
 
     // OVERRIDE: Topics for stock MQTT...
     protected void subscribeToMQTTTopics() {
-        String request_topic_str = this.getTopicRoot() + this.getRequestTag() + this.getDomain() + "/#";
+        String request_topic_str = this.getTopicRoot() + this.getRequestTag() + "/#";
         this.errorLogger().info("subscribeToMQTTTopics(MQTT-STD): listening on REQUEST topic: " + request_topic_str);
         Topic request_topic = new Topic(request_topic_str, QoS.AT_LEAST_ONCE);
         Topic[] topic_list = {request_topic};

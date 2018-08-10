@@ -24,18 +24,18 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerInterface;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.MQTTTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
  * IBM Peer Processor Manager: Factory for initiating a generic MQTT peer processor
  *
  * @author Doug Anson
  */
-public class GenericMQTTPeerProcessorFactory extends BasePeerProcessorFactory implements Transport.ReceiveListener, PeerInterface {
+public class GenericMQTTPeerProcessorFactory extends BasePeerProcessorFactory implements Transport.ReceiveListener, PeerProcessorInterface {
 
     // Factory method for initializing the generic MQTT collection orchestrator
     public static GenericMQTTPeerProcessorFactory createPeerProcessor(Orchestrator manager, HttpTransport http) {

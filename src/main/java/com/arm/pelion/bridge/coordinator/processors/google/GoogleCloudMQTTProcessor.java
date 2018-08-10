@@ -28,7 +28,6 @@ import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ConnectionCreator;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ReconnectionInterface;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -60,13 +59,14 @@ import java.util.List;
 import java.util.Map;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
  * Google Cloud peer processor based on MQTT
  *
  * @author Doug Anson
  */
-public class GoogleCloudMQTTProcessor extends GenericMQTTProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerInterface, AsyncResponseProcessor {
+public class GoogleCloudMQTTProcessor extends GenericMQTTProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {
     // Google Cloud IoT notifications get published to this topic:  /devices/{deviceID}/events
     private static String GOOGLE_CLOUDIOT_EVENT_TAG = "events";
     
@@ -155,10 +155,6 @@ public class GoogleCloudMQTTProcessor extends GenericMQTTProcessor implements Re
 
         // GoogleCloud Processor Announce
         this.errorLogger().info("Google Cloud MQTT Processor ENABLED.");
-        
-        // domain and suffix setup
-        this.m_mds_domain = manager.getDomain();
-        this.m_suffix = suffix;
                 
         // keystore root directory
         this.m_keystore_rootdir = this.orchestrator().preferences().valueOf("mqtt_keystore_basedir",this.m_suffix);
@@ -279,13 +275,13 @@ public class GoogleCloudMQTTProcessor extends GenericMQTTProcessor implements Re
                 Map resource = (Map) resources.get(j);
 
                 // re-subscribe
-                if (this.subscriptionsManager().containsSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"))) {
+                if (this.subscriptionsManager().containsSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"))) {
                     // re-subscribe to this resource
                     this.orchestrator().subscribeToEndpointResource((String) endpoint.get("ep"), (String) resource.get("path"), false);
 
                     // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
-                    this.subscriptionsManager().removeSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
-                    this.subscriptionsManager().addSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
+                    this.subscriptionsManager().removeSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
+                    this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
                 }
 
                 // auto-subscribe
@@ -294,8 +290,8 @@ public class GoogleCloudMQTTProcessor extends GenericMQTTProcessor implements Re
                     this.orchestrator().subscribeToEndpointResource((String) endpoint.get("ep"), (String) resource.get("path"), false);
 
                     // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
-                    this.subscriptionsManager().removeSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
-                    this.subscriptionsManager().addSubscription(this.m_mds_domain, (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
+                    this.subscriptionsManager().removeSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
+                    this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
                 }
             }
 

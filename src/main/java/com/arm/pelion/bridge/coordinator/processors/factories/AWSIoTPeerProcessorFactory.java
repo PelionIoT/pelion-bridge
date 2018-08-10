@@ -25,17 +25,17 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.aws.AWSIoTMQTTProcessor;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerInterface;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
  * AWS IOT Peer Processor Manager: Factory for initiating a peer processor for AWS IOT
  *
  * @author Doug Anson
  */
-public class AWSIoTPeerProcessorFactory extends BasePeerProcessorFactory implements Transport.ReceiveListener, PeerInterface {
+public class AWSIoTPeerProcessorFactory extends BasePeerProcessorFactory implements Transport.ReceiveListener, PeerProcessorInterface {
 
     // Factory method for initializing the AWS IotHub MQTT collection orchestrator
     public static AWSIoTPeerProcessorFactory createPeerProcessor(Orchestrator manager, HttpTransport http) {
