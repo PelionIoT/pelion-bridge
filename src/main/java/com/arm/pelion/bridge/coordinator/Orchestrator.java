@@ -50,6 +50,7 @@ import javax.servlet.http.HttpServletResponse;
 import com.arm.pelion.bridge.data.DatabaseConnector;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.mbedCloudProcessorInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
+import com.arm.pelion.bridge.servlet.Manager;
 
 /**
  * This the primary orchestrator for the connector bridge
@@ -80,6 +81,9 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
     private DatabaseConnector m_db = null;
     private String m_tablename_delimiter = null;
     private boolean m_is_master_node = true;        // default is to be a master node
+    
+    // our manager
+    private Manager m_manager = null;
 
     public Orchestrator(ErrorLogger error_logger, PreferenceManager preference_manager) {
         // save the error handler
@@ -123,6 +127,18 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
       
         // initialize our peer processor list
         this.initPeerProcessorList();
+    }
+    
+    // set our manager
+    public void setManager(Manager manager) {
+        this.m_manager = manager;
+    }
+    
+    // shutdown/reset our instance
+    public void reset() {
+        if (this.m_manager != null) {
+            this.m_manager.reset();
+        }
     }
     
     // get the tablename delimiter
@@ -337,13 +353,13 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
     }
 
     @Override
-    public void setWebhook() {
-        this.mbed_cloud_processor().setWebhook();
+    public boolean setWebhook() {
+        return this.mbed_cloud_processor().setWebhook();
     }
 
     @Override
-    public void resetWebhook() {
-        this.mbed_cloud_processor().resetWebhook();
+    public boolean resetWebhook() {
+        return this.mbed_cloud_processor().resetWebhook();
     }
 
     @Override

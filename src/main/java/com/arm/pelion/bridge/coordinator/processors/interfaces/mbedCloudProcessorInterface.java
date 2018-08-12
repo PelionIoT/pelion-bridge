@@ -60,8 +60,8 @@ public interface mbedCloudProcessorInterface {
     public String unsubscribeFromEndpointResource(String uri, Map options);
 
     // Webhook management
-    public void setWebhook();
-    public void resetWebhook();
+    public boolean setWebhook();
+    public boolean resetWebhook();
 
     // Device Metadata extraction
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor);

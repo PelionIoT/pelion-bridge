@@ -1069,4 +1069,12 @@ public class Utils {
         }
         return null;
     }
+    
+    // Help the JSON parser with null strings... ugh
+    public static String helpJSONParser(String json) {
+        if (json != null && json.length() > 0) {
+            return json.replace(":null", ":\"none\"").replace(":\"\"", ":\"none\"").replace("{}","\"none\"");
+        }
+        return json;
+    }
 }

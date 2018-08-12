@@ -22,6 +22,7 @@
  */
 package com.arm.pelion.bridge.servlet;
 
+import com.arm.pelion.bridge.core.BridgeMain;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
@@ -49,6 +50,7 @@ public final class Manager {
     private PreferenceManager m_preference_manager = null;
     
     private String m_event_notification_path = null;
+    private BridgeMain m_main = null;
 
     // instance factory
     public static Manager getInstance(HttpServlet servlet,ErrorLogger error_logger,PreferenceManager preferences) {
@@ -65,18 +67,39 @@ public final class Manager {
         // save the error handler
         this.m_error_logger = error_logger;
         this.m_preference_manager = preferences;
+        this.m_main = null;
         
         // announce our self
         this.errorLogger().info(LOG_TAG + ": Date: " + Utils.dateToString(Utils.now()) + ". Bridge version: v" + BRIDGE_VERSION_STR);
         
         // create the orchestrator
         this.m_orchestrator = new Orchestrator(this.m_error_logger, this.m_preference_manager);
+        
+        // bind to this manager
+        this.m_orchestrator.setManager(this);
 
         // configure the error logger logging level
         this.m_error_logger.configureLoggingLevel(this.m_preference_manager);
 
         // Event notification path...
         this.m_event_notification_path = this.m_preference_manager.valueOf("mds_gw_events_path");
+    }
+    
+    // set the server
+    public void setBridgeMain(BridgeMain main) {
+        this.m_main = main;
+    }
+    
+    // RESET
+    public void reset() {
+        if (this.m_main != null) {
+            // have the server reset
+            this.m_main.restart();
+        }
+        else {
+            // ERROR
+            this.errorLogger().critical("Manager: UNABLE to RESTART (null BridgeMain)");
+        }
     }
 
     public void processNotification(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {

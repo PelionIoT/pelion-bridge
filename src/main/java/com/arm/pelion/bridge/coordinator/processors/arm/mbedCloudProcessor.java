@@ -192,7 +192,6 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         
         // mbed Cloud Integration defaulted
         this.m_mbed_cloud_integration = true;
-        orchestrator.errorLogger().warning("mbedCloudProcessor: mbed Cloud Integration ");
         
         // configuration for allowing de-registration messages to remove device shadows...or not.
         this.m_mds_remove_on_deregistration = this.prefBoolValue("mds_remove_on_deregistration");
@@ -288,7 +287,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         }
         else {
             // help the JSON parser a bit... 
-            String fixed = this.helpJSONParser(response);
+            String fixed = Utils.helpJSONParser(response);
             
             // response should be parsable JSON
             Map parsed = this.tryJSONParse(fixed);
@@ -452,17 +451,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         String dispatch_url = this.createWebhookDispatchURL();
 
         // Issue GET and look at the response
-        String json = null;
-
-        // SSL vs. HTTP
-        if (this.m_use_https_dispatch == true) {
-            // get the callback URL (SSL)
-            json = this.httpsGet(dispatch_url);
-        }
-        else {
-            // get the callback URL
-            json = this.httpGet(dispatch_url);
-        }
+        String json = this.httpsGet(dispatch_url);
         try {
             if (json != null && json.length() > 0) {
                 if (this.m_mds_gw_callback.equalsIgnoreCase("callback")) {
@@ -512,17 +501,24 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     // determine if our callback URL has already been set
     private boolean webhookSet(String target_url, boolean skip_check) {
         String current_url = this.getWebhook();
-        this.errorLogger().info("webhookSet: current_url: " + current_url + " target_url: " + target_url);
+        this.errorLogger().info("mbedCloudProcessor: current_url: " + current_url + " target_url: " + target_url);
         boolean is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
         if (is_set == true && this.usingWebhookCallbacks() && skip_check == false) {
             // for Connector, lets ensure that we always have the expected Auth Header setup. So, while the same, lets delete and re-install...
-            this.errorLogger().info("webhookSet(callback): deleting existing webhook URL...");
+            this.errorLogger().info("mbedCloudProcessor: deleting existing webhook URL...");
             this.removeWebhook();
-            this.errorLogger().info("webhookSet(callback): re-establishing webhook URL...");
-            this.setWebhook(target_url, skip_check); // skip_check, go ahead and assume we need to set it...
-            this.errorLogger().info("webhookSet(callback): re-checking that webhook URL is properly set...");
-            current_url = this.getWebhook();
-            is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
+            this.errorLogger().info("mbedCloudProcessor: re-establishing webhook URL...");
+            is_set = this.setWebhook(target_url, skip_check); // skip_check, go ahead and assume we need to set it...
+            if (is_set) {
+                // SUCCESS
+                this.errorLogger().info("mbedCloudProcessor: re-checking that webhook URL is properly set...");
+                current_url = this.getWebhook();
+                is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
+            }
+            else {
+                // ERROR
+                this.errorLogger().info("mbedCloudProcessor: re-checking that webhook URL is properly set...");
+            }
         }
         return is_set;
     }
@@ -532,35 +528,23 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         // create the dispatch URL
         String dispatch_url = this.createWebhookDispatchURL();
 
-        // SSL vs. HTTP
-        if (this.m_use_https_dispatch == true) {
-            // delete the callback URL (SSL)
-            this.httpsDelete(dispatch_url);
-        }
-        else {
-            // delete the callback URL
-            this.httpDelete(dispatch_url);
-        }
+        // delete the callback URL (SSL)
+        this.httpsDelete(dispatch_url);
     }
 
     // reset the mbed Cloud Notification Callback URL
     @Override
-    public void resetWebhook() {
-        if (this.validatableNotifications() == true) {
-            // we simply delete the webhook 
-            this.removeWebhook();
-        }
-        else {
-            // we reset to default
-            String default_url = this.prefValue("mds_default_notify_url");
-            this.errorLogger().info("resetWebhook: resetting notification URL to: " + default_url);
-            this.setWebhook(default_url);
-        }
+    public boolean resetWebhook() {        
+        // delete the webhook
+        this.removeWebhook();
+        
+        // set the webhook
+        return setWebhook();
     }
 
     // set our mbed Cloud Notification Callback URL
     @Override
-    public void setWebhook() {
+    public boolean setWebhook() {
         boolean ok = false;
         for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
             this.errorLogger().warning("mbedCloudProcessor: Setting up webhook to mbed Cloud...");
@@ -571,11 +555,16 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             if (ok) {
                 // bulk subscriptions enabled
                 this.errorLogger().warning("mbedCloudProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
-                this.setupBulkSubscriptions();
-                
-                // scan for devices now
-                this.errorLogger().warning("mbedCloudProcessor: Initial scan for mbed devices...");
-                this.startDeviceDiscovery();
+                ok = this.setupBulkSubscriptions();
+                if (ok) {
+                    // scan for devices now
+                    this.errorLogger().warning("mbedCloudProcessor: Initial scan for mbed devices...");
+                    this.startDeviceDiscovery();
+                }
+                else {
+                    // ERROR
+                    this.errorLogger().warning("mbedCloudProcessor: Webhook not setup. Not scanning for devices yet...");
+                }
             }
            
             // wait a bit if we have failed
@@ -585,28 +574,62 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
                 Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
             }
         }
+        
+        // Final status
+        if (ok) {
+            // SUCCESS
+            this.errorLogger().warning("mbedCloudProcessor: webhook setup SUCCESS");
+        }
+        else {
+            // FAILURE
+            this.errorLogger().critical("mbedCloudProcessor: UNABLE TO SET WEBHOOK. Please restart bridge...Exiting.");
+            
+            // RESET
+            
+        }
+        
+        // return our status
+        return ok;
     }
     
     // establish bulk subscription 
-    private void setupBulkSubscriptions() {
-        // DEBUG
-        this.errorLogger().info("setupBulkSubscriptions: setting bulk subscriptions...");
+    private boolean setupBulkSubscriptions() {
+        boolean ok = false;
         
-        // JSON for the bulk subscription
-        String json = this.createJSONMessage("endpoint-name","*");
+        // DEBUG
+        this.errorLogger().warning("mbedCloudProcessor: setting up bulk subscriptions...");
+        
+        // JSON for the bulk subscription (must be an array)
+        String json = "[" + this.createJSONMessage("endpoint-name","*") + "]";
         
         // Create the URI for the bulk subscription PUT
         String url = this.createBaseURL() + "/subscriptions";
         
         // DEBUG
-        this.errorLogger().info("setupBulkSubscriptions: URL: " + url + " JSON: " + json);
+        this.errorLogger().info("mbedCloudProcessor: bulk subscriptions URL: " + url + " DATA: " + json);
         
         // send PUT to establish the bulk subscriptions
         String result = this.httpsPut(url, json, "application/json", this.m_api_token);
         int error_code = this.getLastResponseCode();
         
         // DEBUG
-        this.errorLogger().info("setupBulkSubscriptions: Response Code: " + error_code + " RESULT: " + result);
+        if (result != null && result.length() > 0) {
+            this.errorLogger().info("mbedCloudProcessor: bulk subscriptions setup RESULT: " + result);
+        }
+        
+        // check the setup error code 
+        if (error_code == 204) {    // SUCCESS response code: 204
+            // success!
+            this.errorLogger().warning("mbedCloudProcessor: bulk subscriptions setup SUCCESS: Code: " + error_code);
+            ok = true;
+        }
+        else {
+            // failure
+            this.errorLogger().warning("mbedCloudProcessor: bulk subscriptions setup FAILED: Code: " + error_code);
+        }
+        
+        // return our status
+        return ok;
     }
 
     // set our mbed Cloud Notification Callback URL
@@ -631,43 +654,26 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             String json = null;
 
             // build out the callback JSON
-            if (this.m_mds_gw_callback.equalsIgnoreCase("callback")) {
-                // use the Callback API
-                if (auth_header_json == null) {
-                    json = this.createJSONMessage("url", target_url);
-                }
-                else {
-                    HashMap<String,Object> map = new HashMap<>();
-                    map.put("url",target_url);
-                    map.put("headers",auth_header_json);
-                    json = this.createJSONMessage(map);
-                }
-
-                // DEBUG
-                this.errorLogger().info("setWebhook(callback): json: " + json + " dispatch: " + dispatch_url);
+            if (auth_header_json == null) {
+                json = this.createJSONMessage("url", target_url);
             }
             else {
-                // use the Deprecated push-url API... (no JSON)
-                json = target_url;
-
-                // DEBUG
-                this.errorLogger().info("setWebhook(push-url): url: " + json + " dispatch: " + dispatch_url);
+                HashMap<String,Object> map = new HashMap<>();
+                map.put("url",target_url);
+                map.put("headers",auth_header_json);
+                json = this.createJSONMessage(map);
             }
 
-            // SSL vs. HTTP
-            if (this.m_use_https_dispatch == true) {
-                // set the callback URL (SSL)
-                this.httpsPut(dispatch_url, json);
-            }
-            else {
-                // set the callback URL
-                this.httpPut(dispatch_url, json);
-            }
+            // DEBUG
+            this.errorLogger().info("mbedCloudProcessor: json: " + json + " dispatch: " + dispatch_url);
+
+            // set the callback URL (SSL)
+            this.httpsPut(dispatch_url, json);
 
             // check that it succeeded
             if (!this.webhookSet(target_url, !check_url_set)) {
                 // DEBUG
-                this.errorLogger().warning("setWebhook: ERROR: unable to set callback URL to: " + target_url);
+                this.errorLogger().warning("mbedCloudProcessor: ERROR: unable to set callback URL to: " + target_url);
 
                 // reset the webhook - its not set anymore
                 if (this.m_webhook_validator != null) {
@@ -679,22 +685,28 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             }
             else {
                 // DEBUG
-                this.errorLogger().info("setWebhook: notification URL set to: " + target_url + " (SUCCESS)");
+                this.errorLogger().info("mbedCloudProcessor: notification URL set to: " + target_url + " (SUCCESS)");
 
                 // record the webhook
                 if (this.m_webhook_validator != null) {
                     this.m_webhook_validator.setWebhook(target_url);
                 }
+                
+                // SUCCESS
+                webhook_set_ok = true;
             }
         }
         else {
             // DEBUG
-            this.errorLogger().info("setWebhook: notification URL already set to: " + target_url + " (OK)");
+            this.errorLogger().info("mbedCloudProcessor: notification URL already set to: " + target_url + " (OK)");
 
             // record the webhook
             if (this.m_webhook_validator != null) {
                 this.m_webhook_validator.setWebhook(target_url);
             }
+            
+            // SUCCESS
+            webhook_set_ok = true;
         }
         
         // return our status
@@ -819,7 +831,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             // create the endpoint subscription removal URL...
             String url = this.createBaseURL() + "/endpoints/" + endpoints[i];
             this.errorLogger().info("processDeregistrations: sending endpoint subscription removal request: " + url);
-            this.httpDelete(url);
+            this.httpsDelete(url);
 
             // remove from the validator - bookkeeping
             if (this.m_webhook_validator != null) {
@@ -991,14 +1003,8 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             this.setWebhook();
         }
 
-        String json = null;
         this.errorLogger().info("subscribeToEndpointResource: (re)establishing subscription request: " + url);
-        if (this.requireSSL()) {
-            json = this.httpsPut(url);
-        }
-        else {
-            json = this.httpPut(url);
-        }
+        String json = this.httpsPut(url);
 
         // save off the subscription
         if (this.m_webhook_validator != null) {
@@ -1014,12 +1020,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         boolean subscribed = false;
         String json = null;
         this.errorLogger().info("getEndpointResourceSubscriptionStatus: getting subscription status: " + url);
-        if (this.requireSSL()) {
-            this.httpsGet(url);
-        }
-        else {
-            this.httpGet(url);
-        }
+        this.httpsGet(url);
 
         // check the status...
         int status = this.getLastResponseCode();
@@ -1049,48 +1050,23 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             // dispatch the mbed Cloud REST based on CoAP verb received
             if (verb.equalsIgnoreCase(("get"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking GET: " + url);
-                if (this.requireSSL()) {
-                    json = this.httpsGet(url);
-                }
-                else {
-                    json = this.httpGet(url);
-                }
+                json = this.httpsGet(url);
             }
             if (verb.equalsIgnoreCase(("put"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking PUT: " + url + " DATA: " + value);
-                if (this.requireSSL()) {
-                    json = this.httpsPut(url, value);
-                }
-                else {
-                    json = this.httpPut(url, value);
-                }
+                json = this.httpsPut(url, value);
             }
             if (verb.equalsIgnoreCase(("post"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking POST: " + url + " DATA: " + value);
-                if (this.requireSSL()) {
-                    json = this.httpsPost(url, value, "plain/text", this.m_api_token);  // nail content_type to "plain/text"
-                }
-                else {
-                    json = this.httpPost(url, value, "plain/text", this.m_api_token);   // nail content_type to "plain/text"
-                }
+                 json = this.httpsPost(url, value, "plain/text", this.m_api_token);  // nail content_type to "plain/text"
             }
             if (verb.equalsIgnoreCase(("delete"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking DELETE: " + url);
-                if (this.requireSSL()) {
-                    json = this.httpsDelete(url, "plain/text", this.m_api_token);      // nail content_type to "plain/text"
-                }
-                else {
-                    json = this.httpDelete(url, "plain/text", this.m_api_token);       // nail content_type to "plain/text"
-                }
+                 json = this.httpsDelete(url, "plain/text", this.m_api_token);      // nail content_type to "plain/text"
             }
             if (verb.equalsIgnoreCase(("del"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking DELETE: " + url);
-                if (this.requireSSL()) {
-                    json = this.httpsDelete(url, "plain/text", this.m_api_token);      // nail content_type to "plain/text"
-                }
-                else {
-                    json = this.httpDelete(url, "plain/text", this.m_api_token);       // nail content_type to "plain/text"
-                }
+                json = this.httpsDelete(url, "plain/text", this.m_api_token);      // nail content_type to "plain/text"
             }
         }
         else {
@@ -1125,16 +1101,9 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         // DEBUG
         this.errorLogger().info("unsubscribeFromEndpointResource: unsubscribing: " + url);
 
-        // SSL vs. HTTP
-        if (this.m_use_https_dispatch == true) {
-            // delete the callback URL (SSL)
-            json = this.httpsDelete(url);
-        }
-        else {
-            // delete the callback URL
-            json = this.httpDelete(url);
-        }
-
+        // delete the callback URL (SSL)
+        json = this.httpsDelete(url);
+ 
         // return any resultant json
         return json;
     }
@@ -1571,7 +1540,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             String json = this.performDiscoveryToString(url);
             if (json != null && json.length() > 0) {
                 try {
-                    Map base = this.jsonParser().parseJson(this.helpJSONParser(json));
+                    Map base = this.jsonParser().parseJson(Utils.helpJSONParser(json));
                     if (base != null) {
                         this.errorLogger().info("performDiscovery: Response: " + base);
                         return (List)base.get(key);
@@ -1593,14 +1562,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     
     // perform a discovery
     private String performDiscoveryToString(String url) {
-        String json = null;
-        if (this.requireSSL()) {
-            json = this.httpsGet(url);
-        }
-        else {
-            json = this.httpGet(url);
-        }
-        return json;
+        return this.httpsGet(url);
     }
     
     // get the last response code
@@ -1608,18 +1570,11 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         return this.m_http.getLastResponseCode();
     }
 
-    // invoke peristent HTTP Get
-    public String persistentHTTPGet(String url) {
-        return this.persistentHTTPGet(url, this.m_content_type);
+    // invoke HTTP GET request (SSL)
+    private String httpsGet(String url) {
+        return this.httpsGet(url,this.m_content_type,this.m_api_token);
     }
-
-    // invoke peristent HTTPS Get
-    private String persistentHTTPGet(String url, String content_type) {
-        String response = this.m_http.httpPersistentGetApiTokenAuth(url, this.m_api_token, null, content_type);
-        this.errorLogger().info("persistentHTTPGet: response: " + this.m_http.getLastResponseCode());
-        return response;
-    }
-
+    
     // invoke peristent HTTPS Get
     public String persistentHTTPSGet(String url) {
         return this.persistentHTTPSGet(url, this.m_content_type);
@@ -1633,26 +1588,9 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     }
 
     // invoke HTTP GET request (SSL)
-    private String httpsGet(String url) {
-        return this.httpsGet(url,this.m_content_type,this.m_api_token);
-    }
-
-    // invoke HTTP GET request (SSL)
     private String httpsGet(String url, String content_type,String api_key) {
         String response = this.m_http.httpsGetApiTokenAuth(url, api_key, null, content_type);
         this.errorLogger().info("httpsGet: response: " + this.m_http.getLastResponseCode());
-        return response;
-    }
-
-    // invoke HTTP GET request
-    private String httpGet(String url) {
-        return this.httpGet(url, this.m_content_type, this.m_api_token);
-    }
-
-    // invoke HTTP GET request
-    private String httpGet(String url, String content_type, String api_key) {
-        String response = this.m_http.httpGetApiTokenAuth(url, api_key, null, content_type);
-        this.errorLogger().info("httpGet: response: " + this.m_http.getLastResponseCode());
         return response;
     }
 
@@ -1673,23 +1611,6 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         return response;
     }
 
-    // invoke HTTP PUT request
-    private String httpPut(String url) {
-        return this.httpPut(url, null);
-    }
-
-    // invoke HTTP PUT request
-    private String httpPut(String url, String data) {
-        return this.httpPut(url, data, this.m_content_type, this.m_api_token);
-    }
-
-    // invoke HTTP PUT request
-    private String httpPut(String url, String data, String content_type, String api_key) {
-        String response = this.m_http.httpPutApiTokenAuth(url, api_key, data, content_type);
-        this.errorLogger().info("httpPut: response: " + this.m_http.getLastResponseCode());
-        return response;
-    }
-
     // invoke HTTP POST request (SSL)
     private String httpsPost(String url, String data) {
         return this.httpsPost(url, data, this.m_content_type, this.m_api_token);
@@ -1699,13 +1620,6 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     private String httpsPost(String url, String data, String content_type, String api_key) {
         String response = this.m_http.httpsPostApiTokenAuth(url, api_key, data, content_type);
         this.errorLogger().info("httpsPost: response: " + this.m_http.getLastResponseCode());
-        return response;
-    }
-
-    // invoke HTTP POST request - set the content_type to "plain/text" forcefully...
-    private String httpPost(String url, String data, String content_type, String api_key) {
-        String response = this.m_http.httpPostApiTokenAuth(url, api_key, data, content_type);
-        this.errorLogger().info("httpPost: response: " + this.m_http.getLastResponseCode());
         return response;
     }
 
@@ -1719,26 +1633,6 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         String response = this.m_http.httpsDeleteApiTokenAuth(url, api_key, null, content_type);
         this.errorLogger().info("httpDelete: response: " + this.m_http.getLastResponseCode());
         return response;
-    }
-
-    // invoke HTTP DELETE request
-    private String httpDelete(String url) {
-        return this.httpDelete(url, this.m_content_type, this.m_api_token);
-    }
-
-    // invoke HTTP DELETE request
-    private String httpDelete(String url, String content_type, String api_key) {
-        String response = this.m_http.httpDeleteApiTokenAuth(url, api_key, null, content_type);
-        this.errorLogger().info("httpDelete: response: " + this.m_http.getLastResponseCode());
-        return response;
-    }
-    
-    // Help the JSON parser with null strings... ugh
-    private String helpJSONParser(String json) {
-        if (json != null && json.length() > 0) {
-            return json.replace(":null", ":\"none\"").replace(":\"\"", ":\"none\"").replace("{}","\"none\"");
-        }
-        return json;
     }
     
     // discovery thread 

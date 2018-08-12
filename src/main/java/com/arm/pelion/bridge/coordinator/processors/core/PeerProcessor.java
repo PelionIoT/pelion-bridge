@@ -92,15 +92,9 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // allocate our TypeDecoder
         this.m_type_decoder = new TypeDecoder(orchestrator.errorLogger(), orchestrator.preferences());
         
-        // unified format enabled or disabled
-        this.m_unified_format_enabled = orchestrator.preferences().booleanValueOf("unified_format_enabled", this.m_suffix);
-        if (this.m_unified_format_enabled == true) {
-            this.errorLogger().warning("Unified Bridge Format ENABLED");
-            this.m_observation_key = "notify";
-        }
-        else {
-            this.errorLogger().warning("Unified Bridge Format DISABLED");
-        }
+        // unified format enabled by default
+        this.m_unified_format_enabled = true;
+        this.m_observation_key = "notify";
     }
     
     // add a subscriptions processor to the subscriptions manager
