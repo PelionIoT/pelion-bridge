@@ -86,6 +86,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     private String m_device_firmware_info_res = null;
     private String m_device_hardware_info_res = null;
     private String m_device_descriptive_location_res = null;
+    
     private int m_webhook_validator_poll_ms = -1;
     private WebhookValidator m_webhook_validator = null;
     private boolean m_webhook_validator_enable = false;
@@ -94,6 +95,12 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     private String m_device_attributes_content_type = null;
 
     private String m_rest_version = "2";
+    
+    // Long Poll vs Webhook usage
+    private boolean m_mds_enable_long_poll = false;
+    private String m_mds_long_poll_uri = null;
+    private String m_mds_long_poll_url = null;
+    private LongPollProcessor m_long_poll_processor = null;
     
     // Webhook establishment retries
     private int m_webook_num_retries = MDS_WEBHOOK_RETRIES;
@@ -135,6 +142,10 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         }
         this.m_mds_version = this.prefValue("mds_version");
         this.m_mds_gw_use_ssl = this.prefBoolValue("mds_gw_use_ssl");
+        
+        // LongPolling Support
+        this.m_mds_enable_long_poll = this.prefBoolValue("mds_enable_long_poll");
+        this.m_mds_long_poll_uri = this.prefValue("mds_long_poll_uri");
        
         this.m_api_token = this.orchestrator().preferences().valueOf("mds_api_token");
         if (this.m_api_token == null || this.m_api_token.length() == 0) {
@@ -178,8 +189,10 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             orchestrator.errorLogger().warning("mbedCloudProcessor: webhook/subscription validator ENABLED (interval: " + this.m_webhook_validator_poll_ms + "ms)");
         }
        
-        // configure the callback - defaulted for Cloud
-        this.setupWebhookType();
+        // configure the callback type based on the version of mDS (only if not using long polling)
+        if (this.longPollEnabled() == false) {
+            this.setupWebhookType();
+        }
         
         // default device type in case we need it
         this.m_def_ep_type = orchestrator.preferences().valueOf("mds_def_ep_type");
@@ -200,6 +213,52 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         }
         else {
             orchestrator.errorLogger().warning("mbedCloudProcessor: device removal on deregistration DISABLED");
+        }
+        
+        // OVEERRIDE - long polling vs. Webhook
+        this.longPollOverrideSetup();
+    }
+    
+    // override use of long polling vs. webhooks for notifications
+    private void longPollOverrideSetup() {
+        if (this.longPollEnabled()) {
+            // DEBUG
+            this.errorLogger().warning("mbedCloudProcessor: Long Poll Override ENABLED. Using Long Polling (webhook DISABLED)");
+
+            // disable webhook validation
+            this.m_webhook_validator_enable = false;
+
+            // override use of long polling vs webhooks for notifications
+            this.m_mds_long_poll_url = this.constructLongPollURL();
+
+            // start the Long polling thread...
+            this.startLongPolling();
+        }
+    }
+    
+    // Long polling enabled or disabled?
+    private boolean longPollEnabled() {
+        return (this.m_mds_enable_long_poll == true && this.m_mds_long_poll_uri != null && this.m_mds_long_poll_uri.length() > 0);
+    }
+    
+    // get the long polling URL
+    public String longPollURL() {
+        return this.m_mds_long_poll_url;
+    }
+    
+    // build out the long poll URL
+    private String constructLongPollURL() {
+        String url = this.createBaseURL() + "/" + this.m_mds_long_poll_uri;
+        this.errorLogger().info("constructLongPollURL: Long Poll URL: " + url);
+        return url;
+    }
+
+    // start the long polling thread
+    private void startLongPolling() {
+        // now long poll
+        if (this.m_long_poll_processor == null) {
+            this.m_long_poll_processor = new LongPollProcessor(this);
+            this.m_long_poll_processor.startPolling();
         }
     }
     
@@ -546,46 +605,52 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     @Override
     public boolean setWebhook() {
         boolean ok = false;
-        for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
-            this.errorLogger().warning("mbedCloudProcessor: Setting up webhook to mbed Cloud...");
-            String target_url = this.createWebhookURL();
-            ok = this.setWebhook(target_url);
+        if (this.longPollEnabled() == false) {
+            for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
+                this.errorLogger().warning("mbedCloudProcessor: Setting up webhook to mbed Cloud...");
+                String target_url = this.createWebhookURL();
+                ok = this.setWebhook(target_url);
 
-            // EXPERIMENTAL - test for bulk subscriptions setting
-            if (ok) {
-                // bulk subscriptions enabled
-                this.errorLogger().warning("mbedCloudProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
-                ok = this.setupBulkSubscriptions();
+                // EXPERIMENTAL - test for bulk subscriptions setting
                 if (ok) {
-                    // scan for devices now
-                    this.errorLogger().warning("mbedCloudProcessor: Initial scan for mbed devices...");
-                    this.startDeviceDiscovery();
+                    // bulk subscriptions enabled
+                    this.errorLogger().warning("mbedCloudProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
+                    ok = this.setupBulkSubscriptions();
+                    if (ok) {
+                        // scan for devices now
+                        this.errorLogger().warning("mbedCloudProcessor: Initial scan for mbed devices...");
+                        this.startDeviceDiscovery();
+                    }
+                    else {
+                        // ERROR
+                        this.errorLogger().warning("mbedCloudProcessor: Webhook not setup. Not scanning for devices yet...");
+                    }
                 }
+
+                // wait a bit if we have failed
                 else {
-                    // ERROR
-                    this.errorLogger().warning("mbedCloudProcessor: Webhook not setup. Not scanning for devices yet...");
+                    // log and wait
+                    this.errorLogger().warning("mbedCloudProcessor: Waiting a bit... then retry establishing webhook to mbed Cloud...");
+                    Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
                 }
             }
-           
-            // wait a bit if we have failed
-            else {
-                // log and wait
-                this.errorLogger().warning("mbedCloudProcessor: Waiting a bit... then retry establishing webhook to mbed Cloud...");
-                Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
+
+            // Final status
+            if (ok) {
+                // SUCCESS
+                this.errorLogger().warning("mbedCloudProcessor: webhook setup SUCCESS");
             }
-        }
-        
-        // Final status
-        if (ok) {
-            // SUCCESS
-            this.errorLogger().warning("mbedCloudProcessor: webhook setup SUCCESS");
+            else {
+                // FAILURE
+                this.errorLogger().critical("mbedCloudProcessor: UNABLE TO SET WEBHOOK. Resetting bridge...");
+
+                // RESET
+                this.orchestrator().reset();
+            }
         }
         else {
-            // FAILURE
-            this.errorLogger().critical("mbedCloudProcessor: UNABLE TO SET WEBHOOK. Please restart bridge...Exiting.");
-            
-            // RESET
-            
+            // not used by long polling
+            ok = true;
         }
         
         // return our status
@@ -1443,6 +1508,14 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     private void pullDeviceTotalMemoryInfo(Map endpoint) {
         //this.m_device_descriptive_location_res
         endpoint.put("meta_total_mem", "128K");  // typical min: 128k
+    }
+    
+    // init any device discovery
+    @Override
+    public void initDeviceDiscovery() {
+        if (this.longPollEnabled() == true) {
+            this.startDeviceDiscovery();
+        }
     }
     
     // start device discovery for device shadow setup

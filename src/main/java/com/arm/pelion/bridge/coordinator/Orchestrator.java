@@ -127,6 +127,9 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
       
         // initialize our peer processor list
         this.initPeerProcessorList();
+        
+        // start any needed device discovery
+        this.initDeviceDiscovery();
     }
     
     // set our manager
@@ -517,5 +520,11 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
     public SubscriptionManager subscriptionsManager() {
         // unused
         return null;
+    }
+    
+    // init any device discovery
+    @Override
+    public void initDeviceDiscovery() {
+        this.mbed_cloud_processor().initDeviceDiscovery();
     }
 }

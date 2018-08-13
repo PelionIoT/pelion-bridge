@@ -71,4 +71,7 @@ public interface mbedCloudProcessorInterface {
     
     // device removal on deregistration?
     public boolean deviceRemovedOnDeRegistration();
+    
+    // initial device discovery on startup
+    public void initDeviceDiscovery();
 }
