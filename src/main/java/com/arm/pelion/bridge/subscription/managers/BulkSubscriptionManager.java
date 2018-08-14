@@ -26,6 +26,7 @@ import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.SubscriptionManager;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.SubscriptionProcessor;
 import com.arm.pelion.bridge.core.BaseClass;
+import com.arm.pelion.bridge.data.SerializableHashMap;
 
 /**
  * Bulk Subscription manager (null-manager)
@@ -35,11 +36,17 @@ public class BulkSubscriptionManager extends BaseClass implements SubscriptionMa
     private SubscriptionProcessor m_subscription_processor = null;
     private Orchestrator m_orchestrator = null;
     
+    // endpoint type hashmap
+    private SerializableHashMap m_endpoint_type_list = null;
+    
     // constructor
     public BulkSubscriptionManager(Orchestrator orchestrator) {
         super(orchestrator.errorLogger(), orchestrator.preferences());
         this.m_orchestrator = orchestrator;
         this.m_subscription_processor = null;
+        
+        // create endpoint name/endpoint type map
+        this.m_endpoint_type_list = new SerializableHashMap(orchestrator,"BSM_ENDPOINT_TYPE_LIST");
         
         // DEBUG
         this.errorLogger().info("SubscriptionManager: Bulk subscription manager initialized.");
@@ -53,38 +60,42 @@ public class BulkSubscriptionManager extends BaseClass implements SubscriptionMa
 
     // add a subscription
     @Override
-    public void addSubscription(String endpoint, String ep_type, String uri, boolean is_observable) {
+    public void addSubscription(String ep, String ept, String uri, boolean is_observable) {
         if (this.m_subscription_processor != null) {
-            this.m_subscription_processor.subscribe(endpoint,ep_type,uri,is_observable);
+            this.m_subscription_processor.subscribe(ep,ept,uri,is_observable);
         }
+        this.m_endpoint_type_list.put(ep,ept);
     }
 
     // contains a subscription
     @Override
-    public boolean containsSubscription(String endpoint, String ep_type, String uri) {
+    public boolean containsSubscription(String ep, String ept, String uri) {
        // always true
        return true;
     }
 
     // remove endpoint subscriptions (called when an endpoint is deregistered)
     @Override
-    public void removeEndpointSubscriptions(String endpoint) {
-        // not used (called when a endpoint is deregistered)
+    public void removeEndpointSubscriptions(String ep) {
+        // just clean up the endpoint type list
+        this.m_endpoint_type_list.remove(ep);
     }
 
     // remove a subscription
     @Override
-    public void removeSubscription(String endpoint, String ep_type, String uri) {
+    public void removeSubscription(String ep, String ept, String uri) {
         if (this.m_subscription_processor != null) {
-            this.m_subscription_processor.unsubscribe(endpoint,ep_type,uri);
+            this.m_subscription_processor.unsubscribe(ep,ept,uri);
         }
+        
+        // clean up the endpoint type list
+        this.m_endpoint_type_list.remove(ep);
     }
 
     // get the endpoint type from the endpoint name (if cached...)
     @Override
-    public String endpointTypeFromEndpointName(String endpoint) {
-        // not cached - so defer... 
-        return null;
+    public String endpointTypeFromEndpointName(String ep) {
+        return (String)this.m_endpoint_type_list.get(ep);
     }
     
     // ObjectID(3)/ObjectID(5)/ObjectID(10255) resource observation enablement

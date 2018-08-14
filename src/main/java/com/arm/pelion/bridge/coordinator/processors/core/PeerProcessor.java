@@ -82,7 +82,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         this.m_mds_topic_root = "";
         
         // create endpoint name/endpoint type map
-        this.m_endpoint_type_list = new SerializableHashMap(orchestrator,"ENDPOINT_TYPES");
+        this.m_endpoint_type_list = new SerializableHashMap(orchestrator,"PEER_ENDPOINT_TYPE_LIST");
         
         // initialize the auto subscription to OBS resources
         this.initAutoSubscribe(null);
