@@ -470,6 +470,13 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
             this.peerProcessor(i).processAsyncResponses(message);
         }
     }
+    
+    @Override
+    public void setEndpointTypeFromEndpointName(String ep,String ept) {
+        for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
+            this.peerProcessor(i).setEndpointTypeFromEndpointName(ep,ept);
+        }
+    }
 
     @Override
     public void processNotification(Map message) {

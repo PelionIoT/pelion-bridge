@@ -69,4 +69,7 @@ public interface PeerProcessorInterface {
     
     // record async responses
     public void recordAsyncResponse(String response, String uri, Map ep, AsyncResponseProcessor processor);
+    
+    // save the endpoint type for a given endpoint name
+    public void setEndpointTypeFromEndpointName(String ep,String ept);
 }

@@ -1557,6 +1557,9 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
                 // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mbed Cloud and setup for it...
                 this.orchestrator().removeSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
                 this.orchestrator().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
+                
+                // SYNC: save ept for ep in the peers...
+                this.orchestrator().setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
             }
 
             // put the resource list into our payload...

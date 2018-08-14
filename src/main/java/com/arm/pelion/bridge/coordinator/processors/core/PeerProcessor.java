@@ -366,7 +366,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     }
 
     // set the endpoint type from the endpoint name
-    protected void setEndpointTypeFromEndpointName(String ep_name, String ep_type) {
+    public void setEndpointTypeFromEndpointName(String ep_name, String ep_type) {
         this.m_endpoint_type_list.put(ep_name,ep_type);
     }
     
