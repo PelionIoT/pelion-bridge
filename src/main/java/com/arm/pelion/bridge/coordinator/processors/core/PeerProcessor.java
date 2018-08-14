@@ -659,8 +659,13 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // get the observability of a given resource
     protected boolean isObservableResource(Map resource) {
-        String obs_str = (String) resource.get("obs");
-        return (obs_str != null && obs_str.equalsIgnoreCase("true"));
+        try {
+            return (Boolean)resource.get("obs");
+        }
+        catch (Exception ex) {
+            // silent
+        }
+        return false;
     }
 
     // parse the device-deletions body
