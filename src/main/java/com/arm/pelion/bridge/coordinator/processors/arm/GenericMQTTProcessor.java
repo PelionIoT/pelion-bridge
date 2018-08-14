@@ -708,7 +708,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
 
     // OVERRIDE: Topics for stock MQTT...
     protected void subscribeToMQTTTopics() {
-        String request_topic_str = this.getTopicRoot() + "/" + this.getRequestTag() + "/#";
+        String request_topic_str = this.getTopicRoot() + this.getRequestTag() + "/#";
         this.errorLogger().info("subscribeToMQTTTopics(MQTT-STD): listening on REQUEST topic: " + request_topic_str);
         Topic request_topic = new Topic(request_topic_str, QoS.AT_LEAST_ONCE);
         Topic[] topic_list = {request_topic};

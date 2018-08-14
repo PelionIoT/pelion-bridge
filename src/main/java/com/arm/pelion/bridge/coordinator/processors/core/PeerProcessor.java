@@ -372,7 +372,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // initialize the mDS request tag
     protected void initRequestTag(String res_name) {
-        this.m_mds_request_tag = "/request";
+        this.m_mds_request_tag = "request";
         
         // mDS Request TAG
         if (res_name != null && res_name.length() > 0) {
