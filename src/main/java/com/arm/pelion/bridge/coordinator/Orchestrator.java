@@ -90,6 +90,9 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
         this.m_error_logger = error_logger;
         this.m_preference_manager = preference_manager;
         
+        // we are parent
+        this.m_error_logger.setParent(this);
+        
         // get our master node designation
         this.m_is_master_node = this.m_preference_manager.booleanValueOf("is_master_node");
 

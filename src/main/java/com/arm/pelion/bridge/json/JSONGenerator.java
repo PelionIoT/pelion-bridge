@@ -22,6 +22,11 @@
  */
 package com.arm.pelion.bridge.json;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+import java.util.Map;
+
 /**
  *
  * @author Doug Anson
@@ -32,15 +37,25 @@ public class JSONGenerator {
     public JSONGenerator() {
     }
 
-    // create JSON
-    public String generateJson(Object json) {
-        String str_json = com.codesnippets4all.json.generators.JsonGeneratorFactory.getInstance().newJsonGenerator().generateJson(json);
-        if (str_json != null && str_json.length() > 0) {
-            int last_index = str_json.length() - 1;
-            if (str_json.charAt(0) == '[' && str_json.charAt(last_index) == ']') {
-                return str_json.substring(1, last_index);
-            }
+    // create JSON (Map)
+    public String generateJson(Map json) {
+        try {
+            return new ObjectMapper().writeValueAsString(json);
         }
-        return str_json;
+        catch (JsonProcessingException ex) {
+            // silent
+        }
+        return null;
+    }
+    
+    // create JSON (List)
+    public String generateJson(List json) {
+        try {
+            return new ObjectMapper().writeValueAsString(json);
+        }
+        catch (JsonProcessingException ex) {
+            // silent
+        }
+        return null;
     }
 }

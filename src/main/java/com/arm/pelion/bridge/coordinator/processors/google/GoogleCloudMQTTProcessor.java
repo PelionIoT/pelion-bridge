@@ -57,9 +57,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
  * Google Cloud peer processor based on MQTT

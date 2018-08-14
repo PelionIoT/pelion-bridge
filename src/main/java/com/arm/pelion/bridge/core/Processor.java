@@ -33,8 +33,6 @@ import java.util.Map;
  */
 public class Processor extends BaseClass {
     public static int NUM_COAP_VERBS = 4;                                   // GET, PUT, POST, DELETE
-    private static final String DEFAULT_EMPTY_STRING = " ";
-    private String m_empty_string = Processor.DEFAULT_EMPTY_STRING;
     protected String m_suffix = null;
     private Orchestrator m_orchestrator = null;
     private JSONGenerator m_json_generator = null;
@@ -50,15 +48,6 @@ public class Processor extends BaseClass {
         this.m_orchestrator = orchestrator;
         this.m_json_parser = orchestrator.getJSONParser();
         this.m_json_generator = orchestrator.getJSONGenerator();
-        
-        // Handle the remapping of empty strings so that our JSON parsers wont complain...
-        this.m_empty_string = orchestrator.preferences().valueOf("mds_bridge_empty_string", suffix);
-        if (this.m_empty_string == null || this.m_empty_string.length() == 0) {
-            this.m_empty_string = Processor.DEFAULT_EMPTY_STRING;
-        }
-        
-        // suffix setup
-        this.m_suffix = suffix;
         
         // unlock
         this.operationStop();
@@ -94,27 +83,17 @@ public class Processor extends BaseClass {
     public synchronized void operationStop() {
         this.m_operation_pending = false;
     }
-    
-    // jsonParser is broken with empty strings... so we have to fill them in with spaces.. 
-    private String replaceEmptyStrings(String data) {
-        if (data != null) {
-            return data.replaceAll("\"\"", "\"" + this.m_empty_string + "\"").replace("[]", "null");
-        }
-        return data;
-    }
 
     // parse the JSON...
     protected Object parseJson(String json) {
         Object parsed = null;
-        String modified_json = "";
         try {
-            modified_json = this.replaceEmptyStrings(json);
-            if (json != null && json.contains("{") && json.contains("}")) {
-                parsed = this.jsonParser().parseJson(modified_json);
+            if (json != null) {
+                parsed = this.jsonParser().parseJson(json);
             }
         }
         catch (Exception ex) {
-            this.orchestrator().errorLogger().warning("JSON parsing exception for: " + json + " MODIFED: " + modified_json +  " Message: " + ex.getMessage(), ex);
+            this.orchestrator().errorLogger().warning("JSON parsing exception for: " + json + " Message: " + ex.getMessage(), ex);
             parsed = null;
         }
         return parsed;
@@ -129,7 +108,7 @@ public class Processor extends BaseClass {
     protected Map tryJSONParse(String payload) {
         HashMap<String, Object> result = new HashMap<>();
         try {
-            result = (HashMap<String, Object>) this.orchestrator().getJSONParser().parseJson(this.replaceEmptyStrings(payload));
+            result = (HashMap<String, Object>) this.orchestrator().getJSONParser().parseJson(payload);
             return result;
         }
         catch (Exception ex) {

@@ -337,14 +337,6 @@ public class AWSIoTDeviceManager extends DeviceManager {
         return ep;
     }
 
-    // Help the JSON parser with null strings... ugh
-    private String helpJSONParser(String json) {
-        if (json != null && json.length() > 0) {
-            return json.replace(":null", ":\"none\"").replace(":\"\"", ":\"none\"").replace("\"attributes\": {},", "").replace("{}", "{\"empty\":0}");
-        }
-        return json;
-    }
-
     // parse our device details
     private HashMap<String, Serializable> parseDeviceDetails(String device, String json) {
         return this.parseDeviceDetails(device, "", json);
@@ -357,9 +349,6 @@ public class AWSIoTDeviceManager extends DeviceManager {
         if (json != null) {
             try {
                 if (json.contains("ResourceNotFoundException") == false) {
-                    // fix up empty values
-                    json = this.helpJSONParser(json);
-
                     // Parse the JSON...
                     Map parsed = this.orchestrator().getJSONParser().parseJson(json);
 
@@ -514,7 +503,7 @@ public class AWSIoTDeviceManager extends DeviceManager {
             String result = Utils.awsCLI(this.errorLogger(), args);
             if (result != null && result.length() > 2) {
                 // parse it
-                Map parsed = this.m_orchestrator.getJSONParser().parseJson(this.helpJSONParser(result));
+                Map parsed = this.m_orchestrator.getJSONParser().parseJson(result);
 
                 // resync - put the thing type ARN back into the ep
                 ep.put("thingTypeArn", (String) parsed.get("thingTypeArn"));
@@ -532,7 +521,7 @@ public class AWSIoTDeviceManager extends DeviceManager {
             String result = Utils.awsCLI(this.errorLogger(), args);
             if (result != null && result.length() > 2) {
                 // parse it
-                Map parsed = this.m_orchestrator.getJSONParser().parseJson(this.helpJSONParser(result));
+                Map parsed = this.m_orchestrator.getJSONParser().parseJson(result);
 
                 // put the thing type ARN into the ep
                 ep.put("thingTypeArn", (String) parsed.get("thingTypeArn"));
@@ -557,7 +546,7 @@ public class AWSIoTDeviceManager extends DeviceManager {
         String args = "iot describe-thing --thing-name=" + (String)ep.get("thingName");
         String json = Utils.awsCLI(this.errorLogger(), args);
         if (json != null && json.length() > 0) {
-            Map parsed = this.m_orchestrator.getJSONParser().parseJson(this.helpJSONParser(json));
+            Map parsed = this.m_orchestrator.getJSONParser().parseJson(json);
             ep.put("defaultClientId", (String) parsed.get("defaultClientId"));
         }
     }
@@ -570,7 +559,7 @@ public class AWSIoTDeviceManager extends DeviceManager {
         String args = "iot list-thing-principals --thing-name=" + (String)ep.get("thingName");
         String json = Utils.awsCLI(this.errorLogger(), args);
         if (json != null && json.length() > 0) {
-            Map parsed = this.m_orchestrator.getJSONParser().parseJson(this.helpJSONParser(json));
+            Map parsed = this.m_orchestrator.getJSONParser().parseJson(json);
             List arns = (List)parsed.get("principals");
             for (int i=0;arns != null && i<arns.size();++i) {
                 // DEBUG

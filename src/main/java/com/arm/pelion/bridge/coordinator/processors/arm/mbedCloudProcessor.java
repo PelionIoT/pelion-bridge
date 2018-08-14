@@ -55,7 +55,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     private static final int MDS_BOOT_DEVICE_DISCOVERY_DELAY_MS = 15000;        // 15 seconds
     
     // default endpoint type
-    private static String DEFAULT_ENDPOINT_TYPE = "default";                    // default endpoint type
+    public static String DEFAULT_ENDPOINT_TYPE = "default";                    // default endpoint type
     
     private HttpTransport m_http = null;
     private String m_mds_host = null;
@@ -264,7 +264,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     
     // sanitize the endpoint type
     private String sanitizeEndpointType(String ept) {
-        if (ept == null || ept.length() <= 0 || ept.equalsIgnoreCase("none")) {
+        if (ept == null || ept.length() == 0) {
             return this.m_def_ep_type;
         }
         return ept;
@@ -344,18 +344,15 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             // empty response
             return this.createJSONMessage("api_execute_status","empty response");
         }
-        else {
-            // help the JSON parser a bit... 
-            String fixed = Utils.helpJSONParser(response);
-            
+        else {            
             // response should be parsable JSON
-            Map parsed = this.tryJSONParse(fixed);
+            Map parsed = this.tryJSONParse(response);
             if (parsed != null && parsed.isEmpty() == false) {
                 // DEBUG
-                this.errorLogger().info("APIResponse: Parsable RESPONSE: " + fixed);
+                this.errorLogger().info("APIResponse: Parsable RESPONSE: " + response);
                 
                 // parsable! just return the (patched) JSON string
-                return fixed;
+                return response;
             }
             else {
                 // DEBUG
@@ -1532,6 +1529,9 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         HashMap<String,Object> endpoint = new HashMap<>();
         for(int i=0;devices != null && i<devices.size();++i) {
             Map device = (Map)devices.get(i);
+            
+            // DEBUG
+            //this.errorLogger().info("setupExistingDeviceShadows: DEVICE: " + device);
 
             // sanitize the endpoint type
             device.put("endpoint_type",this.sanitizeEndpointType((String)device.get("endpoint_type")));
@@ -1613,7 +1613,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             String json = this.performDiscoveryToString(url);
             if (json != null && json.length() > 0) {
                 try {
-                    Map base = this.jsonParser().parseJson(Utils.helpJSONParser(json));
+                    Map base = this.jsonParser().parseJson(json);
                     if (base != null) {
                         this.errorLogger().info("performDiscovery: Response: " + base);
                         return (List)base.get(key);

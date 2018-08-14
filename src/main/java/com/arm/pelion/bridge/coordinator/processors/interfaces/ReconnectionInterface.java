@@ -15,7 +15,6 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.interfaces;
 
-import com.arm.pelion.bridge.transport.MQTTTransport;
 import org.fusesource.mqtt.client.Topic;
 
 /**

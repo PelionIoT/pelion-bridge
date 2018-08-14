@@ -485,15 +485,6 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         return ep;
     }
 
-    // Help the JSON parser with null strings... ugh
-    private String helpJSONParser(String json) {
-        if (json != null && json.length() > 0) {
-            return json.replace(":null", ":\"none\"").replace(":\"\"", ":\"none\"").replace("\"attributes\": {},", "");
-        }
-        return json;
-    }
-
-
     // Parse the AddDevice result and capture key elements 
     private void saveAddDeviceDetails(String ep_name, String ep_type) {
         SerializableHashMap entry = null;

@@ -35,11 +35,11 @@ import com.arm.pelion.bridge.data.SerializableHashMap;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.commons.codec.binary.Base64;
-import org.fusesource.mqtt.client.QoS;
-import org.fusesource.mqtt.client.Topic;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ConnectionCreator;
 import java.util.List;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
+import org.fusesource.mqtt.client.QoS;
+import org.fusesource.mqtt.client.Topic;
 
 /**
  * Generic MQTT peer processor
@@ -115,7 +115,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
         }
         this.errorLogger().info("MQTT: Reconnect sleep time: " + this.m_reconnect_sleep_time_ms + "ms...");
         
-        // get the default generic name 
+        // get the default generic thread key 
         this.m_default_tr_key = orchestrator.preferences().valueOf("mqtt_default_rt_key",this.m_suffix);
         if (this.m_default_tr_key == null || this.m_default_tr_key.length() == 0) {
             this.m_default_tr_key = DEFAULT_GENERIC_RT_KEY;
@@ -287,8 +287,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                 error.put("type", error_type);
                 
                 // DEBUG
-                this.errorLogger().warning("MQTTProcessor(Generic): UNEXPECTED TYPE. Key: " + key + " TYPE: " + error_type + " Location: ");
-                new Exception().printStackTrace();
+                this.errorLogger().warning("MQTTProcessor(Generic): UNEXPECTED TYPE. Key: " + key + " TYPE: " + error_type + " Location: ",new Exception());
                 
                 // create String with JSON generator
                 return this.jsonGenerator().generateJson(error);
@@ -709,7 +708,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
 
     // OVERRIDE: Topics for stock MQTT...
     protected void subscribeToMQTTTopics() {
-        String request_topic_str = this.getTopicRoot() + this.getRequestTag() + "/#";
+        String request_topic_str = this.getTopicRoot() + "/" + this.getRequestTag() + "/#";
         this.errorLogger().info("subscribeToMQTTTopics(MQTT-STD): listening on REQUEST topic: " + request_topic_str);
         Topic request_topic = new Topic(request_topic_str, QoS.AT_LEAST_ONCE);
         Topic[] topic_list = {request_topic};

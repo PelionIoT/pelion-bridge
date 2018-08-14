@@ -72,7 +72,6 @@ public class BridgeMain {
         
         // Initialize the listeners within the Manager of the Eventing Processor
         this.m_manager = this.m_events_processor.manager();
-        //this.m_manager.setBridgeMain(this);
         
         // initialize the server
         this.m_server = new Server(this.m_preferences.intValueOf("mds_gw_port"));

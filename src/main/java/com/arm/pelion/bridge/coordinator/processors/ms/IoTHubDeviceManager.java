@@ -344,14 +344,6 @@ public class IoTHubDeviceManager extends DeviceManager {
         return this.m_endpoint_details.get(iothub_ep_name);
     }
 
-    // Help the JSON parser with null strings... ugh
-    private String helpJSONParser(String json) {
-        if (json != null && json.length() > 0) {
-            return json.replace(":null", ":\"none\"").replace(":\"\"", ":\"none\"");
-        }
-        return json;
-    }
-
     // parse our device details
     private HashMap<String, Serializable> parseDeviceDetails(String ep_name, String json) {
         return this.parseDeviceDetails(ep_name, "", json);
@@ -367,9 +359,6 @@ public class IoTHubDeviceManager extends DeviceManager {
         if (json != null) {
             try {
                 if (json.contains("ErrorCode:DeviceNotFound;") == false) {
-                    // fix up empty values
-                    json = this.helpJSONParser(json);
-
                     // Parse the JSON...
                     Map parsed = this.orchestrator().getJSONParser().parseJson(json);
 

@@ -88,17 +88,29 @@ public class ErrorLogger extends BaseClass {
     private int m_level = 0;                            // error classification level
     private int m_mask = SHOW_ALL;                      // default error classification mask
     private volatile ArrayList<String> m_log = null;    // error log
+    private Object m_parent = null;                     // our parent object
 
     /**
      * constructor
      */
     public ErrorLogger() {
         super(null, null);
+        this.m_parent = null;
         this.m_message = ErrorLogger.DEFAULT_MESSAGE;
         this.m_exception = null;
         this.m_level = ErrorLogger.INFO;
         this.m_mask = ErrorLogger.SHOW_ALL;
         this.m_log = new ArrayList<>();
+    }
+    
+    // set the parent
+    public void setParent(Object parent) {
+        this.m_parent = parent;
+    }
+    
+    // get the parent
+    public Object getParent() {
+        return this.m_parent;
     }
 
     /*

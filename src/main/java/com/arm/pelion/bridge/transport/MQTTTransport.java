@@ -22,6 +22,7 @@
  */
 package com.arm.pelion.bridge.transport;
 
+import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ReconnectionInterface;
 import com.arm.pelion.bridge.core.ErrorLogger;
@@ -77,11 +78,18 @@ public class MQTTTransport extends Transport implements GenericSender {
     private static final String KEYSTORE_PW_DEFAULT = UUID.randomUUID().toString();
     
     // number of connection attempts before giving up...
-    private static final int DEFAULT_NUM_CONNECT_TRIES = 5;
+    private static final int DEFAULT_NUM_CONNECT_TRIES = 10;
+    private int m_max_connect_tries = DEFAULT_NUM_CONNECT_TRIES;
     
+    // Access our instance 
     private static volatile MQTTTransport m_self = null;
+    
+    // FuseSource MQTT connection
     private BlockingConnection m_connection = null;
+    private Topic[] m_subscribe_topics = null;
     private byte[] m_qoses = null;
+    
+    // Configuration
     private String m_suffix = null;
     private String m_username = null;
     private String m_password = null;
@@ -89,31 +97,25 @@ public class MQTTTransport extends Transport implements GenericSender {
     private int m_sleep_time = 0;
     private String m_client_id = null;
     private String m_mqtt_version = null;
-
     private String m_connect_host = null;
     private int m_connect_port = 0;
     private String m_connect_client_id = null;
     private boolean m_connect_clean_session = false;
     private String m_connect_id = null;
-
-    private boolean m_set_mqtt_version = true;
-    private Topic[] m_subscribe_topics = null;
+    private boolean m_set_mqtt_version = true;  
     private String[] m_unsubscribe_topics = null;
     
-    private boolean m_mqtt_import_keystore = false;
-    private boolean m_mqtt_no_client_creds = false;
-    
-    private int m_max_connect_tries = DEFAULT_NUM_CONNECT_TRIES;
+    // reset mode/state
+    private boolean m_is_in_reset = false;
     
     // SSL Switches/Context
+    private boolean m_mqtt_import_keystore = false;
+    private boolean m_mqtt_no_client_creds = false;
     private boolean m_use_ssl_connection = false;
     private SSLContext m_ssl_context = null;
     private boolean m_mqtt_use_ssl = false;
     private boolean m_ssl_context_initialized = false;
     private boolean m_no_tls_certs_or_keys = false;
-    
-    // reset mode
-    private boolean m_is_in_reset = false;
     
     // X.509 Support
     private boolean m_use_x509_auth = false;
@@ -148,8 +150,7 @@ public class MQTTTransport extends Transport implements GenericSender {
      * @return
      */
     public static Transport getInstance(ErrorLogger error_logger, PreferenceManager preference_manager,ReconnectionInterface reconnector) {
-        if (MQTTTransport.m_self == null) // create our MQTT transport
-        {
+        if (MQTTTransport.m_self == null) {
             MQTTTransport.m_self = new MQTTTransport(error_logger,preference_manager,reconnector);
         }
         return MQTTTransport.m_self;
@@ -745,13 +746,10 @@ public class MQTTTransport extends Transport implements GenericSender {
                         this.m_connected = false;
                         this.m_endpoint = endpoint;
                         this.errorLogger().info("MQTTTransport: acquiring blocking connection handle...");
-                        this.m_connection = endpoint.blockingConnection();
+                        this.m_connection = endpoint.blockingConnection();                        
                         if (this.m_connection != null) {
-                            this.errorLogger().info("MQTTTransport: acquiring blocking connection handle acquired!  Connecting...");
-                            this.attemptConnection();
-                            this.errorLogger().info("MQTTTransport: connection handshake completed. Getting connection status...");
-                            this.m_connected = this.m_connection.isConnected();
-                            if (this.m_connected == true) {
+                            this.errorLogger().info("MQTTTransport: connection handle acquired!  Connecting...");
+                            if (this.attemptConnection() == true) {
                                 // CONNECTED!  succesful... record and go...
                                 this.m_has_connected = true;
                                 this.errorLogger().warning("MQTTTransport: Connection to: " + url + " SUCCESSFUL");
@@ -768,18 +766,16 @@ public class MQTTTransport extends Transport implements GenericSender {
                                 this.m_connect_id = id;
                             }
                             else {
+                                // connection failure
                                 this.errorLogger().warning("MQTTTransport: Connection to: " + url + " FAILED");
-                                
-                                // sleep for a short bit...
-                                Utils.waitForABit(this.errorLogger(), this.m_sleep_time);
                             }
                         }
                         else {
                             // unable to connect... 
-                            this.errorLogger().warning("MQTTTransport: MQTT connection instance is NULL. connect() FAILED");
+                            this.errorLogger().critical("MQTTTransport: MQTT connection handle is NULL. connect() FAILED");
                             
-                            // sleep for a short bit...
-                            Utils.waitForABit(this.errorLogger(), this.m_sleep_time);
+                            // do a full bridge reset 
+                            Utils.resetBridge(this.errorLogger(),"Unable to acquire MQTT connection handle");
                         }
                     }
                     catch (Exception ex) {
@@ -804,9 +800,6 @@ public class MQTTTransport extends Transport implements GenericSender {
                                 this.errorLogger().info("MQTT: CERT: " + this.m_pki_cert);
                             }
                         }
-
-                        // sleep for a short bit...
-                        Utils.waitForABit(this.errorLogger(), this.m_sleep_time);
                     }
                 }
                 else {
@@ -814,23 +807,20 @@ public class MQTTTransport extends Transport implements GenericSender {
                     this.errorLogger().warning("MQTTTransport(connect): unable to create instance of MQTT client");
                     this.m_connected = false;
                     
-                    // sleep for a short bit...
-                    Utils.waitForABit(this.errorLogger(), this.m_sleep_time);
+                    // do a full bridge reset 
+                    Utils.resetBridge(this.errorLogger(),"Unable to acquire MQTT connection handle");
                 }
             }
             catch (URISyntaxException ex) {
                 this.errorLogger().critical("MQTTTransport(connect): URI Syntax exception occured", ex);
                 this.m_connected = false;
-                
-                // sleep for a short bit...
-                Utils.waitForABit(this.errorLogger(), this.m_sleep_time);
             }
             catch (Exception ex) {
                 this.errorLogger().critical("MQTTTransport(connect): general exception occured", ex);
                 this.m_connected = false;
                 
-                // sleep for a short bit...
-                Utils.waitForABit(this.errorLogger(), this.m_sleep_time);
+                // do a full bridge reset 
+                Utils.resetBridge(this.errorLogger(),"Unable to acquire MQTT connection handle");
             }
         }
 
@@ -870,9 +860,10 @@ public class MQTTTransport extends Transport implements GenericSender {
     }
     
     // attempt a connection
-    private void attemptConnection() throws Exception {
+    private boolean attemptConnection() throws Exception {
         this.m_connected = false;
         
+        // try a few times to connect... then reset if not able to...
         for(int i=0;i<this.m_max_connect_tries && this.m_connected == false;++i) {
             // DEBUG
             this.errorLogger().info("attemptConnection: Trying to connect()...");
@@ -898,12 +889,20 @@ public class MQTTTransport extends Transport implements GenericSender {
             // wait once more if not connected
             if (this.m_connected == false) {
                 // DEBUG
-                this.errorLogger().info("attemptConnection: RETRY... connect did not succeed... waiting a bit...");
+                this.errorLogger().warning("attemptConnection: RETRY... connect did not succeed... waiting a bit...");
             
                 // wait a bit (2x)
                 Utils.waitForABit(this.errorLogger(), 2*(this.m_sleep_time));
             }
         }
+        
+        // unable to connect
+        if(this.m_connected == false) {
+            this.errorLogger().critical("attemptConnection: multiple connection attemps FAILED!");
+        }
+        
+        // return our connection state
+        return this.m_connected;
     }
 
     // reset our MQTT connection... sometimes it goes wonky...

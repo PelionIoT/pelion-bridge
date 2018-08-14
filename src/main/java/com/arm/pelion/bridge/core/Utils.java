@@ -22,6 +22,7 @@
  */
 package com.arm.pelion.bridge.core;
 
+import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.mbed.lwm2m.DecodingException;
 import com.mbed.lwm2m.EncodingType;
 import com.mbed.lwm2m.LWM2MResource;
@@ -1070,11 +1071,17 @@ public class Utils {
         return null;
     }
     
-    // Help the JSON parser with null strings... ugh
-    public static String helpJSONParser(String json) {
-        if (json != null && json.length() > 0) {
-            return json.replace(":null", ":\"none\"").replace(":\"\"", ":\"none\"").replace("{}","\"none\"");
+    // reset the bridge
+    public static void resetBridge(ErrorLogger logger,String message) {
+        if (logger != null) {
+            // do a full reset 
+            if (logger.getParent() != null && logger.getParent() instanceof Orchestrator) {
+                Orchestrator orchestrator = (Orchestrator)logger.getParent();
+                
+                // RESET
+                logger.warning("Utils: Performing bridge RESET: " + message + "...");
+                orchestrator.reset();
+            }
         }
-        return json;
     }
 }

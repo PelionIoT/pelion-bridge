@@ -24,7 +24,6 @@ package com.arm.pelion.bridge.transport;
 
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
-import com.arm.pelion.bridge.transport.Transport;
 
 /**
  * Receive Thread for inbound message processing

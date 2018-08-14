@@ -25,6 +25,7 @@ package com.arm.pelion.bridge.coordinator.processors.core;
 import com.arm.pelion.bridge.core.Processor;
 import com.arm.pelion.bridge.subscription.managers.BulkSubscriptionManager;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
+import com.arm.pelion.bridge.coordinator.processors.arm.mbedCloudProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.SubscriptionManager;
@@ -268,19 +269,11 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // messages from MQTT come here and are processed...
     public void onMessageReceive(String topic, String message) {
-        String verb = "PUT";
-
         // DEBUG
         this.errorLogger().info("onMessageReceive(Peer): Topic: " + topic + " message: " + message);
-
-        // see if this is our SAMPLE request (i.e. PING)
-        if (this.isSAMPLERequest(topic)) {
-            // To DO
-            this.errorLogger().warning("onMessageReceive(Peer): SAMPLE request: Topic: " + topic + " Message: " + message + " Ignoring (OK).");
-        }
         
         // Get/Put/Post Endpoint Resource Value...
-        else if (this.isEndpointResourceRequest(topic)) {
+        if (this.isEndpointResourceRequest(topic)) {
             String json = null;
 
             // parse the topic to get the endpoint and CoAP verb
@@ -293,7 +286,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
 
             // pull the CoAP verb from the message itself... its JSON... (PRIMARY)
             // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
-            verb = this.getCoAPVerb(message);
+            String verb = this.getCoAPVerb(message);
 
             // get the CoAP value to send
             String value = this.getCoAPValue(message);
@@ -336,49 +329,9 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                 }
             }
         }
-
-        // Endpoint Notification Subscriptions
-        else if (this.isEndpointNotificationSubscriptionRequest(topic)) {
-            // message format (unsubscribe): {"ep":"<endpoint id>","ept":"<endpoint type>","path":"/123/0/1234","verb":"unsubscribe"}
-            // message format (unsubscribe): {"ep":"<endpoint id>","ept":"<endpoint type>","path":"/123/0/1234","verb":"subscribe"}
-            Map parsed = (Map) this.parseJson(message);
-            String json = null;
-            String ep_name = (String) parsed.get("ep");
-            String uri = (String) parsed.get("path");
-            String ep_type = (String) parsed.get("ept");
-            verb = (String) parsed.get("verb");
-            if (parsed != null && verb.equalsIgnoreCase("unsubscribe") == true) {
-                // Unsubscribe 
-                this.errorLogger().info("onMessageReceive(Peer): sending subscription request (remove subscription)");
-                json = this.orchestrator().unsubscribeFromEndpointResource(this.orchestrator().createSubscriptionURI(ep_name, uri), parsed);
-
-                // remove from the subscription list
-                this.errorLogger().info("onMessageReceive(Peer): removing subscription TOPIC: " + topic + " endpoint: " + ep_name + " type: " + ep_type + " uri: " + uri);
-                this.subscriptionsManager().removeSubscription(ep_name, ep_type, uri);
-            }
-            else if (parsed != null && verb.equalsIgnoreCase("subscribe") == true) {
-                if (this.subscriptionsManager().isFullyQualifiedResource(uri) && this.subscriptionsManager().isNotASpecialityResource(uri)) {
-                    // Subscribe
-                    this.errorLogger().info("onMessageReceive(Peer): sending subscription request (add subscription)");
-                    json = this.orchestrator().subscribeToEndpointResource(this.orchestrator().createSubscriptionURI(ep_name, uri), parsed, true);
-
-                    // add to the subscription list
-                    this.errorLogger().info("onMessageReceive(Peer): adding subscription TOPIC: " + topic + " endpoint: " + ep_name + " type: " + ep_type + " uri: " + uri);
-                    this.subscriptionsManager().addSubscription(ep_name, ep_type, uri, true); // assume resource is observable...
-                }
-                else {
-                    // not subscribing to speciality resource
-                    this.errorLogger().info("onMessageReceive(Peer): NOT adding ObjectID(3)/ObjectID(5)/ObjectID(10255) subscription TOPIC: " + topic + " endpoint: " + ep_name + " type: " + ep_type + " uri: " + uri);
-                }
-            }
-            else if (parsed != null) {
-                // verb not recognized
-                this.errorLogger().info("onMessageReceive(Peer): Unable to process subscription request: unrecognized verb: " + verb);
-            }
-            else {
-                // invalid message
-                this.errorLogger().info("onMessageReceive(Peer): Unable to process subscription request: invalid message: " + message);
-            }
+        else {
+            // not a recognized notification
+            this.errorLogger().warning("onMessageReceive(Peer): not a recognized notification/request: MESSAGE: " + message + " TOPIC: " + topic + "... ignoring (OK)");
         }
     }
     
@@ -395,9 +348,21 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // get the endpoint type from the endpoint name
     protected String getEndpointTypeFromEndpointName(String ep_name) {
-        String t = this.subscriptionsManager().endpointTypeFromEndpointName(ep_name);
-        if (t != null) return t;
-        return (String)this.m_endpoint_type_list.get(ep_name);
+        String recorded = this.subscriptionsManager().endpointTypeFromEndpointName(ep_name);
+        if (recorded != null) {
+            // return what the subscription manager has for the endpoint
+            return recorded;
+        }
+        
+        // look for a previously cached value
+        String def = (String)this.m_endpoint_type_list.get(ep_name);
+        if (def == null) {
+            // not available... so use the default
+            def = mbedCloudProcessor.DEFAULT_ENDPOINT_TYPE;
+        }
+        
+        // return the cached/default value
+        return def;
     }
 
     // set the endpoint type from the endpoint name
@@ -476,14 +441,6 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     private boolean isNotObservationOrNewRegistration(String topic) {
         if (topic != null) {
             return (topic.contains(this.m_observation_key) == false && topic.contains("new_registration") == false);
-        }
-        return false;
-    }
-    
-    // test to check if a topic is SAMPLE request
-    protected boolean isSAMPLERequest(String topic) {
-        if (topic != null && topic.contains("SAMPLE")) {
-            return true;
         }
         return false;
     }
@@ -591,20 +548,6 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         }
         return null;
     }
-
-    // test to check if a topic is requesting endpoint resource subscription actions
-    protected boolean isEndpointNotificationSubscriptionRequest(String topic) {
-        boolean is_endpoint_notification_subscription = false;
-
-        // simply check for "request/subscriptions"
-        if (topic != null && topic.contains("request/subscriptions")) {
-            is_endpoint_notification_subscription = true;
-        }
-
-        // DEBUG
-        this.errorLogger().info("isEndpointNotificationSubscription: topic: " + topic + " is: " + is_endpoint_notification_subscription);
-        return is_endpoint_notification_subscription;
-    }
     
     // response is an AsyncResponse?
     protected boolean isAsyncResponse(String response) {
@@ -613,7 +556,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // returns  /mbed/<qualifier>
     protected String createBaseTopic(String qualifier) {
-        return this.getTopicRoot() + qualifier;
+        return this.getTopicRoot() + "/" + qualifier;
     }
     
     // get the endpoint name from the topic (request topic sent) 
@@ -1111,30 +1054,18 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // intialize a listener for the peer
     public void initListener() {
-        // XXX to do
-        this.errorLogger().info("initListener(BASE): not implemented");
+        // not used
     }
 
     // stop the listener for a peer
     public void stopListener() {
-        // XXX to do
-        this.errorLogger().info("stopListener(BASE): not implemented");
+        // not used
     }
     
     // GenericSender Implementation: send a message
     @Override
     public void sendMessage(String to, String message) {
-        // send a message over Peer...
-        this.errorLogger().info("sendMessage(Peer): Sending Message to: " + to + " message: " + message);
-        
-        // send the message to the peer environment
-    }
-    
-    // Create the authentication hash (default)
-    public String createAuthenticationHash() {
-        // just create a hash of something unique to the peer side... 
-        String peer_secret = "";
-        return Utils.createHash(peer_secret);
+        // not used
     }
     
     // process new device registration
