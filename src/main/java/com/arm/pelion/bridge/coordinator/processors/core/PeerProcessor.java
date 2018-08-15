@@ -300,7 +300,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
 
             // perform the operation
             json = this.orchestrator().processEndpointResourceOperation(verb, ep_name, uri, value, options);
-
+            
             // send a response back if we have one...
             if (json != null) {
                 // Strip the request tag
@@ -327,6 +327,10 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                     // not an AsyncResponse... so just emit it immediately... (GET only)
                     this.sendMessage(response_topic, json);
                 }
+            }
+            else {
+                // Error - no response (due to error condition)
+                this.errorLogger().warning("onMessageReceive(Peer): no response to request VERB(" + verb + ")... null response (ERROR)");
             }
         }
         else {

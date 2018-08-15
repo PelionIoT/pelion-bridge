@@ -1113,22 +1113,27 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             if (verb.equalsIgnoreCase(("get"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking GET: " + url);
                 json = this.httpsGet(url);
+                if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("put"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking PUT: " + url + " DATA: " + value);
                 json = this.httpsPut(url, value);
+                if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("post"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking POST: " + url + " DATA: " + value);
                  json = this.httpsPost(url, value, "plain/text", this.m_api_token);  // nail content_type to "plain/text"
+                 if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("delete"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking DELETE: " + url);
                  json = this.httpsDelete(url, "plain/text", this.m_api_token);      // nail content_type to "plain/text"
+                 if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("del"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking DELETE: " + url);
                 json = this.httpsDelete(url, "plain/text", this.m_api_token);      // nail content_type to "plain/text"
+                if (json == null) json = "";
             }
         }
         else {
