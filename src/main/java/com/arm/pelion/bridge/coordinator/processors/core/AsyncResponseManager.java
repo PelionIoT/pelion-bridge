@@ -118,7 +118,7 @@ public class AsyncResponseManager {
     public void recordAsyncResponse(String response, String coap_verb, GenericSender sender, PeerProcessor proc, String response_topic, String reply_topic, String message, String ep_name, String uri, AsyncResponseProcessor processor, Map orig_endpoint) {
         // we have to catch exceptions from the JSON parser... 
         try {
-            if (response != null && response.length() > 0) {
+            if (response != null) {
                 // create a new AsyncResponse record
                 HashMap<String, Object> record = new HashMap<>();
 

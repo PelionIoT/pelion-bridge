@@ -876,25 +876,28 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                 if (payload != null) {
                     // trim 
                     payload = payload.trim();
+                    
+                    // empty value
+                    String value = "";
 
                     // parse if present
                     if (payload.length() > 0) {
                         // Base64 decode
-                        String value = Utils.decodeCoAPPayload(payload);
-
-                        // build out the response
-                        String uri = this.getURIFromAsyncID((String) async_response.get("id"));
-                        String ep_name = this.getEndpointNameFromAsyncID((String) async_response.get("id"));
-
-                        // build out the observation
-                        String message = this.createObservation(verb, ep_name, uri, value);
-
-                        // DEBUG
-                        this.errorLogger().info("formatAsyncResponseAsReply: Created(" + verb + ") GET observation: " + message + " reply topic: " + async_response.get("reply_topic"));
-
-                        // return the message
-                        return message;
+                        value = Utils.decodeCoAPPayload(payload);
                     }
+                       
+                    // build out the response
+                    String uri = this.getURIFromAsyncID((String) async_response.get("id"));
+                    String ep_name = this.getEndpointNameFromAsyncID((String) async_response.get("id"));
+
+                    // build out the observation
+                    String message = this.createObservation(verb, ep_name, uri, value);
+
+                    // DEBUG
+                    this.errorLogger().info("formatAsyncResponseAsReply: Created(" + verb + ") GET observation: " + message + " reply topic: " + async_response.get("reply_topic"));
+
+                    // return the message
+                    return message;
                 }
                 else {
                     // GET should always have a payload
