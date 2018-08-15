@@ -302,7 +302,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             json = this.orchestrator().processEndpointResourceOperation(verb, ep_name, uri, value, options);
 
             // send a response back if we have one...
-            if (json != null && json.length() > 0) {
+            if (json != null) {
                 // Strip the request tag
                 String response_topic = this.createResourceResponseTopic(ep_type, ep_name, uri);
 

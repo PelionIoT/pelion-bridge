@@ -693,12 +693,12 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
     
     // GenericSender Implementation: send a message
     @Override
-    public void sendMessage(String to, String message) {
+    public void sendMessage(String topic, String message) {
         // send a message over Google Cloud...
-        this.errorLogger().info("sendMessage(MQTT-STD): Sending Message to: " + to + " message: " + message);
+        this.errorLogger().info("sendMessage(MQTT-STD): Sending Message to: " + topic + " message: " + message);
         
         // send the message over MQTT
-        this.mqtt().sendMessage(to, message);
+        this.mqtt().sendMessage(topic, message);
     }
 
     // OVERRIDE: Connection stock MQTT...
