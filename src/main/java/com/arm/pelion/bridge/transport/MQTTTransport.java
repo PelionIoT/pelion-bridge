@@ -22,7 +22,6 @@
  */
 package com.arm.pelion.bridge.transport;
 
-import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ReconnectionInterface;
 import com.arm.pelion.bridge.core.ErrorLogger;
@@ -104,6 +103,7 @@ public class MQTTTransport extends Transport implements GenericSender {
     private String m_connect_id = null;
     private boolean m_set_mqtt_version = true;  
     private String[] m_unsubscribe_topics = null;
+    private boolean m_retain = false;
     
     // reset mode/state
     private boolean m_is_in_reset = false;
@@ -175,6 +175,7 @@ public class MQTTTransport extends Transport implements GenericSender {
         this.m_set_mqtt_version = true;
         this.m_has_connected = false;
         this.m_is_in_reset = false;
+        this.m_retain = false;
         
         this.m_mqtt_use_ssl = this.prefBoolValue("mqtt_use_ssl", this.m_suffix);
         this.m_debug_creds = this.prefBoolValue("mqtt_debug_creds", this.m_suffix);
@@ -222,6 +223,7 @@ public class MQTTTransport extends Transport implements GenericSender {
         this.m_set_mqtt_version = true;
         this.m_has_connected = false;
         this.m_is_in_reset = false;
+        this.m_retain = false;
 
         this.m_mqtt_use_ssl = this.prefBoolValue("mqtt_use_ssl", this.m_suffix);
         this.m_debug_creds = this.prefBoolValue("mqtt_debug_creds", this.m_suffix);
@@ -1022,6 +1024,16 @@ public class MQTTTransport extends Transport implements GenericSender {
             this.resetConnection();
         }
     }
+    
+    // set the retain option
+    public void setRetain(boolean retain) {
+        this.m_retain = retain;
+    }
+    
+    // get the retaion option
+    private boolean getRetain() {
+        return this.m_retain;
+    }
 
     /**
      * Publish a MQTT message
@@ -1048,7 +1060,7 @@ public class MQTTTransport extends Transport implements GenericSender {
             try {
                 // DEBUG
                 this.errorLogger().info("sendMessage: message: " + message + " Topic: " + topic);
-                this.m_connection.publish(topic, message.getBytes(), qos, false);
+                this.m_connection.publish(topic, message.getBytes(), qos, this.getRetain());
 
                 // DEBUG
                 this.errorLogger().info("sendMessage(MQTT): message sent. SUCCESS");
