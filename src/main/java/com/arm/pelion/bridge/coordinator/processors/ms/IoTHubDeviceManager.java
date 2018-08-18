@@ -410,7 +410,13 @@ public class IoTHubDeviceManager extends DeviceManager {
         }
 
         // return our endpoint details
-        return ep.map();
+        if (ep != null) {
+            return ep.map();
+        }
+        
+        // returning empty map
+        this.errorLogger().warning("IoTHub: parseDeviceDetails: returning empty map!"); 
+        return null;
     }
 
     // Parse the AddDevice result and capture key elements 
