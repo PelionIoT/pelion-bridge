@@ -64,4 +64,5 @@ public interface PelionProcessorInterface {
     // Webhook management
     public boolean setWebhook();
     public boolean resetWebhook();
+    public void removeWebhook();
 }

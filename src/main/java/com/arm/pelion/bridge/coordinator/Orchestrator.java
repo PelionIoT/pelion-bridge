@@ -361,6 +361,11 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     public boolean resetWebhook() {
         return this.mbed_cloud_processor().resetWebhook();
     }
+    
+    @Override
+    public void removeWebhook() {
+        this.mbed_cloud_processor().removeWebhook();
+    }
 
     @Override
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {

@@ -22,6 +22,7 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.arm;
 
+import com.arm.pelion.bridge.coordinator.processors.core.LongPollProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.core.HttpProcessor;
 import com.arm.pelion.bridge.core.ApiResponse;
@@ -93,21 +94,28 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // Pelion Connect API version
     private String m_connect_api_version = "2";
+    
+    // Pelion Device API version
     private String m_device_api_version = "3";
     
     // Pelion duplicate message detection
     private String m_last_message = null;
 
     // constructor
-    @SuppressWarnings("empty-statement")
     public PelionProcessor(Orchestrator orchestrator, HttpTransport http) {
         super(orchestrator, http);
+        
+        // Pelion Connection Parameters: Host, Port
         this.m_pelion_api_hostname = orchestrator.preferences().valueOf("mds_address");
         if (this.m_pelion_api_hostname == null || this.m_pelion_api_hostname.length() == 0) {
             this.m_pelion_api_hostname = orchestrator.preferences().valueOf("api_endpoint_address");
         }
         this.m_pelion_api_port = orchestrator.preferences().intValueOf("mds_port");
+        
+        // Last message buffer init
         this.m_last_message = null;
+        
+        // configure webhook setup retries
         this.m_webook_num_retries = orchestrator.preferences().intValueOf("mds_webhook_num_retries");
         if (this.m_webook_num_retries <= 0) {
             this.m_webook_num_retries = PELION_WEBHOOK_RETRIES;
@@ -118,7 +126,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         this.m_long_poll_uri = this.prefValue("mds_long_poll_uri");
         
         // display number of webhook setup retries allowed
-        this.errorLogger().warning("pelionProcessor: Number of webhook retries set at: " + this.m_webook_num_retries);
+        this.errorLogger().warning("PelionProcessor: Number of webhook setup retries configured to: " + this.m_webook_num_retries);
 
         // get the device attributes path
         this.m_device_attributes_path = orchestrator.preferences().valueOf("mds_device_attributes_path");
@@ -146,21 +154,16 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // configuration for allowing de-registration messages to remove device shadows...or not.
         this.m_delete_device_on_deregistration = this.prefBoolValue("mds_remove_on_deregistration");
         if (this.m_delete_device_on_deregistration == true) {
-            orchestrator.errorLogger().warning("pelionProcessor: device removal on deregistration ENABLED");
+            orchestrator.errorLogger().warning("PelionProcessor: device removal on de-registration ENABLED");
         }
         else {
-            orchestrator.errorLogger().warning("pelionProcessor: device removal on deregistration DISABLED");
+            orchestrator.errorLogger().warning("PelionProcessor: device removal on de-registration DISABLED");
         }
         
-        // OVEERRIDE - long polling vs. Webhook
-        this.longPollOverrideSetup();
-    }
-    
-    // override use of long polling vs. webhooks for notifications
-    private void longPollOverrideSetup() {
+        // finalize long polling setup if enabled
         if (this.longPollEnabled()) {
             // DEBUG
-            this.errorLogger().warning("pelionProcessor: Long Poll Override ENABLED. Using Long Polling (webhook DISABLED)");
+            this.errorLogger().warning("PelionProcessor: Long Polling ENABLED. Webhook usage DISABLED.");
 
             // override use of long polling vs webhooks for notifications
             this.m_long_poll_url = this.constructLongPollURL();
@@ -170,38 +173,133 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
     }
     
-    // Long polling enabled or disabled?
-    private boolean longPollEnabled() {
-        return (this.m_enable_long_poll == true && this.m_long_poll_uri != null && this.m_long_poll_uri.length() > 0);
+    // device removal on deregistration?
+    @Override
+    public boolean deviceRemovedOnDeRegistration() {
+        return this.m_delete_device_on_deregistration;
     }
     
-    // get the long polling URL
-    public String longPollURL() {
-        return this.m_long_poll_url;
+    // process device-deletions of endpoints (mbed Cloud only)
+    @Override
+    public void processDeviceDeletions(String[] endpoints) {
+        // XXX TO DO
     }
     
-    // build out the long poll URL
-    private String constructLongPollURL() {
-        String url = this.createBaseURL() + "/" + this.m_long_poll_uri;
-        this.errorLogger().info("constructLongPollURL: Long Poll URL: " + url);
-        return url;
+    // process de-registeration of endpoints
+    @Override
+    public void processDeregistrations(String[] endpoints) {
+        for (int i = 0; i < endpoints.length; ++i) {
+            // create the endpoint subscription removal URL...
+            String url = this.createBaseURL() + "/endpoints/" + endpoints[i];
+            this.errorLogger().info("processDeregistrations: sending endpoint subscription removal request: " + url);
+            this.httpsDelete(url);
+        }
+    }
+    
+    // process registerations-expired of endpoints
+    @Override
+    public void processRegistrationsExpired(String[] endpoints) {
+        // nothing to process for device server
+    }
+    
+    // process the notification
+    @Override
+    public synchronized void processNotificationMessage(HttpServletRequest request, HttpServletResponse response) {
+        // read the request...
+        String json = this.read(request);
+        if (json != null && json.length() > 0 && json.equalsIgnoreCase("{}") == false) {
+            // Check for message duplication... 
+            if (this.isDuplicateMessage(json) == false) {
+                // record the "last" message
+                this.m_last_message = json;
+                
+                // process and route the mbed Cloud message
+                this.processDeviceServerMessage(json, request);
+            }
+            else {
+                // DUPLICATE!  So ignore it
+                this.errorLogger().info("processNotificationMessage(mbed Cloud): duplicate message discovered... ignoring...(OK).");
+            }
+        }
+        
+        // ALWAYS send the response back as an ACK to mbed Cloud
+        this.sendResponseToPelion("application/json;charset=utf-8", request, response, "", "{}");
+    }
+    
+    // remove the mbed Cloud Connector Notification Callback webhook
+    @Override
+    public void removeWebhook() {
+        // create the dispatch URL
+        String dispatch_url = this.createWebhookDispatchURL();
+
+        // delete the callback URL (SSL)
+        this.httpsDelete(dispatch_url);
     }
 
-    // start the long polling thread
-    private void startLongPolling() {
-        // now long poll
-        if (this.m_long_poll_processor == null) {
-            this.m_long_poll_processor = new LongPollProcessor(this);
-            this.m_long_poll_processor.startPolling();
-        }
+    // reset the mbed Cloud Notification Callback URL
+    @Override
+    public boolean resetWebhook() {        
+        // delete the webhook
+        this.removeWebhook();
+        
+        // set the webhook
+        return setWebhook();
     }
-    
-    // sanitize the endpoint type
-    private String sanitizeEndpointType(String ept) {
-        if (ept == null || ept.length() == 0) {
-            return this.m_def_ep_type;
+
+    // set our mbed Cloud Notification Callback URL
+    @Override
+    public boolean setWebhook() {
+        boolean ok = false;
+        if (this.longPollEnabled() == false) {
+            for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
+                this.errorLogger().warning("PelionProcessor: Setting up webhook to mbed Cloud...");
+                String target_url = this.createWebhookURL();
+                ok = this.setWebhook(target_url);
+
+                // EXPERIMENTAL - test for bulk subscriptions setting
+                if (ok) {
+                    // bulk subscriptions enabled
+                    this.errorLogger().warning("PelionProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
+                    ok = this.setupBulkSubscriptions();
+                    if (ok) {
+                        // scan for devices now
+                        this.errorLogger().warning("PelionProcessor: Initial scan for mbed devices...");
+                        this.startDeviceDiscovery();
+                    }
+                    else {
+                        // ERROR
+                        this.errorLogger().warning("PelionProcessor: Webhook not setup. Not scanning for devices yet...");
+                    }
+                }
+
+                // wait a bit if we have failed
+                else {
+                    // log and wait
+                    this.errorLogger().warning("PelionProcessor: Waiting a bit... then retry establishing webhook to mbed Cloud...");
+                    Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
+                }
+            }
+
+            // Final status
+            if (ok) {
+                // SUCCESS
+                this.errorLogger().warning("PelionProcessor: webhook setup SUCCESS");
+            }
+            else {
+                // FAILURE
+                this.errorLogger().critical("PelionProcessor: UNABLE TO SET WEBHOOK. Resetting bridge...");
+
+                // RESET
+                this.orchestrator().reset();
+            }
         }
-        return ept;
+        else {
+            // not used by long polling
+            ok = true;
+        }
+        
+        // return our status
+        return ok;
     }
     
     // process an API request operation
@@ -260,7 +358,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         
         // return a sanitized response
-        String sanitized = this.sanitizeResponse(response);
+        String sanitized = this.sanitizeApiResponse(response);
         
         // DEBUG
         this.errorLogger().info("executeApiRequest(mbed Cloud):Sanitized API Response: " + sanitized);
@@ -270,7 +368,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
     
     // sanitize the API response
-    private String sanitizeResponse(String response) {
+    private String sanitizeApiResponse(String response) {
         if (response == null || response.length() <= 0) {
             // DEBUG
             this.errorLogger().info("APIResponse: Response was EMPTY (OK).");
@@ -297,75 +395,39 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
         }
     }
-    
-    // device removal on deregistration?
-    @Override
-    public boolean deviceRemovedOnDeRegistration() {
-        return this.m_delete_device_on_deregistration;
+
+    // determine if our callback URL has already been set
+    private boolean webhookSet(String target_url) {
+        return this.webhookSet(target_url, false);
     }
 
-    // setup the mbed device server default URI
-    private void setupPelionCloudURI() {
-        this.m_pelion_cloud_uri = "https://";
-        this.m_pelion_api_port = 443;
-    }
-
-    // validate the notification
-    private Boolean validateNotification(HttpServletRequest request) {
-        if (request != null) {
-            boolean validated = false;
-            if (request.getHeader("Authentication") != null) {
-                String calc_hash = this.orchestrator().createAuthenticationHash();
-                String header_hash = request.getHeader("Authentication");
-                validated = Utils.validateHash(header_hash, calc_hash);
-
-                // DEBUG
-                if (!validated) {
-                    this.errorLogger().warning("validateNotification: failed: calc: " + calc_hash + " header: " + header_hash);
-                }
-
-                // return validation status
-                return validated;
+    // determine if our callback URL has already been set
+    private boolean webhookSet(String target_url, boolean skip_check) {
+        String current_url = this.getWebhook();
+        this.errorLogger().info("PelionProcessor: current_url: " + current_url + " target_url: " + target_url);
+        boolean is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
+        if (is_set == true && skip_check == false) {
+            // for Connector, lets ensure that we always have the expected Auth Header setup. So, while the same, lets delete and re-install...
+            this.errorLogger().info("PelionProcessor: deleting existing webhook URL...");
+            this.removeWebhook();
+            this.errorLogger().info("PelionProcessor: re-establishing webhook URL...");
+            is_set = this.setWebhook(target_url, skip_check); // skip_check, go ahead and assume we need to set it...
+            if (is_set) {
+                // SUCCESS
+                this.errorLogger().info("PelionProcessor: re-checking that webhook URL is properly set...");
+                current_url = this.getWebhook();
+                is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
             }
             else {
-                // using push-url. No authentication possible.
-                return true;
+                // ERROR
+                this.errorLogger().info("PelionProcessor: re-checking that webhook URL is properly set...");
             }
         }
-        else {
-            // no request - so assume we are validated
-            return true;
-        }
+        return is_set;
     }
-
-    // create any authentication header JSON that may be necessary
-    @SuppressWarnings("empty-statement")
-    private Map createWebhookHeaderAuthJSON() {
-        // Create a hashmap and fill it
-        HashMap<String,String> map = new HashMap<>();
-        map.put("Authentication",this.orchestrator().createAuthenticationHash());
-        return map;
-    }
-
-    // create our webhook URL that we will get called back on...
-    private String createWebhookURL() {
-        String url = null;
-
-        String local_ip = Utils.getExternalIPAddress(this.prefBoolValue("mds_use_gw_address"), this.prefValue("mds_gw_address"));
-        int local_port = this.prefIntValue("mds_gw_port") + 1;
-        String notify_uri = this.prefValue("mds_gw_context_path") + this.prefValue("mds_gw_events_path");
-
-        // build and return the webhook callback URL
-        return this.m_pelion_cloud_uri + local_ip + ":" + local_port + notify_uri;
-    }
-
-    // mbed Cloud: create the dispatch URL for changing the notification webhook URL
-    private String createWebhookDispatchURL() {
-        return this.createBaseURL() + "/notification/callback";
-    }
-
+    
     // get the currently configured callback URL (public, used by webhook validator)
-    public String getWebhook() {
+    private String getWebhook() {
         String url = null;
         String headers = null;
 
@@ -403,151 +465,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         return url;
     }
 
-    // determine if our callback URL has already been set
-    private boolean webhookSet(String target_url) {
-        return this.webhookSet(target_url, false);
-    }
-
-    // determine if our callback URL has already been set
-    private boolean webhookSet(String target_url, boolean skip_check) {
-        String current_url = this.getWebhook();
-        this.errorLogger().info("pelionProcessor: current_url: " + current_url + " target_url: " + target_url);
-        boolean is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
-        if (is_set == true && skip_check == false) {
-            // for Connector, lets ensure that we always have the expected Auth Header setup. So, while the same, lets delete and re-install...
-            this.errorLogger().info("pelionProcessor: deleting existing webhook URL...");
-            this.removeWebhook();
-            this.errorLogger().info("pelionProcessor: re-establishing webhook URL...");
-            is_set = this.setWebhook(target_url, skip_check); // skip_check, go ahead and assume we need to set it...
-            if (is_set) {
-                // SUCCESS
-                this.errorLogger().info("pelionProcessor: re-checking that webhook URL is properly set...");
-                current_url = this.getWebhook();
-                is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
-            }
-            else {
-                // ERROR
-                this.errorLogger().info("pelionProcessor: re-checking that webhook URL is properly set...");
-            }
-        }
-        return is_set;
-    }
-
-    // remove the mbed Cloud Connector Notification Callback webhook
-    public void removeWebhook() {
-        // create the dispatch URL
-        String dispatch_url = this.createWebhookDispatchURL();
-
-        // delete the callback URL (SSL)
-        this.httpsDelete(dispatch_url);
-    }
-
-    // reset the mbed Cloud Notification Callback URL
-    @Override
-    public boolean resetWebhook() {        
-        // delete the webhook
-        this.removeWebhook();
-        
-        // set the webhook
-        return setWebhook();
-    }
-
-    // set our mbed Cloud Notification Callback URL
-    @Override
-    public boolean setWebhook() {
-        boolean ok = false;
-        if (this.longPollEnabled() == false) {
-            for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
-                this.errorLogger().warning("pelionProcessor: Setting up webhook to mbed Cloud...");
-                String target_url = this.createWebhookURL();
-                ok = this.setWebhook(target_url);
-
-                // EXPERIMENTAL - test for bulk subscriptions setting
-                if (ok) {
-                    // bulk subscriptions enabled
-                    this.errorLogger().warning("pelionProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
-                    ok = this.setupBulkSubscriptions();
-                    if (ok) {
-                        // scan for devices now
-                        this.errorLogger().warning("pelionProcessor: Initial scan for mbed devices...");
-                        this.startDeviceDiscovery();
-                    }
-                    else {
-                        // ERROR
-                        this.errorLogger().warning("pelionProcessor: Webhook not setup. Not scanning for devices yet...");
-                    }
-                }
-
-                // wait a bit if we have failed
-                else {
-                    // log and wait
-                    this.errorLogger().warning("pelionProcessor: Waiting a bit... then retry establishing webhook to mbed Cloud...");
-                    Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
-                }
-            }
-
-            // Final status
-            if (ok) {
-                // SUCCESS
-                this.errorLogger().warning("pelionProcessor: webhook setup SUCCESS");
-            }
-            else {
-                // FAILURE
-                this.errorLogger().critical("pelionProcessor: UNABLE TO SET WEBHOOK. Resetting bridge...");
-
-                // RESET
-                this.orchestrator().reset();
-            }
-        }
-        else {
-            // not used by long polling
-            ok = true;
-        }
-        
-        // return our status
-        return ok;
-    }
-    
-    // establish bulk subscription 
-    private boolean setupBulkSubscriptions() {
-        boolean ok = false;
-        
-        // DEBUG
-        this.errorLogger().warning("pelionProcessor: setting up bulk subscriptions...");
-        
-        // JSON for the bulk subscription (must be an array)
-        String json = "[" + this.createJSONMessage("endpoint-name","*") + "]";
-        
-        // Create the URI for the bulk subscription PUT
-        String url = this.createBaseURL() + "/subscriptions";
-        
-        // DEBUG
-        this.errorLogger().info("pelionProcessor: bulk subscriptions URL: " + url + " DATA: " + json);
-        
-        // send PUT to establish the bulk subscriptions
-        String result = this.httpsPut(url, json, "application/json", this.apiToken());
-        int error_code = this.getLastResponseCode();
-        
-        // DEBUG
-        if (result != null && result.length() > 0) {
-            this.errorLogger().info("pelionProcessor: bulk subscriptions setup RESULT: " + result);
-        }
-        
-        // check the setup error code 
-        if (error_code == 204) {    // SUCCESS response code: 204
-            // success!
-            this.errorLogger().warning("pelionProcessor: bulk subscriptions setup SUCCESS: Code: " + error_code);
-            ok = true;
-        }
-        else {
-            // failure
-            this.errorLogger().warning("pelionProcessor: bulk subscriptions setup FAILED: Code: " + error_code);
-        }
-        
-        // return our status
-        return ok;
-    }
-
     // set our mbed Cloud Notification Callback URL
     private boolean setWebhook(String target_url) {
         return this.setWebhook(target_url, true); // default is to check if the URL is already set... 
@@ -581,7 +498,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
 
             // DEBUG
-            this.errorLogger().info("pelionProcessor: json: " + json + " dispatch: " + dispatch_url);
+            this.errorLogger().info("PelionProcessor: json: " + json + " dispatch: " + dispatch_url);
 
             // set the callback URL (SSL)
             this.httpsPut(dispatch_url, json);
@@ -589,14 +506,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             // check that it succeeded
             if (!this.webhookSet(target_url, !check_url_set)) {
                 // DEBUG
-                this.errorLogger().warning("pelionProcessor: ERROR: unable to set callback URL to: " + target_url);
+                this.errorLogger().warning("PelionProcessor: ERROR: unable to set callback URL to: " + target_url);
                 
                 // not set...
                 webhook_set_ok = false;
             }
             else {
                 // DEBUG
-                this.errorLogger().info("pelionProcessor: notification URL set to: " + target_url + " (SUCCESS)");
+                this.errorLogger().info("PelionProcessor: notification URL set to: " + target_url + " (SUCCESS)");
                 
                 // SUCCESS
                 webhook_set_ok = true;
@@ -604,7 +521,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         else {
             // DEBUG
-            this.errorLogger().info("pelionProcessor: notification URL already set to: " + target_url + " (OK)");
+            this.errorLogger().info("PelionProcessor: notification URL already set to: " + target_url + " (OK)");
             
             // SUCCESS
             webhook_set_ok = true;
@@ -613,52 +530,30 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // return our status
         return webhook_set_ok;
     }
+    
+    // create any authentication header JSON that may be necessary
+    private Map createWebhookHeaderAuthJSON() {
+        // Create a hashmap and fill it
+        HashMap<String,String> map = new HashMap<>();
+        map.put("Authentication",this.orchestrator().createAuthenticationHash());
+        return map;
+    }
 
-    // process device-deletions of endpoints (mbed Cloud only)
-    @Override
-    public void processDeviceDeletions(String[] endpoints) {
-        // XXX TO DO
+    // create our webhook URL that we will get called back on...
+    private String createWebhookURL() {
+        String url = null;
+
+        String local_ip = Utils.getExternalIPAddress(this.prefBoolValue("mds_use_gw_address"), this.prefValue("mds_gw_address"));
+        int local_port = this.prefIntValue("mds_gw_port") + 1;
+        String notify_uri = this.prefValue("mds_gw_context_path") + this.prefValue("mds_gw_events_path");
+
+        // build and return the webhook callback URL
+        return this.m_pelion_cloud_uri + local_ip + ":" + local_port + notify_uri;
     }
-    
-    // process de-registeration of endpoints
-    @Override
-    public void processDeregistrations(String[] endpoints) {
-        for (int i = 0; i < endpoints.length; ++i) {
-            // create the endpoint subscription removal URL...
-            String url = this.createBaseURL() + "/endpoints/" + endpoints[i];
-            this.errorLogger().info("processDeregistrations: sending endpoint subscription removal request: " + url);
-            this.httpsDelete(url);
-        }
-    }
-    
-    // process registerations-expired of endpoints
-    @Override
-    public void processRegistrationsExpired(String[] endpoints) {
-        // nothing to process for device server
-    }
-    
-    // process the notification
-    @Override
-    public synchronized void processNotificationMessage(HttpServletRequest request, HttpServletResponse response) {
-        // read the request...
-        String json = this.read(request);
-        if (json != null && json.length() > 0 && json.equalsIgnoreCase("{}") == false) {
-            // Check for message duplication... 
-            if (this.isDuplicateMessage(json) == false) {
-                // record the "last" message
-                this.m_last_message = json;
-                
-                // process and route the mbed Cloud message
-                this.processDeviceServerMessage(json, request);
-            }
-            else {
-                // DUPLICATE!  So ignore it
-                this.errorLogger().info("processNotificationMessage(mbed Cloud): duplicate message discovered... ignoring...(OK).");
-            }
-        }
-        
-        // ALWAYS send the response back as an ACK to mbed Cloud
-        this.sendResponseToPelion("application/json;charset=utf-8", request, response, "", "{}");
+
+    // mbed Cloud: create the dispatch URL for changing the notification webhook URL
+    private String createWebhookDispatchURL() {
+        return this.createBaseURL() + "/notification/callback";
     }
     
     // check for duplicated messages
@@ -1202,6 +1097,114 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private String createCoAPURL(String ep_name, String uri) {
         String url = this.createBaseURL() + "/endpoints/" + ep_name + uri;
         return url;
+    }
+    
+    // sanitize the endpoint type
+    private String sanitizeEndpointType(String ept) {
+        if (ept == null || ept.length() == 0) {
+            return this.m_def_ep_type;
+        }
+        return ept;
+    }
+    
+    // Long polling enabled or disabled?
+    private boolean longPollEnabled() {
+        return (this.m_enable_long_poll == true && this.m_long_poll_uri != null && this.m_long_poll_uri.length() > 0);
+    }
+    
+    // get the long polling URL
+    public String longPollURL() {
+        return this.m_long_poll_url;
+    }
+    
+    // build out the long poll URL
+    private String constructLongPollURL() {
+        String url = this.createBaseURL() + "/" + this.m_long_poll_uri;
+        this.errorLogger().info("constructLongPollURL: Long Poll URL: " + url);
+        return url;
+    }
+
+    // start the long polling thread
+    private void startLongPolling() {
+        // now long poll
+        if (this.m_long_poll_processor == null) {
+            this.m_long_poll_processor = new LongPollProcessor(this);
+            this.m_long_poll_processor.startPolling();
+        }
+    }
+    
+    // establish bulk subscription 
+    private boolean setupBulkSubscriptions() {
+        boolean ok = false;
+        
+        // DEBUG
+        this.errorLogger().warning("PelionProcessor: setting up bulk subscriptions...");
+        
+        // JSON for the bulk subscription (must be an array)
+        String json = "[" + this.createJSONMessage("endpoint-name","*") + "]";
+        
+        // Create the URI for the bulk subscription PUT
+        String url = this.createBaseURL() + "/subscriptions";
+        
+        // DEBUG
+        this.errorLogger().info("PelionProcessor: bulk subscriptions URL: " + url + " DATA: " + json);
+        
+        // send PUT to establish the bulk subscriptions
+        String result = this.httpsPut(url, json, "application/json", this.apiToken());
+        int error_code = this.getLastResponseCode();
+        
+        // DEBUG
+        if (result != null && result.length() > 0) {
+            this.errorLogger().info("PelionProcessor: bulk subscriptions setup RESULT: " + result);
+        }
+        
+        // check the setup error code 
+        if (error_code == 204) {    // SUCCESS response code: 204
+            // success!
+            this.errorLogger().warning("PelionProcessor: bulk subscriptions setup SUCCESS: Code: " + error_code);
+            ok = true;
+        }
+        else {
+            // failure
+            this.errorLogger().warning("PelionProcessor: bulk subscriptions setup FAILED: Code: " + error_code);
+        }
+        
+        // return our status
+        return ok;
+    }
+    
+    // setup the mbed device server default URI
+    private void setupPelionCloudURI() {
+        this.m_pelion_cloud_uri = "https://";
+        this.m_pelion_api_port = 443;
+    }
+    
+    // validate the notification
+    private Boolean validateNotification(HttpServletRequest request) {
+        if (request != null) {
+            boolean validated = false;
+            if (request.getHeader("Authentication") != null) {
+                String calc_hash = this.orchestrator().createAuthenticationHash();
+                String header_hash = request.getHeader("Authentication");
+                validated = Utils.validateHash(header_hash, calc_hash);
+
+                // DEBUG
+                if (!validated) {
+                    this.errorLogger().warning("validateNotification: failed: calc: " + calc_hash + " header: " + header_hash);
+                }
+
+                // return validation status
+                return validated;
+            }
+            else {
+                // using push-url. No authentication possible.
+                return true;
+            }
+        }
+        else {
+            // no request - so assume we are validated
+            return true;
+        }
     }
     
     // discovery thread 

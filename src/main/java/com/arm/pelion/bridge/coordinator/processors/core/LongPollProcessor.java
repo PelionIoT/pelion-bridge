@@ -20,8 +20,9 @@
  * limitations under the License.
  *
  */
-package com.arm.pelion.bridge.coordinator.processors.arm;
+package com.arm.pelion.bridge.coordinator.processors.core;
 
+import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.core.ErrorLogger;
 
 /**
