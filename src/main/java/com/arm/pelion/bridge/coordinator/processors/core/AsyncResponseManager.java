@@ -1,6 +1,6 @@
 /**
  * @file    AsyncResponseManager.java
- * @brief async response manager for mDS async response handling in connector bridge
+ * @brief async response manager for Pelion async response handling in pelion-bridge
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -31,7 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * async response manager handling async responses from mDS for connector-bridge
+ * async response manager handling async responses from Pelion
  *
  * @author Doug Anson
  */

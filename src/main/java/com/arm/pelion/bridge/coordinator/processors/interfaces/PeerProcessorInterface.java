@@ -1,6 +1,6 @@
 /**
  * @file    PeerInterface.java
- * @brief Generic Peer Interface for the connector bridge
+ * @brief Generic Peer Interface for the pelion-bridge
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -25,40 +25,40 @@ import java.util.Map;
 
 /**
  * This interface defines the exposed methods of a peer processor (such as a GenericMQTTProcessor) 
- * that are consumed by the mbed device server processor
+ * that are consumed by the Pelion processor
  *
  * @author Doug Anson
  */
 public interface PeerProcessorInterface {
 
-    // create peer-centric authentication hash for mDS webhook authentication
+    // create peer-centric authentication hash for Pelion webhook authentication
     public String createAuthenticationHash();
 
-    // process a new endpoint registration message from mDS
+    // process a new endpoint registration message from Pelion
     public void processNewRegistration(Map message);
 
-    // process an endpoint re-registration message from mDS
+    // process an endpoint re-registration message from Pelion
     public void processReRegistration(Map message);
 
-    // process an endpoint device deletions message from mDS
+    // process an endpoint device deletions message from Pelion
     public String[] processDeviceDeletions(Map message);
     
-    // process an endpoint de-registration message from mDS
+    // process an endpoint de-registration message from Pelion
     public String[] processDeregistrations(Map message);
 
-    // process an endpoint registrations-expired message from mDS
+    // process an endpoint registrations-expired message from Pelion
     public String[] processRegistrationsExpired(Map message);
 
-    // process an endpoint async response result from mDS
+    // process an endpoint async response result from Pelion
     public void processAsyncResponses(Map message);
 
-    // process an endpoint resource notification message from mDS
+    // process an endpoint resource notification message from Pelion
     public void processNotification(Map message);
     
     // acquire the subscriptions manager from the peer
     public SubscriptionManager subscriptionsManager();
     
-    // process a new device registration (directly, mbed Cloud)
+    // process a new device registration (directly, Pelion)
     public void completeNewDeviceRegistration(Map endpoint);
 
     // init/start peer listeners

@@ -38,14 +38,14 @@ import javax.servlet.http.HttpServletResponse;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import java.util.HashMap;
 import java.util.List;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.pelionProcessorInterface;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
 
 /**
- * mbed Cloud Peer processor 
+ * Pelion Peer processor 
  *
  * @author Doug Anson
  */
-public class pelionProcessorAPI extends Processor implements pelionProcessorInterface, AsyncResponseProcessor {
+public class pelionProcessorAPI extends Processor implements PelionProcessorInterface, AsyncResponseProcessor {
     private String m_api_token = null;
     private ConnectionOptions m_connect_options = null;
     private DeviceDirectory m_device_api = null;
@@ -223,18 +223,6 @@ public class pelionProcessorAPI extends Processor implements pelionProcessorInte
     }
 
     @Override
-    public boolean setWebhook() {
-        // not used
-        return false;    
-    }
-
-    @Override
-    public boolean resetWebhook() {
-        // not used
-        return false;
-    }
-
-    @Override
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {
         // XXX
     }
@@ -243,6 +231,18 @@ public class pelionProcessorAPI extends Processor implements pelionProcessorInte
     public boolean deviceRemovedOnDeRegistration() {
         // disable by default
         return false;    
+    }
+    
+    @Override
+    public boolean setWebhook() {
+        // API handles this...
+        return true;
+    }
+
+    @Override
+    public boolean resetWebhook() {
+        // API handles this...
+        return true;
     }
 
     @Override

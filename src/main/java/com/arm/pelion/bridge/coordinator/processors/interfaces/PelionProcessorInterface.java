@@ -1,6 +1,6 @@
 /**
- * @file    mbedDeviceServerInterface.java
- * @brief mbed Device Server processor interface
+ * @file PelionProcessorInterface.java
+ * @brief Pelion processor interface
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -28,33 +28,23 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * This interface defines the exposed methods of the mbed Device Server processor that can 
+ * This interface defines the exposed methods of the Pelion processor that can 
  * be used by a given peer processor.
  *
  * @author Doug Anson
  */
-public interface pelionProcessorInterface {
+public interface PelionProcessorInterface {
     // process an API request 
     public ApiResponse processApiRequestOperation(String uri,String data,String options,String verb,int request_id,String api_key,String caller_id,String content_type);
     
-    // process observations/notifications incoming messages from device server
+    // process observations/notifications incoming messages from pelion
     public void processNotificationMessage(HttpServletRequest request, HttpServletResponse response);
 
     // perform endpoint get/put/post/delete operations on endpoint resources
     public String processEndpointResourceOperation(String verb, String ep_name, String uri, String value, String options);
-
-    // process endpoint deletions from device server
-    public void processDeviceDeletions(String[] endpoints);
-    
-    // process endpoint de-registrations from device server
-    public void processDeregistrations(String[] endpoints);
     
     // process endpoint registrations-expired from device server
     public void processRegistrationsExpired(String[] endpoints);
-
-    // Webhook management
-    public boolean setWebhook();
-    public boolean resetWebhook();
 
     // Device Metadata extraction
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor);
@@ -62,6 +52,16 @@ public interface pelionProcessorInterface {
     // device removal on deregistration?
     public boolean deviceRemovedOnDeRegistration();
     
+    // process endpoint deletions from device server
+    public void processDeviceDeletions(String[] endpoints);
+    
+    // process endpoint de-registrations from device server
+    public void processDeregistrations(String[] endpoints);
+    
     // initial device discovery on startup
     public void initDeviceDiscovery();
+    
+    // Webhook management
+    public boolean setWebhook();
+    public boolean resetWebhook();
 }

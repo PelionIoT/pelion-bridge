@@ -51,14 +51,14 @@ import javax.servlet.http.HttpServletResponse;
 import com.arm.pelion.bridge.data.DatabaseConnector;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.servlet.Manager;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.pelionProcessorInterface;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
 
 /**
  * This the primary orchestrator for the connector bridge
  *
  * @author Doug Anson
  */
-public class Orchestrator implements pelionProcessorInterface, PeerProcessorInterface {
+public class Orchestrator implements PelionProcessorInterface, PeerProcessorInterface {
     // database table delimiter
     private static String DEF_TABLENAME_DELIMITER = "_";
 
@@ -70,7 +70,7 @@ public class Orchestrator implements pelionProcessorInterface, PeerProcessorInte
     private PreferenceManager m_preference_manager = null;
 
     // Pelion processor (1 only...)
-    private pelionProcessorInterface m_mbed_cloud_processor = null;
+    private PelionProcessorInterface m_mbed_cloud_processor = null;
 
     // Peer processor list (n-way...default is 1 though...)
     private ArrayList<PeerProcessorInterface> m_peer_processor_list = null;
@@ -297,7 +297,7 @@ public class Orchestrator implements pelionProcessorInterface, PeerProcessorInte
     }
 
     // get the mbed Cloud processor
-    public pelionProcessorInterface mbed_cloud_processor() {
+    public PelionProcessorInterface mbed_cloud_processor() {
         return this.m_mbed_cloud_processor;
     }
 

@@ -37,14 +37,14 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import com.mbed.lwm2m.LWM2MResource;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.pelionProcessorInterface;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
 
 /**
- * mbed Cloud Peer processor 
+ * Pelion Peer processor 
  *
  * @author Doug Anson
  */
-public class pelionProcessor extends Processor implements Runnable, pelionProcessorInterface, AsyncResponseProcessor {
+public class pelionProcessor extends Processor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
     // defaulted number of webhook retries
     private static final int PELION_WEBHOOK_RETRIES = 10;                      // 10 retries
     
