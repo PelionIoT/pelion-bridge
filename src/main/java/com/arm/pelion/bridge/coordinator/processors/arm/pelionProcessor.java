@@ -23,14 +23,11 @@
 package com.arm.pelion.bridge.coordinator.processors.arm;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
+import com.arm.pelion.bridge.coordinator.processors.core.HttpProcessor;
 import com.arm.pelion.bridge.core.ApiResponse;
-import com.arm.pelion.bridge.core.Processor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.transport.HttpTransport;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +41,7 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorIn
  *
  * @author Doug Anson
  */
-public class pelionProcessor extends Processor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
+public class pelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
     // defaulted number of webhook retries
     private static final int PELION_WEBHOOK_RETRIES = 10;                      // 10 retries
     
@@ -57,13 +54,9 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
     // default endpoint type
     public static String DEFAULT_ENDPOINT_TYPE = "default";                    // default endpoint type
     
-    private HttpTransport m_http = null;
     private String m_pelion_api_hostname = null;
     private int m_pelion_api_port = 0;
-    private String m_content_type = null;
-    private String m_api_token = null;
     private String m_pelion_cloud_uri = null;
-    //private String m_pelion_version = null;
     private long m_device_discovery_delay_ms = DEVICE_DISCOVERY_DELAY_MS;
 
     // device metadata resource URI from configuration
@@ -99,7 +92,8 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
     private boolean m_delete_device_on_deregistration = false;
     
     // Pelion Connect API version
-    private String m_rest_version = "2";
+    private String m_connect_api_version = "2";
+    private String m_device_api_version = "3";
     
     // Pelion duplicate message detection
     private String m_last_message = null;
@@ -107,14 +101,12 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
     // constructor
     @SuppressWarnings("empty-statement")
     public pelionProcessor(Orchestrator orchestrator, HttpTransport http) {
-        super(orchestrator, null);
-        this.m_http = http;
+        super(orchestrator, http);
         this.m_pelion_api_hostname = orchestrator.preferences().valueOf("mds_address");
         if (this.m_pelion_api_hostname == null || this.m_pelion_api_hostname.length() == 0) {
             this.m_pelion_api_hostname = orchestrator.preferences().valueOf("api_endpoint_address");
         }
         this.m_pelion_api_port = orchestrator.preferences().intValueOf("mds_port");
-        this.m_content_type = orchestrator.preferences().valueOf("mds_content_type");
         this.m_last_message = null;
         this.m_webook_num_retries = orchestrator.preferences().intValueOf("mds_webhook_num_retries");
         if (this.m_webook_num_retries <= 0) {
@@ -124,12 +116,6 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         // LongPolling Support
         this.m_enable_long_poll = this.prefBoolValue("mds_enable_long_poll");
         this.m_long_poll_uri = this.prefValue("mds_long_poll_uri");
-       
-        this.m_api_token = this.orchestrator().preferences().valueOf("mds_api_token");
-        if (this.m_api_token == null || this.m_api_token.length() == 0) {
-            // new key to use..
-            this.m_api_token = this.orchestrator().preferences().valueOf("api_key");
-        }
         
         // display number of webhook setup retries allowed
         this.errorLogger().warning("pelionProcessor: Number of webhook retries set at: " + this.m_webook_num_retries);
@@ -318,34 +304,17 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         return this.m_delete_device_on_deregistration;
     }
 
-    // initialize the device metadata resource URIs
-    private void initDeviceMetadataResourceURIs() {
-        this.m_device_manufacturer_res = this.prefValue("mds_device_manufacturer_res");
-        this.m_device_serial_number_res = this.prefValue("mds_device_serial_number_res");
-        this.m_device_model_res = this.prefValue("mds_device_model_res");
-        this.m_device_class_res = this.prefValue("mds_device_class_res");
-        this.m_device_description_res = this.prefValue("mds_device_description_res");
-        this.m_device_firmware_info_res = this.prefValue("mds_device_firmware_info_res");
-        this.m_device_hardware_info_res = this.prefValue("mds_device_hardware_info_res");
-        this.m_device_descriptive_location_res = this.prefValue("mds_device_descriptive_location_res");
-    }
-
     // setup the mbed device server default URI
     private void setupPelionCloudURI() {
         this.m_pelion_cloud_uri = "https://";
         this.m_pelion_api_port = 443;
     }
 
-    // our the mbed Cloud notifications coming in over the webhook validatable?
-    private Boolean validatableNotifications() {
-        return this.m_using_callback_webhooks;
-    }
-    
     // validate the notification
     private Boolean validateNotification(HttpServletRequest request) {
         if (request != null) {
             boolean validated = false;
-            if (this.validatableNotifications() == true && request.getHeader("Authentication") != null) {
+            if (request.getHeader("Authentication") != null) {
                 String calc_hash = this.orchestrator().createAuthenticationHash();
                 String header_hash = request.getHeader("Authentication");
                 validated = Utils.validateHash(header_hash, calc_hash);
@@ -556,7 +525,7 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         this.errorLogger().info("pelionProcessor: bulk subscriptions URL: " + url + " DATA: " + json);
         
         // send PUT to establish the bulk subscriptions
-        String result = this.httpsPut(url, json, "application/json", this.m_api_token);
+        String result = this.httpsPut(url, json, "application/json", this.apiToken());
         int error_code = this.getLastResponseCode();
         
         // DEBUG
@@ -689,7 +658,7 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         }
         
         // ALWAYS send the response back as an ACK to mbed Cloud
-        this.sendResponseToDeviceServer("application/json;charset=utf-8", request, response, "", "{}");
+        this.sendResponseToPelion("application/json;charset=utf-8", request, response, "", "{}");
     }
     
     // check for duplicated messages
@@ -728,13 +697,8 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         return false;
     }
 
-    // process and route the mbed Cloud message to the appropriate peer method (long poll method)
-    public void processDeviceServerMessage(String json) {
-        this.processDeviceServerMessage(json, null);
-    }
-
     // process and route the mbed Cloud message to the appropriate peer method
-    private void processDeviceServerMessage(String json, HttpServletRequest request) {
+    public void processDeviceServerMessage(String json, HttpServletRequest request) {
         // DEBUG
         this.orchestrator().errorLogger().info("processDeviceServerMessage(mbed Cloud): Received message from mbed Cloud: " + json);
 
@@ -793,25 +757,6 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         }
     }
 
-    // get to endpoint resource subscription 
-    public boolean getEndpointResourceSubscriptionStatus(String url) {
-        boolean subscribed = false;
-        String json = null;
-        this.errorLogger().info("getEndpointResourceSubscriptionStatus: getting subscription status: " + url);
-        this.httpsGet(url);
-
-        // check the status...
-        int status = this.getLastResponseCode();
-        status = status - 200;
-        if (status >= 0 && status < 100) {
-            // 20x response - OK
-            subscribed = true;
-        }
-
-        // return the result
-        return subscribed;
-    }
-
     // process endpoint resource operation request
     @Override
     public String processEndpointResourceOperation(String verb, String ep_name, String uri, String value, String options) {
@@ -838,17 +783,17 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
             }
             if (verb.equalsIgnoreCase(("post"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking POST: " + url + " DATA: " + value);
-                 json = this.httpsPost(url, value, "plain/text", this.m_api_token);  // nail content_type to "plain/text"
+                 json = this.httpsPost(url, value, "plain/text", this.apiToken());  // nail content_type to "plain/text"
                  if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("delete"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking DELETE: " + url);
-                 json = this.httpsDelete(url, "plain/text", this.m_api_token);      // nail content_type to "plain/text"
+                 json = this.httpsDelete(url, "plain/text", this.apiToken());      // nail content_type to "plain/text"
                  if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("del"))) {
                 this.errorLogger().info("processEndpointResourceOperation: Invoking DELETE: " + url);
-                json = this.httpsDelete(url, "plain/text", this.m_api_token);      // nail content_type to "plain/text"
+                json = this.httpsDelete(url, "plain/text", this.apiToken());      // nail content_type to "plain/text"
                 if (json == null) json = "";
             }
         }
@@ -858,6 +803,18 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         }
 
         return json;
+    }
+    
+    // initialize the device metadata resource URIs
+    private void initDeviceMetadataResourceURIs() {
+        this.m_device_manufacturer_res = this.prefValue("mds_device_manufacturer_res");
+        this.m_device_serial_number_res = this.prefValue("mds_device_serial_number_res");
+        this.m_device_model_res = this.prefValue("mds_device_model_res");
+        this.m_device_class_res = this.prefValue("mds_device_class_res");
+        this.m_device_description_res = this.prefValue("mds_device_description_res");
+        this.m_device_firmware_info_res = this.prefValue("mds_device_firmware_info_res");
+        this.m_device_hardware_info_res = this.prefValue("mds_device_hardware_info_res");
+        this.m_device_descriptive_location_res = this.prefValue("mds_device_descriptive_location_res");
     }
     
     // initialize the endpoint's default attributes 
@@ -915,8 +872,8 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         return has_device_attributes;
     }
 
-    // dispatch GETs to retrieve the actual device attributes
-    private void dispatchDeviceAttributeGETs(Map endpoint, AsyncResponseProcessor processor) {
+    // retrieve the actual device attributes
+    private void retrieveDeviceAttributes(Map endpoint, AsyncResponseProcessor processor) {
         // Create the Device Attributes URL
         String url = this.createCoAPURL((String) endpoint.get("ep"), this.m_device_attributes_path);
 
@@ -924,7 +881,7 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         //this.errorLogger().info("ATTRIBUTES: Calling GET to receive: " + url);
         
         // Dispatch and get the response (an AsyncId)
-        String json_response = this.httpsGet(url, this.m_device_attributes_content_type, this.m_api_token);
+        String json_response = this.httpsGet(url, this.m_device_attributes_content_type, this.apiToken());
 
         // record the response to get processed later
         if (json_response != null) {
@@ -937,7 +894,7 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         // dispatch GETs to retrieve the attributes from the endpoint... 
         if (this.hasDeviceAttributes(endpoint)) {
             // dispatch GETs to to retrieve and parse those attributes
-            this.dispatchDeviceAttributeGETs(endpoint,processor);
+            this.retrieveDeviceAttributes(endpoint,processor);
         }
         else {
             // device does not have device attributes... so just use the defaults... 
@@ -960,14 +917,7 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         try {
             // Convert the TLV to a LWM2M Resource List...
             List<LWM2MResource> list = Utils.tlvDecodeToLWM2MObjectList(this.errorLogger(),(String) response.get("payload"));
-            
-            // DEBUG
-            //for(int i=0;list != null && i<list.size();++i) {
-            //    res = list.get(i);
-            //    this.errorLogger().info("parseDeviceAttributes: URI: " + 
-            //                            this.m_device_attributes_path + "/" + res.getId().intValue() + " Value: " + res.getStringValue() + "]");
-            //}
-            
+                        
             // /3/0/0
             endpoint.put("meta_mfg", Utils.getLWM2MResourceValueByResourceID(this.errorLogger(),list,0)); 
             
@@ -997,50 +947,7 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         // return the updated endpoint
         return endpoint;
     }
-
-    // callback for device attribute processing... 
-    @Override
-    public boolean processAsyncResponse(Map response) {
-        // DEBUG
-        //this.errorLogger().info("processAsyncResponse(MDS): RESPONSE: " + response);
-
-        // Get the originating record
-        HashMap<String, Object> record = (HashMap<String, Object>) response.get("orig_record");
-        if (record != null) {
-            Map orig_endpoint = (Map) record.get("orig_endpoint");
-            if (orig_endpoint != null) {
-                // Get the peer processor
-                AsyncResponseProcessor peer_processor = (AsyncResponseProcessor) orig_endpoint.get("peer_processor");
-                if (peer_processor != null) {
-                    // parse the device attributes
-                    this.errorLogger().info("mbed Cloud: processAsyncResponse: ORIG endpoint: " + orig_endpoint);
-                    this.errorLogger().info("mbed Cloud: processAsyncResponse: RESPONSE: " + response);
-                    Map endpoint = this.parseDeviceAttributes(response,orig_endpoint);
-                    
-                    // DEBUG
-                    this.errorLogger().info("mbed Cloud: processAsyncResponse: endpoint: " + endpoint);
-
-                    // call the AsyncResponseProcessor within the peer to finalize the device
-                    peer_processor.processAsyncResponse(endpoint);
-                }
-                else {
-                    // error - no peer AsyncResponseProcessor...
-                    this.errorLogger().warning("processAsyncResponse(MDS): no peer AsyncResponse processor. Device may not get addeded within peer: " + record);
-                }
-            }
-            else {
-                // error - no peer AsyncResponseProcessor...
-                this.errorLogger().warning("processAsyncResponse(MDS): no peer AsyncResponse processor. Device may not get addeded within peer: " + orig_endpoint);
-            }
-
-            // return processed status (defaulted)
-            return true;
-        }
-
-        // return non-processed
-        return false;
-    }
-
+    
     // pull the initial device metadata from mbed Cloud.. add it to the device endpoint map
     @Override
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {
@@ -1052,84 +959,6 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
 
         // invoke GETs to retrieve the actual attributes (we are the processor for the callbacks...)
         this.getActualDeviceAttributes(endpoint, this);
-    }
-
-    // read the requested data from mbed Cloud
-    private String read(HttpServletRequest request) {
-        try {
-            BufferedReader reader = request.getReader();
-            String line = reader.readLine();
-            StringBuilder buf = new StringBuilder();
-            while (line != null) {
-                buf.append(line);
-                line = reader.readLine();
-            }
-            return buf.toString();
-        }
-        catch (IOException ex) {
-            // silent
-        }
-        return null;
-    }
-
-    // send the REST response back to mbed Cloud
-    private void sendResponseToDeviceServer(String content_type, HttpServletRequest request, HttpServletResponse response, String header, String body) {
-        try {
-            response.setContentType(content_type);
-            response.setHeader("Pragma", "no-cache");
-            try (PrintWriter out = response.getWriter()) {
-                if (header != null && header.length() > 0) {
-                    out.println(header);
-                }
-                if (body != null && body.length() > 0) {
-                    out.println(body);
-                }
-            }
-        }
-        catch (IOException ex) {
-            this.errorLogger().critical("Unable to send response back to mbed Cloud...", ex);
-        }
-    }
-
-    // add REST version information
-    private String connectorVersion() {
-        return "/v" + this.m_rest_version;
-    }
-
-    // create the base URL for mbed Cloud operations
-    private String createBaseURL() {
-        return this.createBaseURL(this.connectorVersion());
-    }
-    
-    // create the base URL for mbed Cloud operations
-    private String createBaseURL(String version) {
-        return this.m_pelion_cloud_uri + this.m_pelion_api_hostname + ":" + this.m_pelion_api_port + version;
-    }
-
-    // create the CoAP operation URL
-    private String createCoAPURL(String ep_name, String uri) {
-        String url = this.createBaseURL() + "/endpoints/" + ep_name + uri;
-        return url;
-    }
-
-    // build out the query string
-    private String buildQueryString(String qs, String key, String value) {
-        String updated_qs = qs;
-
-        if (updated_qs != null && key != null && value != null) {
-            if (updated_qs.length() == 0) {
-                updated_qs = key + "=" + value;
-            }
-            else if (updated_qs.contains(key) == false) {
-                updated_qs = updated_qs + "&" + key + "=" + value;
-            }
-            else {
-                // attempted overwrite of previously set value
-                this.errorLogger().warning("attempted overwrite of option: " + key + "=" + value + " in qs: " + updated_qs);
-            }
-        }
-
-        return updated_qs;
     }
 
     //
@@ -1188,6 +1017,49 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
     private void pullDeviceTotalMemoryInfo(Map endpoint) {
         //this.m_device_descriptive_location_res
         endpoint.put("meta_total_mem", "128K");  // typical min: 128k
+    }
+    
+    // callback for device attribute processing... 
+    @Override
+    public boolean processAsyncResponse(Map response) {
+        // DEBUG
+        //this.errorLogger().info("processAsyncResponse(MDS): RESPONSE: " + response);
+
+        // Get the originating record
+        HashMap<String, Object> record = (HashMap<String, Object>) response.get("orig_record");
+        if (record != null) {
+            Map orig_endpoint = (Map) record.get("orig_endpoint");
+            if (orig_endpoint != null) {
+                // Get the peer processor
+                AsyncResponseProcessor peer_processor = (AsyncResponseProcessor) orig_endpoint.get("peer_processor");
+                if (peer_processor != null) {
+                    // parse the device attributes
+                    this.errorLogger().info("mbed Cloud: processAsyncResponse: ORIG endpoint: " + orig_endpoint);
+                    this.errorLogger().info("mbed Cloud: processAsyncResponse: RESPONSE: " + response);
+                    Map endpoint = this.parseDeviceAttributes(response,orig_endpoint);
+                    
+                    // DEBUG
+                    this.errorLogger().info("mbed Cloud: processAsyncResponse: endpoint: " + endpoint);
+
+                    // call the AsyncResponseProcessor within the peer to finalize the device
+                    peer_processor.processAsyncResponse(endpoint);
+                }
+                else {
+                    // error - no peer AsyncResponseProcessor...
+                    this.errorLogger().warning("processAsyncResponse(MDS): no peer AsyncResponse processor. Device may not get addeded within peer: " + record);
+                }
+            }
+            else {
+                // error - no peer AsyncResponseProcessor...
+                this.errorLogger().warning("processAsyncResponse(MDS): no peer AsyncResponse processor. Device may not get addeded within peer: " + orig_endpoint);
+            }
+
+            // return processed status (defaulted)
+            return true;
+        }
+
+        // return non-processed
+        return false;
     }
     
     // init any device discovery
@@ -1257,9 +1129,9 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
     }
     
     // create the registered devices retrieval URL
-    private String createRegisteredDeviceRetrievalURL() {
+    private String createGetRegisteredDevicesURL() {
         // create the url to capture all of the registered devices
-        String url = this.createBaseURL("/v3") + "/devices" + "?filter=state%3Dregistered" ;
+        String url = this.createBaseURL("/v" + this.m_device_api_version) + "/devices" + "?filter=state%3Dregistered" ;
 
         // DEBUG
         this.errorLogger().info("createRegisteredDeviceRetrievalURL: " + url);
@@ -1271,7 +1143,7 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
     // create the Device Resource Discovery URL 
     private String createDeviceResourceDiscoveryURL(String device) {
         // build out the URL for mbed Cloud Device Resource discovery...
-        String url = this.createBaseURL("/v2") + "/endpoints/" +  device;
+        String url = this.createBaseURL("/v" + this.m_connect_api_version) + "/endpoints/" +  device;
 
         // DEBUG
         this.errorLogger().info("createDeviceResourceDiscoveryURL: " + url);
@@ -1282,7 +1154,7 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
 
     // perform device discovery
     private List discoverRegisteredDevices() {
-        return this.performDiscovery(this.createRegisteredDeviceRetrievalURL(),"data");
+        return this.performDiscovery(this.createGetRegisteredDevicesURL(),"data");
     }
 
     // discover the device resources
@@ -1293,7 +1165,7 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
     // perform a discovery (JSON)
     private List performDiscovery(String url,String key) {
         if (key != null) {
-            String json = this.performDiscoveryToString(url);
+            String json = this.httpsGet(url);
             if (json != null && json.length() > 0) {
                 try {
                     Map base = this.jsonParser().parseJson(json);
@@ -1316,79 +1188,20 @@ public class pelionProcessor extends Processor implements Runnable, PelionProces
         return null;
     }
     
-    // perform a discovery
-    private String performDiscoveryToString(String url) {
-        return this.httpsGet(url);
+    // create the base URL for mbed Cloud operations
+    private String createBaseURL() {
+        return this.createBaseURL("/v" + this.m_connect_api_version);
     }
     
-    // get the last response code
-    public int getLastResponseCode() {
-        return this.m_http.getLastResponseCode();
+    // create the base URL for mbed Cloud operations
+    private String createBaseURL(String version) {
+        return this.m_pelion_cloud_uri + this.m_pelion_api_hostname + ":" + this.m_pelion_api_port + version;
     }
 
-    // invoke HTTP GET request (SSL)
-    private String httpsGet(String url) {
-        return this.httpsGet(url,this.m_content_type,this.m_api_token);
-    }
-    
-    // invoke peristent HTTPS Get
-    public String persistentHTTPSGet(String url) {
-        return this.persistentHTTPSGet(url, this.m_content_type);
-    }
-
-    // invoke peristent HTTPS Get
-    private String persistentHTTPSGet(String url, String content_type) {
-        String response = this.m_http.httpsPersistentGetApiTokenAuth(url, this.m_api_token, null, content_type);
-        this.errorLogger().info("persistentHTTPSGet: response: " + this.m_http.getLastResponseCode());
-        return response;
-    }
-
-    // invoke HTTP GET request (SSL)
-    private String httpsGet(String url, String content_type,String api_key) {
-        String response = this.m_http.httpsGetApiTokenAuth(url, api_key, null, content_type);
-        this.errorLogger().info("httpsGet: response: " + this.m_http.getLastResponseCode());
-        return response;
-    }
-
-    // invoke HTTP PUT request (SSL)
-    private String httpsPut(String url) {
-        return this.httpsPut(url, null);
-    }
-
-    // invoke HTTP PUT request (SSL)
-    private String httpsPut(String url, String data) {
-        return this.httpsPut(url, data, this.m_content_type, this.m_api_token);
-    }
-
-    // invoke HTTP PUT request (SSL)
-    private String httpsPut(String url, String data, String content_type, String api_key) {
-        String response = this.m_http.httpsPutApiTokenAuth(url, api_key, data, content_type);
-        this.errorLogger().info("httpsPut: response: " + this.m_http.getLastResponseCode());
-        return response;
-    }
-
-    // invoke HTTP POST request (SSL)
-    private String httpsPost(String url, String data) {
-        return this.httpsPost(url, data, this.m_content_type, this.m_api_token);
-    }
-    
-    // invoke HTTP POST request (SSL)
-    private String httpsPost(String url, String data, String content_type, String api_key) {
-        String response = this.m_http.httpsPostApiTokenAuth(url, api_key, data, content_type);
-        this.errorLogger().info("httpsPost: response: " + this.m_http.getLastResponseCode());
-        return response;
-    }
-
-    // invoke HTTP DELETE request
-    private String httpsDelete(String url) {
-        return this.httpsDelete(url, this.m_content_type, this.m_api_token);
-    }
-
-    // invoke HTTP DELETE request
-    private String httpsDelete(String url, String content_type, String api_key) {
-        String response = this.m_http.httpsDeleteApiTokenAuth(url, api_key, null, content_type);
-        this.errorLogger().info("httpDelete: response: " + this.m_http.getLastResponseCode());
-        return response;
+    // create the CoAP operation URL
+    private String createCoAPURL(String ep_name, String uri) {
+        String url = this.createBaseURL() + "/endpoints/" + ep_name + uri;
+        return url;
     }
     
     // discovery thread 

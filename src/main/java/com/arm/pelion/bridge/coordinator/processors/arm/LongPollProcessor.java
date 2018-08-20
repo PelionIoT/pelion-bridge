@@ -95,7 +95,7 @@ public class LongPollProcessor extends Thread {
                 this.errorLogger().info("poll: processing recevied message: " + response);
                 
                 // send whatever we get back as if we have received it via the webhook...
-                this.m_mbed_cloud_processor.processDeviceServerMessage(response);
+                this.m_mbed_cloud_processor.processDeviceServerMessage(response,null);
             }
             else {
                 // DEBUG

@@ -27,7 +27,6 @@ package com.arm.pelion.bridge.coordinator;
 // Processors
 import com.arm.pelion.bridge.coordinator.processors.arm.pelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
-import com.arm.pelion.bridge.coordinator.processors.arm.pelionProcessorAPI;
 import com.arm.pelion.bridge.coordinator.processors.factories.WatsonIoTPeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.factories.MSIoTHubPeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.factories.AWSIoTPeerProcessorFactory;
@@ -136,7 +135,6 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         this.m_http = new HttpTransport(this.m_error_logger, this.m_preference_manager);
 
         // We always create the Pelion processor (1 only)
-        //this.m_mbed_cloud_processor = new pelionProcessorAPI(this,this.m_http);
         this.m_mbed_cloud_processor = new pelionProcessor(this, this.m_http);
       
         // initialize our peer processors... (n-way... but default is just 1...)
