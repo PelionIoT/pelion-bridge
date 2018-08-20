@@ -1,6 +1,6 @@
 /**
- * @file    LongPollProcessor.java
- * @brief mDS long polling processor
+ * @file LongPollProcessor.java
+ * @brief Pelion long polling processor
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -26,27 +26,24 @@ import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.core.ErrorLogger;
 
 /**
- * This class periodically polls mDS/mDC per the long-poll option.
- *
- * Notifications are dispatched to the bridge
- * in the same way that webhook-originated notifications are dispatched.
+ * Long-Polling processor for Pelion
  *
  * @author Doug Anson
  */
 public class LongPollProcessor extends Thread {
 
-    private PelionProcessor m_mbed_cloud_processor = null;
+    private PelionProcessor m_pelion_processor = null;
     private boolean m_running = false;
 
     // default constructor
     public LongPollProcessor(PelionProcessor mds) {
-        this.m_mbed_cloud_processor = mds;
+        this.m_pelion_processor = mds;
         this.m_running = false;
     }
 
     // get our error logger
     private ErrorLogger errorLogger() {
-        return this.m_mbed_cloud_processor.errorLogger();
+        return this.m_pelion_processor.errorLogger();
     }
 
     // initialize the poller
@@ -55,7 +52,7 @@ public class LongPollProcessor extends Thread {
         this.errorLogger().info("Removing previous webhook (if any)...");
         
         // delete any older webhooks
-        this.m_mbed_cloud_processor.removeWebhook();
+        this.m_pelion_processor.removeWebhook();
         
         // DEBUG
         this.errorLogger().info("Beginning long polling...");
@@ -69,41 +66,41 @@ public class LongPollProcessor extends Thread {
         String response = null;
 
         // persistent GET over https()
-        this.m_mbed_cloud_processor.errorLogger().info("poll: using HTTPS persistent get...");
-        response = this.m_mbed_cloud_processor.persistentHTTPSGet(this.m_mbed_cloud_processor.longPollURL());
+        this.m_pelion_processor.errorLogger().info("LongPollProcessor: using HTTPS persistent get...");
+        response = this.m_pelion_processor.persistentHTTPSGet(this.m_pelion_processor.longPollURL());
          
         // note the response code
-        int last_code = this.m_mbed_cloud_processor.getLastResponseCode();
+        int last_code = this.m_pelion_processor.getLastResponseCode();
         if (last_code == 400) {
             // API key already has a callback webhook setup
-            this.errorLogger().warning("poll: using API Key that has already setup a callback webhook... please use another key!");
+            this.errorLogger().warning("LongPollProcessor: using API Key that has already setup a callback webhook... please use another key!");
         }
         else if (last_code == 401) {
             // API Key might be wrong?
-            this.errorLogger().warning("poll: API Key does not appear to be valid (401 - Unauthorized). Please check the key.");
+            this.errorLogger().warning("LongPollProcessor: API Key does not appear to be valid (401 - Unauthorized). Please check the key.");
         }
         else if (last_code == 410) {
             // Pull channel is borked - reset API Key
-            this.errorLogger().critical("poll: polling error code 410 seen. Pull channel is not functioning properly. Please create and use another API Key");
+            this.errorLogger().critical("LongPollProcessor: polling error code 410 seen. Pull channel is not functioning properly. Please create and use another API Key");
         }
         else {
             // OK
-            this.errorLogger().info("poll: (OK).");
+            this.errorLogger().info("LongPollProcessor: (OK).");
             
             // make sure we have a message to process...
             if (response != null && response.length() > 0) {
                 // DEBUG
-                this.errorLogger().info("poll: processing recevied message: " + response);
+                this.errorLogger().info("LongPollProcessor: processing recevied message: " + response);
                 
                 // send whatever we get back as if we have received it via the webhook...
-                this.m_mbed_cloud_processor.processDeviceServerMessage(response,null);
+                this.m_pelion_processor.processDeviceServerMessage(response,null);
             }
             else {
                 // DEBUG
-                this.errorLogger().info("poll: received message: <empty>");
+                this.errorLogger().info("LongPollProcessor: received message: <empty>");
                 
                 // nothing to process
-                this.errorLogger().info("poll: Nothing to process (OK)");
+                this.errorLogger().info("LongPollProcessor: Nothing to process (OK)");
             }
         }
     }
@@ -122,7 +119,6 @@ public class LongPollProcessor extends Thread {
     /**
      * main thread loop
      */
-    @SuppressWarnings("empty-statement")
     private void pollingLooper() {
         while (this.m_running == true) {
             // validate the webhook and subscriptions

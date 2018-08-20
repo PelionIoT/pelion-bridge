@@ -1,5 +1,5 @@
 /**
- * @file    DatabaseTemplatedArrayList.java
+ * @file DatabaseTemplatedArrayList.java
  * @brief Database ArrayList implementation with distributable decoration
  * @author Doug Anson
  * @version 1.0

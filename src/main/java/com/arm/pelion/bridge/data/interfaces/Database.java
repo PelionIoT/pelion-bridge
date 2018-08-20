@@ -1,5 +1,5 @@
 /**
- * @file    Database.java
+ * @file Database.java
  * @brief Interface specifying the functions of a distributed database
  * @author Doug Anson
  * @version 1.0

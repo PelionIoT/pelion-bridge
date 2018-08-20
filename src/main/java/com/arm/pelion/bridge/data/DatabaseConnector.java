@@ -1,5 +1,5 @@
 /**
- * @file    DatabaseConnector.java
+ * @file DatabaseConnector.java
  * @brief Distributed Database Connector
  * @author Doug Anson
  * @version 1.0

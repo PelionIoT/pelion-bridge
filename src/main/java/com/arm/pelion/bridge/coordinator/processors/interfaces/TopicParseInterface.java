@@ -23,6 +23,7 @@ package com.arm.pelion.bridge.coordinator.processors.interfaces;
 
 /**
  * TopicParseInterface Interface defines parsing of topics for endpoint, endpoint type, and URI
+ * 
  * @author Doug Anson
  */
 public interface TopicParseInterface {

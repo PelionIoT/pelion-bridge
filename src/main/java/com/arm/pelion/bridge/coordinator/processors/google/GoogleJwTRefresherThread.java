@@ -1,5 +1,5 @@
 /**
- * @file    GoogleJwTRefresherThread.java
+ * @file GoogleJwTRefresherThread.java
  * @brief Google Cloud JwT Refresher
  * @author Doug Anson
  * @version 1.0
@@ -26,7 +26,8 @@ import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
 
 /**
- *
+ * Google CloudIoT JwT Refresher Thread
+ * 
  * @author Doug Anson
  */
 public class GoogleJwTRefresherThread extends Thread {
@@ -75,7 +76,6 @@ public class GoogleJwTRefresherThread extends Thread {
     /**
      * main thread loop
      */
-    @SuppressWarnings("empty-statement")
     private void listenerThreadLoop() {
         while (this.m_running) {
             try {
@@ -100,7 +100,6 @@ public class GoogleJwTRefresherThread extends Thread {
             }
             catch (InterruptedException ex) {
                 // silent
-                ;
             }
         }
     }

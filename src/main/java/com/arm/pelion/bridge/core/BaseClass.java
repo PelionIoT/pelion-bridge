@@ -1,6 +1,6 @@
 /**
- * @file    BaseClass.java
- * @brief base class for connector bridge
+ * @file BaseClass.java
+ * @brief base class for most classes defined in pelion-bridge
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -25,7 +25,7 @@ package com.arm.pelion.bridge.core;
 import com.arm.pelion.bridge.preferences.PreferenceManager;
 
 /**
- * Base Class for fundamental logging and preferenceManager support
+ * Base Class for fundamental base class for pelion-bridge
  *
  * @author Doug Anson
  */
@@ -34,9 +34,8 @@ public class BaseClass {
     private ErrorLogger m_error_logger = null;
     private PreferenceManager m_preference_manager = null;
 
-    // constructor
     /**
-     *
+     * default constructor
      * @param error_logger
      * @param preference_manager
      */
@@ -45,18 +44,16 @@ public class BaseClass {
         this.m_preference_manager = preference_manager;
     }
 
-    // get our error handler
     /**
-     *
+     * Get our error handler
      * @return
      */
     public com.arm.pelion.bridge.core.ErrorLogger errorLogger() {
         return this.m_error_logger;
     }
 
-    // get the preferenceManager
     /**
-     *
+     * Get the preferences manager
      * @return
      */
     public com.arm.pelion.bridge.preferences.PreferenceManager preferences() {
@@ -64,7 +61,7 @@ public class BaseClass {
     }
 
     /**
-     *
+     * get a preference value
      * @param key
      * @return
      */
@@ -73,7 +70,7 @@ public class BaseClass {
     }
 
     /**
-     *
+     * get a preference value
      * @param key
      * @param suffix
      * @return
@@ -86,7 +83,7 @@ public class BaseClass {
     }
 
     /**
-     *
+     * get a preference value with a default if none exists
      * @param key
      * @param def_value
      * @return
@@ -96,7 +93,7 @@ public class BaseClass {
     }
 
     /**
-     *
+     * get a preference value with a default if none exists
      * @param key
      * @param suffix
      * @param def_value
@@ -111,7 +108,7 @@ public class BaseClass {
     }
 
     /**
-     *
+     * get an integer preference value
      * @param key
      * @return
      */
@@ -120,7 +117,7 @@ public class BaseClass {
     }
 
     /**
-     *
+     * get an integer preference value
      * @param key
      * @param suffix
      * @return
@@ -133,7 +130,7 @@ public class BaseClass {
     }
 
     /**
-     *
+     * get a float preference value
      * @param key
      * @return
      */
@@ -142,7 +139,7 @@ public class BaseClass {
     }
 
     /**
-     *
+     * get a float preference value
      * @param key
      * @param suffix
      * @return
@@ -155,7 +152,7 @@ public class BaseClass {
     }
 
     /**
-     *
+     * get a boolean preference value
      * @param key
      * @return
      */
@@ -164,7 +161,7 @@ public class BaseClass {
     }
 
     /**
-     *
+     * get a boolean preference value
      * @param key
      * @param suffix
      * @return

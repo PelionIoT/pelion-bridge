@@ -1,12 +1,11 @@
-
 /**
- * @file    Main.java
- * @brief main entry for the connector bridge
+ * @file BridgeMain.java
+ * @brief pelion-bridge main method
  * @author Doug Anson
  * @version 1.0
  * @see
  *
- * Copyright 2015. ARM Ltd. All rights reserved.
+ * Copyright 2018. ARM Ltd. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

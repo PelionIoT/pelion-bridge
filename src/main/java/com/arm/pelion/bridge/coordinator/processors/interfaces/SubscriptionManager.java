@@ -22,7 +22,8 @@
 package com.arm.pelion.bridge.coordinator.processors.interfaces;
 
 /**
- * GenericSender Interface defines subscription management
+ * SubscriptionManager Interface is the exposed methods for subscription management
+ * 
  * @author Doug Anson
  */
 public interface SubscriptionManager {

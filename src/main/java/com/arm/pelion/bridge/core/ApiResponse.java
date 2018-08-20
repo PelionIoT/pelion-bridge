@@ -1,11 +1,11 @@
 /**
- * @file    ApiResponse.java
+ * @file ApiResponse.java
  * @brief mbed Device Server API Response
  * @author Doug Anson
  * @version 1.0
  * @see
  *
- * Copyright 2015. ARM Ltd. All rights reserved.
+ * Copyright 2018. ARM Ltd. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * API Response
+ * API Response class
+ * 
  * @author Doug Anson
  */
 public class ApiResponse extends Processor {

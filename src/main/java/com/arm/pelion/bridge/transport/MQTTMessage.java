@@ -1,5 +1,5 @@
 /**
- * @file    MQTTMessage.java
+ * @file MQTTMessage.java
  * @brief MQTT Message base class
  * @author Doug Anson
  * @version 1.0

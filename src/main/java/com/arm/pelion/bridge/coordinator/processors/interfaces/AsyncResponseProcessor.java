@@ -1,6 +1,6 @@
 /**
- * @file    AsyncResponseProcessor.java
- * @brief mDS AsyncResposne Processor Interface
+ * @file AsyncResponseProcessor.java
+ * @brief Pelion AsyncResposne Processor Interface
  * @author Doug Anson
  * @version 1.0
  * @see

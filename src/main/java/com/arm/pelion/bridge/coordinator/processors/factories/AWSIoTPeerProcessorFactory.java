@@ -1,5 +1,5 @@
 /**
- * @file    AWSIoTPeerProcessorFactory.java
+ * @file AWSIoTPeerProcessorFactory.java
  * @brief AWS IoT Peer Processor Factory
  * @author Doug Anson
  * @version 1.0

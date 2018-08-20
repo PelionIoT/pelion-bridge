@@ -1,5 +1,5 @@
 /**
- * @file    BasePeerProcessorManager.java
+ * @file  BasePeerProcessorManager.java
  * @brief Base Class Peer Processor Manager
  * @author Doug Anson
  * @version 1.0
@@ -25,7 +25,6 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.PeerProcessor;
-import com.arm.pelion.bridge.coordinator.processors.core.PeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
@@ -34,7 +33,7 @@ import java.util.Map;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
- * Base Peer PeerProcessor Manager: Manages a collection of MQTT-based processors (including a generic one) for MS IoTEventHub Services
+ * Base Peer PeerProcessor Manager: Manages a collection of MQTT-based processors
  *
  * @author Doug Anson
  */

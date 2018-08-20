@@ -1,5 +1,5 @@
 /**
- * @file  PelionProcessor.java
+ * @file PelionProcessor.java
  * @brief Peer Processor for the Pelion
  * @author Doug Anson
  * @version 1.0

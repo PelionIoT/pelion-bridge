@@ -41,7 +41,7 @@ import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 
 /**
- * IBM WatsonIoT peer processor based on MQTT with MessageSight
+ * IBM WatsonIoT peer processor based on MQTT
  *
  * @author Doug Anson
  */

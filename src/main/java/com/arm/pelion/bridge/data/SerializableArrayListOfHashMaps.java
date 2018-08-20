@@ -1,5 +1,5 @@
 /**
- * @file    SerializableArrayListOfHashMaps.java
+ * @file SerializableArrayListOfHashMaps.java
  * @brief Serializable ArrayList of HashMaps decider
  * @author Doug Anson
  * @version 1.0

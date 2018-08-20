@@ -23,6 +23,7 @@ package com.arm.pelion.bridge.coordinator.processors.interfaces;
 
 /**
  * Subscription Processor for handling events during subscription processing
+ * 
  * @author Doug Anson
  */
 public interface SubscriptionProcessor {

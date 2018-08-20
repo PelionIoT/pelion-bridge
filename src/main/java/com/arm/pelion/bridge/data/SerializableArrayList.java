@@ -1,5 +1,5 @@
 /**
- * @file    SerializableArrayList.java
+ * @file SerializableArrayList.java
  * @brief Serializable ArrayList decider
  * @author Doug Anson
  * @version 1.0

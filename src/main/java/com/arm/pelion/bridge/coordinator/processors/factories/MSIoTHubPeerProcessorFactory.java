@@ -1,5 +1,5 @@
 /**
- * @file    MSIoTHubPeerProcessorFactory.java
+ * @file MSIoTHubPeerProcessorFactory.java
  * @brief MS IoTHub Peer Processor Factory
  * @author Doug Anson
  * @version 1.0
@@ -24,7 +24,6 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.factories.BasePeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.ms.IoTHubMQTTProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
@@ -32,7 +31,7 @@ import java.util.ArrayList;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
- * MS IoTHub Peer Processor Manager: Factory for initiating a peer processor for MS IoTHub Cloud Services
+ * MS IoTHub Peer Processor Manager: Factory for initiating a peer processor for MS IoTHub
  *
  * @author Doug Anson
  */

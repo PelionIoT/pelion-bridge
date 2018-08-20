@@ -1,5 +1,5 @@
 /**
- * @file    DatabaseTemplatedHashMap.java
+ * @file DatabaseTemplatedHashMap.java
  * @brief Database HashMap implementation with distributable decoration
  * @author Doug Anson
  * @version 1.0

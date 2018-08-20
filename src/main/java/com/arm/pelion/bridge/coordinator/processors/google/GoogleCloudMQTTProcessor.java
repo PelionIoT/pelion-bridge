@@ -1,5 +1,5 @@
 /**
- * @file    GoogleCloudMQTTProcessor.java
+ * @file GoogleCloudMQTTProcessor.java
  * @brief Google Cloud MQTT Peer Processor
  * @author Doug Anson
  * @version 1.0
@@ -62,7 +62,7 @@ import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 
 /**
- * Google Cloud peer processor based on MQTT
+ * Google CloudioT peer processor based on MQTT
  *
  * @author Doug Anson
  */

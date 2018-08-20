@@ -1,5 +1,5 @@
 /**
- * @file    TypeDecoder.java
+ * @file TypeDecoder.java
  * @brief Class that aids in the parsing of an input String into its fundamental type (Float, Integer, String)
  * @author Doug Anson
  * @version 1.0

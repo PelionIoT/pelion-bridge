@@ -1,5 +1,5 @@
 /**
- * @file    AsyncResponseManager.java
+ * @file  AsyncResponseManager.java
  * @brief async response manager for Pelion async response handling in pelion-bridge
  * @author Doug Anson
  * @version 1.0

@@ -1,5 +1,5 @@
 /**
- * @file    WatsonIoTPeerProcessorFactory.java
+ * @file WatsonIoTPeerProcessorFactory.java
  * @brief IBM Watson IoT Peer Processor Factory
  * @author Doug Anson
  * @version 1.0
@@ -22,7 +22,6 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.factories;
 
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.ibm.WatsonIoTMQTTProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;

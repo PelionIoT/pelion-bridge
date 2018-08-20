@@ -1,5 +1,5 @@
 /**
- * @file    PeerInterface.java
+ * @file PeerInterface.java
  * @brief Generic Peer Interface for the pelion-bridge
  * @author Doug Anson
  * @version 1.0
@@ -24,8 +24,7 @@ package com.arm.pelion.bridge.coordinator.processors.interfaces;
 import java.util.Map;
 
 /**
- * This interface defines the exposed methods of a peer processor (such as a GenericMQTTProcessor) 
- * that are consumed by the Pelion processor
+ * This interface defines the exposed methods of a peer processor
  *
  * @author Doug Anson
  */

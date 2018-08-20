@@ -1,5 +1,5 @@
 /**
- * @file    InMemoryTemplatedHashMap.java
+ * @file InMemoryTemplatedHashMap.java
  * @brief In Memory HashMap implementation with distributable decoration
  * @author Doug Anson
  * @version 1.0

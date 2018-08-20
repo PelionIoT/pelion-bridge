@@ -1,5 +1,5 @@
 /**
- * @file    ErrorLogger.java
+ * @file ErrorLogger.java
  * @brief error logging facility
  * @author Doug Anson
  * @version 1.0
@@ -34,52 +34,48 @@ import java.util.ArrayList;
  */
 public class ErrorLogger extends BaseClass {
 
-    // Default message
     /**
-     *
+     * default message
      */
     public static final String DEFAULT_MESSAGE = "<No Message-OK>";
 
-    // Logging classifications
     /**
-     *
+     * Informational message
      */
     public static final int INFO = 0x0001;     // informational
 
     /**
-     *
+     * Warning message
      */
     public static final int WARNING = 0x0002;     // warning
 
     /**
-     *
+     * Critical message
      */
     public static final int CRITICAL = 0x0004;     // critical error
 
-    // masks
     /**
-     *
+     * masks
      */
     public static final int SHOW_ALL = 0x00FF;     // show all
 
     /**
-     *
+     * show info only
      */
     public static final int SHOW_INFO = 0x0001;     // show INFO only
 
     /**
-     *
+     * show warnings only
      */
     public static final int SHOW_WARNING = 0x0002;     // show WARNING only
 
     /**
-     *
+     * show critical errors only
      */
     public static final int SHOW_CRITICAL = 0x0004;     // show CRITICAL only
 
-    // maxmium number of tracked log entries
     /**
-     *
+     * maxmium number of tracked log entries
      */
     public static final int MAX_LOG_ENTRIES = 500;      // reset the list after retaining this many entries
 
@@ -114,7 +110,7 @@ public class ErrorLogger extends BaseClass {
     }
 
     /*
-    * Configure the logging level
+     * Configure the logging level
      */
     public void configureLoggingLevel(PreferenceManager preferences) {
         String config = preferences.valueOf("mds_bridge_error_level", null);
@@ -155,6 +151,7 @@ public class ErrorLogger extends BaseClass {
     public void ping() {
         this.ping("PING");
     }
+    
     public void ping(String message) {
         Exception ex = new Exception ("PingException");
         this.warning(message + " Exception: " + ex.getMessage(),ex);
@@ -170,7 +167,7 @@ public class ErrorLogger extends BaseClass {
     }
 
     /**
-     *
+     * warning message
      * @param message
      */
     public void warning(String message) {
@@ -178,7 +175,7 @@ public class ErrorLogger extends BaseClass {
     }
 
     /**
-     *
+     * critical message
      * @param message
      */
     public void critical(String message) {
@@ -186,7 +183,7 @@ public class ErrorLogger extends BaseClass {
     }
 
     /**
-     * log entry - messages and exceptions
+     * info message
      *
      * @param message
      * @param ex
@@ -196,7 +193,8 @@ public class ErrorLogger extends BaseClass {
     }
 
     /**
-     *
+     * warning message with exception
+     * 
      * @param message
      * @param ex
      */
@@ -205,7 +203,8 @@ public class ErrorLogger extends BaseClass {
     }
 
     /**
-     *
+     * critical message with exception
+     * 
      * @param message
      * @param ex
      */
@@ -214,7 +213,7 @@ public class ErrorLogger extends BaseClass {
     }
 
     /**
-     * log entry - exceptions only
+     * info exception
      *
      * @param ex
      */
@@ -223,7 +222,8 @@ public class ErrorLogger extends BaseClass {
     }
 
     /**
-     *
+     * warning exception
+     * 
      * @param ex
      */
     public void warning(Exception ex) {
@@ -231,7 +231,8 @@ public class ErrorLogger extends BaseClass {
     }
 
     /**
-     *
+     * critical exception
+     * 
      * @param ex
      */
     public void critical(Exception ex) {

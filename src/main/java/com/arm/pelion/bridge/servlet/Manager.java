@@ -1,6 +1,6 @@
 /**
- * @file    Manager.java
- * @brief Servlet Manager
+ * @file Manager.java
+ * @brief Primary Servlet Manager for pelion-bridge
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -34,7 +34,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * Main Servlet Manager
+ * Primary Servlet Manager for pelion-bridge
  *
  * @author Doug Anson
  */

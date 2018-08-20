@@ -1,5 +1,5 @@
 /**
- * @file    PreferenceManager.java
+ * @file PreferenceManager.java
  * @brief preferences manager
  * @author Doug Anson
  * @version 1.0

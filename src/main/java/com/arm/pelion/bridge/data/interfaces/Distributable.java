@@ -1,5 +1,5 @@
 /**
- * @file    DistributableHashMap.java
+ * @file DistributableHashMap.java
  * @brief Interface specifying the decorated features of a distributable hashmap
  * @author Doug Anson
  * @version 1.0
@@ -25,7 +25,7 @@ package com.arm.pelion.bridge.data.interfaces;
 import java.io.Serializable;
 
 /**
- * Distributable 
+ * Distributable interface 
  * @author Doug Anson
  */
 public interface Distributable {

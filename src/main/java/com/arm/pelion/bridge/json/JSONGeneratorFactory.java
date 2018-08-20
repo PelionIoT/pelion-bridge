@@ -1,5 +1,5 @@
 /**
- * @file    JSONGeneratorFactory.java
+ * @file JSONGeneratorFactory.java
  * @brief JSON Generator Factory wrapper class
  * @author Doug Anson
  * @version 1.0
@@ -23,7 +23,7 @@
 package com.arm.pelion.bridge.json;
 
 /**
- *
+ * JSON Generator Factory wrapper class
  * @author Doug Anson
  */
 public class JSONGeneratorFactory {

@@ -1,5 +1,5 @@
 /**
- * @file    MQTTTransport.java
+ * @file MQTTTransport.java
  * @brief MQTT Transport Support
  * @author Doug Anson
  * @version 1.0

@@ -1,5 +1,5 @@
 /**
- * @file  PeerProcessor.java
+ * @file PeerProcessor.java
  * @brief peer processor base class
  * @author Doug Anson
  * @version 1.0

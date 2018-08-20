@@ -1,5 +1,5 @@
 /**
- * @file    IoTHubDeviceManager.java
+ * @file IoTHubDeviceManager.java
  * @brief MS IoTHub Device Manager for the MS IoTHub Peer Processor
  * @author Doug Anson
  * @version 1.0
@@ -34,7 +34,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * This class defines the required REST functions to manage IoTHub devices via the peer processor
+ * This class defines the required methods to manage MS IoTHub devices
  *
  * @author Doug Anson
  */

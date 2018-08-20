@@ -1,6 +1,3 @@
-
-import com.arm.pelion.bridge.core.BridgeMain;
-
 /**
  * @file    Main.java
  * @brief main entry for the connector bridge
@@ -23,6 +20,8 @@ import com.arm.pelion.bridge.core.BridgeMain;
  * limitations under the License.
  *
  */
+
+import com.arm.pelion.bridge.core.BridgeMain;
 
 /**
  * Main: Main entry point for the pelion-bridge application

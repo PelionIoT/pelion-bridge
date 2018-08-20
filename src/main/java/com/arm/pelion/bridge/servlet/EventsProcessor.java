@@ -1,6 +1,6 @@
 /**
- * @file    EventProcessor.java
- * @brief Event Servlet Handler
+ * @file EventsProcessor.java
+ * @brief Events Servlet Handler
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -33,7 +33,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * Event Servlet Handler
+ * Events Servlet Handler
  *
  * @author Doug Anson
  */

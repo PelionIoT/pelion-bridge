@@ -1,5 +1,5 @@
 /**
- * @file    Message.java
+ * @file Message.java
  * @brief message base class
  * @author Doug Anson
  * @version 1.0

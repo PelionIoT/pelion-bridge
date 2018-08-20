@@ -1,5 +1,5 @@
 /**
- * @file    GoogleCloudPeerProcessorFactory.java
+ * @file GoogleCloudPeerProcessorFactory.java
  * @brief Google Cloud Peer Processor Factory
  * @author Doug Anson
  * @version 1.0
@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
- * Google Cloud Peer Processor Manager: Factory for initiating a peer processor for Google Cloud Pub/Sub
+ * Google Cloud Peer Processor Manager: Factory for initiating a peer processor for Google CloudIoT
  *
  * @author Doug Anson
  */

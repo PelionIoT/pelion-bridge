@@ -1,5 +1,5 @@
 /**
- * @file    JSONGenerator.java
+ * @file JSONGenerator.java
  * @brief JSON Generator wrapper class
  * @author Doug Anson
  * @version 1.0
@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
+ * JSON Generator wrapper class
  * @author Doug Anson
  */
 public class JSONGenerator {

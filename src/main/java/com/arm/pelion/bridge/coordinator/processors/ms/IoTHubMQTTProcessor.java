@@ -1,5 +1,5 @@
 /**
- * @file    IoTHubMQTTProcessor.java
+ * @file IoTHubMQTTProcessor.java
  * @brief IoTHub MQTT Peer Processor
  * @author Doug Anson
  * @version 1.0

@@ -1,6 +1,6 @@
 /**
- * @file    Utils.java
- * @brief misc collection of static utilities
+ * @file Utils.java
+ * @brief misc collection of static methods and functions
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -76,7 +76,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
 
 /**
- * Static support utilities
+ * Static method utilities
  *
  * @author Doug Anson
  */

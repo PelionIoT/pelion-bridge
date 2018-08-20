@@ -1,5 +1,5 @@
 /**
- * @file    JSONParser.java
+ * @file JSONParser.java
  * @brief JSON Parser wrapper class
  * @author Doug Anson
  * @version 1.0
@@ -28,7 +28,7 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
- *
+ * JSON Parser wrapper class
  * @author Doug Anson
  */
 public class JSONParser {

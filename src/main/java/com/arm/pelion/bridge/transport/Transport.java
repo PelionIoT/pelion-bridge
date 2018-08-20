@@ -1,5 +1,5 @@
 /**
- * @file    Transport.java
+ * @file Transport.java
  * @brief transport base class
  * @author Doug Anson
  * @version 1.0

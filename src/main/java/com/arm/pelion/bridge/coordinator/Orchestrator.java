@@ -1,5 +1,5 @@
 /**
- * @file    orchestrator.java
+ * @file orchestrator.java
  * @brief orchestrator for the connector bridge
  * @author Doug Anson
  * @version 1.0
@@ -21,8 +21,6 @@
  *
  */
 package com.arm.pelion.bridge.coordinator;
-
-// Interfaces
 
 // Processors
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
@@ -53,7 +51,7 @@ import com.arm.pelion.bridge.servlet.Manager;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
 
 /**
- * This the primary orchestrator for the connector bridge
+ * This the primary orchestrator for the pelion bridge
  *
  * @author Doug Anson
  */

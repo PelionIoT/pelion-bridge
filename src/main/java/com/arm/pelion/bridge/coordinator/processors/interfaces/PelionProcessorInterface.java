@@ -28,8 +28,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * This interface defines the exposed methods of the Pelion processor that can 
- * be used by a given peer processor.
+ * This interface defines the exposed methods of the Pelion processor
  *
  * @author Doug Anson
  */

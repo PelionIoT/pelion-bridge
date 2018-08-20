@@ -1,5 +1,5 @@
 /**
- * @file    GenericMQTTProcessor.java
+ * @file GenericMQTTProcessor.java
  * @brief Generic MQTT peer processor for connector bridge
  * @author Doug Anson
  * @version 1.0

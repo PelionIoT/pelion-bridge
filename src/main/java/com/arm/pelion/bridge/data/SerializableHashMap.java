@@ -1,5 +1,5 @@
 /**
- * @file    SerializableHashMap.java
+ * @file SerializableHashMap.java
  * @brief Serializable HashMap decider
  * @author Doug Anson
  * @version 1.0

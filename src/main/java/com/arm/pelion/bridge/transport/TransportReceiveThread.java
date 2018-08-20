@@ -1,6 +1,6 @@
 /**
- * @file    TransportReceiveThread.java
- * @brief Generic transport receive thread base class
+ * @file TransportReceiveThread.java
+ * @brief Transport receive thread base class
  * @author Doug Anson
  * @version 1.0
  * @see

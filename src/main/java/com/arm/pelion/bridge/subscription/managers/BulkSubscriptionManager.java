@@ -29,7 +29,7 @@ import com.arm.pelion.bridge.core.BaseClass;
 import com.arm.pelion.bridge.data.SerializableHashMap;
 
 /**
- * Bulk Subscription manager (null-manager)
+ * Bulk Subscription manager (default for pelion-bridge)
  * @author Doug Anson
  */
 public class BulkSubscriptionManager extends BaseClass implements SubscriptionManager {

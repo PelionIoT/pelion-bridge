@@ -1,5 +1,5 @@
 /**
- * @file    DeviceManager.java
+ * @file DeviceManager.java
  * @brief Device manager base class
  * @author Doug Anson
  * @version 1.0

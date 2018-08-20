@@ -1,5 +1,5 @@
 /**
- * @file    InMemoryTemplatedArrayList.java
+ * @file InMemoryTemplatedArrayList.java
  * @brief In Memory arraylist implementation with distributable decoration
  * @author Doug Anson
  * @version 1.0

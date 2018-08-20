@@ -50,7 +50,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * This class defines the required REST functions to manage Google Pub/Sub devices via the peer processor
+ * This class defines the required REST functions to manage Google CloudIoT devices
  *
  * @author Doug Anson
  */

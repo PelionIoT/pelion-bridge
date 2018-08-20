@@ -1,5 +1,5 @@
 /**
- * @file    AWSIoTMQTTProcessor.java
+ * @file AWSIoTMQTTProcessor.java
  * @brief AWS IoT MQTT Peer Processor
  * @author Doug Anson
  * @version 1.0

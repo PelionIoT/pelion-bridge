@@ -1,5 +1,5 @@
 /**
- * @file    GenericMQTTPeerProcessorFactory.java
+ * @file GenericMQTTPeerProcessorFactory.java
  * @brief Generic MQTT Processor Factory
  * @author Doug Anson
  * @version 1.0
@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 
 /**
- * IBM Peer Processor Manager: Factory for initiating a generic MQTT peer processor
+ * Generic MQTT Peer Processor Manager: Factory for initiating a generic MQTT peer processor
  *
  * @author Doug Anson
  */
