@@ -1,5 +1,5 @@
 /**
- * @file    HttpTransport.java
+ * @file HttpTransport.java
  * @brief HTTP Transport Support
  * @author Doug Anson
  * @version 1.0
@@ -30,20 +30,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.security.cert.X509Certificate;
-import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -59,6 +53,9 @@ public class HttpTransport extends BaseClass {
     private String m_basic_auth_qualifier = "Basic";
     private String m_etag_value = null;
     private String m_if_match_header_value = null;
+    private String m_pelion_api_hostname = null;
+    private PelionHostnameVerifier m_verifier = null;
+    private PelionTrustManagerListFactory m_trust_managers = null;
 
     // constructor
     /**
@@ -68,6 +65,12 @@ public class HttpTransport extends BaseClass {
      */
     public HttpTransport(ErrorLogger error_logger, PreferenceManager preference_manager) {
         super(error_logger, preference_manager);
+        this.m_pelion_api_hostname = preference_manager.valueOf("mds_address");
+        if (this.m_pelion_api_hostname == null || this.m_pelion_api_hostname.length() == 0) {
+            this.m_pelion_api_hostname = preference_manager.valueOf("api_endpoint_address");
+        }
+        this.m_verifier = new PelionHostnameVerifier(this.m_pelion_api_hostname);
+        this.m_trust_managers = new PelionTrustManagerListFactory(error_logger, preference_manager);
         String auth_qualifier = this.prefValue("http_auth_qualifier");
         if (auth_qualifier != null && auth_qualifier.length() > 0) {
             this.m_auth_qualifier_default = auth_qualifier;
@@ -322,167 +325,151 @@ public class HttpTransport extends BaseClass {
         String line = "";
         URLConnection connection = null;
         SSLContext sc = null;
+        boolean setup = false;
 
         try {
             URL url = new URL(url_str);
 
             // Http Connection and verb
             if (doSSL) {
-                // Create a trust manager that does not validate certificate chains
-                TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
-                    @Override
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return null;
-                    }
-
-                    @Override
-                    public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                    }
-
-                    @Override
-                    public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                    }
-                }};
-
-                // Install the all-trusting trust manager
+                // Install our pelion trust manager and hostname verifier
                 try {
                     sc = SSLContext.getInstance("TLS");
-                    sc.init(null, trustAllCerts, new SecureRandom());
+                    sc.init(null, this.m_trust_managers.create(), new SecureRandom());
                     HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-                    HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
-                        @Override
-                        public boolean verify(String hostname, SSLSession session) {
-                            return true;
-                        }
-                    });
+                    HttpsURLConnection.setDefaultHostnameVerifier(this.m_verifier);
+                    setup = true;
                 }
                 catch (NoSuchAlgorithmException | KeyManagementException e) {
-                    // do nothing
-                    ;
+                    // ERROR - unable to setup/config TLS
+                    this.errorLogger().critical("ERROR: doHTTP() exception during TLS config: " + e.getMessage(),e);
                 }
+                
+                // check if we have TLS setup/configured thus far...
+                if (setup == true) {
+                    // open the SSL connction
+                    connection = (HttpsURLConnection) (url.openConnection());
+                    ((HttpsURLConnection) connection).setRequestMethod(verb);
+                    ((HttpsURLConnection) connection).setSSLSocketFactory(sc.getSocketFactory());
+                    ((HttpsURLConnection) connection).setHostnameVerifier(this.m_verifier); 
 
-                // open the SSL connction
-                connection = (HttpsURLConnection) (url.openConnection());
-                ((HttpsURLConnection) connection).setRequestMethod(verb);
-                ((HttpsURLConnection) connection).setSSLSocketFactory(sc.getSocketFactory());
-                ((HttpsURLConnection) connection).setHostnameVerifier(new HostnameVerifier() {
-                    @Override
-                    public boolean verify(String hostname, SSLSession session) {
-                        return true;
+                    // Input configuration
+                    connection.setDoInput(doInput);
+                    if (doOutput && data != null && data.length() > 0) {
+                        connection.setDoOutput(doOutput);
                     }
-                }); 
-
-                connection.setDoInput(doInput);
-                if (doOutput && data != null && data.length() > 0) {
-                    connection.setDoOutput(doOutput);
-                }
-                else {
-                    connection.setDoOutput(false);
-                }
-
-                // enable basic auth if requested
-                if (use_api_token == false && username != null && username.length() > 0 && password != null && password.length() > 0) {
-                    String encoding = Base64.encodeBase64String((username + ":" + password).getBytes());
-                    connection.setRequestProperty("Authorization", this.m_basic_auth_qualifier + " " + encoding);
-                    this.errorLogger().info("HTTP(S): Basic Authorization: " + username + ":" + password + ": " + encoding);
-                }
-
-                // enable ApiTokenAuth auth if requested
-                if (use_api_token == true && api_token != null && api_token.length() > 0) {
-                    // use qualification for the authorization header...
-                    connection.setRequestProperty("Authorization", this.m_auth_qualifier + " " + api_token);
-                    this.errorLogger().info("HTTP(S): ApiTokenAuth Authorization: " + this.m_auth_qualifier + " " + api_token);
-
-                    // Always reset to the established default
-                    this.resetAuthorizationQualifier();
-                }
-
-                // ETag support if requested
-                if (this.m_etag_value != null && this.m_etag_value.length() > 0) {
-                    // set the ETag header value
-                    connection.setRequestProperty("ETag", this.m_etag_value);
-                    //this.errorLogger().info("ETag Value: " + this.m_etag_value);
-
-                    // Always reset to the established default
-                    this.resetETagValue();
-                }
-
-                // If-Match support if requested
-                if (this.m_if_match_header_value != null && this.m_if_match_header_value.length() > 0) {
-                    // set the If-Match header value
-                    connection.setRequestProperty("If-Match", this.m_if_match_header_value);
-                    //this.errorLogger().info("If-Match Value: " + this.m_if_match_header_value);
-
-                    // Always reset to the established default
-                    this.resetIfMatchValue();
-                }
-
-                // specify content type if requested
-                if (content_type != null && content_type.length() > 0) {
-                    connection.setRequestProperty("Content-Type", content_type);
-                    connection.setRequestProperty("Accept", "*/*");
-
-                    // DEBUG
-                    this.errorLogger().info("ContentType: " + content_type);
-                }
-
-                // add Connection: keep-alive (does not work...)
-                //connection.setRequestProperty("Connection", "keep-alive");
-                // special gorp for HTTP DELETE
-                if (verb != null && verb.equalsIgnoreCase("delete")) {
-                    connection.setRequestProperty("Access-Control-Allow-Methods", "OPTIONS, DELETE");
-                }
-
-                // specify a persistent connection or not
-                if (persistent == true) {
-                    connection.setRequestProperty("Connection", "keep-alive");
-                }
-
-                // DEBUG dump the headers
-                //if (doSSL) 
-                //    this.errorLogger().info("HTTP: Headers: " + ((HttpsURLConnection)connection).getRequestProperties()); 
-                //else
-                //    this.errorLogger().info("HTTP: Headers: " + ((HttpURLConnection)connection).getRequestProperties()); 
-                // specify data if requested - assumes it properly escaped if necessary
-                if (doOutput && data != null && data.length() > 0) {
-                    try (OutputStreamWriter out = new OutputStreamWriter(connection.getOutputStream(),"UTF-8")) {
-                        this.errorLogger().info("HTTP(" + verb + "): DATA: " + data + " CONTENT_TYPE: " + content_type);
-                        out.write(data);
-                        out.flush();
-                        out.close();
+                    else {
+                        connection.setDoOutput(false);
                     }
-                }
 
-                // setup the output if requested
-                if (doInput) {
-                    try {
-                        try (InputStream content = (InputStream) connection.getInputStream(); BufferedReader in = new BufferedReader(new InputStreamReader(content))) {
-                            StringBuilder buf = new StringBuilder();
-                            while ((line = in.readLine()) != null) {
-                                buf.append(line);
-                            }
-                            result = buf.toString();
+                    // enable basic auth if requested
+                    if (use_api_token == false && username != null && username.length() > 0 && password != null && password.length() > 0) {
+                        String encoding = Base64.encodeBase64String((username + ":" + password).getBytes());
+                        connection.setRequestProperty("Authorization", this.m_basic_auth_qualifier + " " + encoding);
+                        this.errorLogger().info("HTTP(S): Basic Authorization: " + username + ":" + password + ": " + encoding);
+                    }
+
+                    // enable ApiTokenAuth auth if requested
+                    if (use_api_token == true && api_token != null && api_token.length() > 0) {
+                        // use qualification for the authorization header...
+                        connection.setRequestProperty("Authorization", this.m_auth_qualifier + " " + api_token);
+                        this.errorLogger().info("HTTP(S): ApiTokenAuth Authorization: " + this.m_auth_qualifier + " " + api_token);
+
+                        // Always reset to the established default
+                        this.resetAuthorizationQualifier();
+                    }
+
+                    // ETag support if requested
+                    if (this.m_etag_value != null && this.m_etag_value.length() > 0) {
+                        // set the ETag header value
+                        connection.setRequestProperty("ETag", this.m_etag_value);
+                        //this.errorLogger().info("ETag Value: " + this.m_etag_value);
+
+                        // Always reset to the established default
+                        this.resetETagValue();
+                    }
+
+                    // If-Match support if requested
+                    if (this.m_if_match_header_value != null && this.m_if_match_header_value.length() > 0) {
+                        // set the If-Match header value
+                        connection.setRequestProperty("If-Match", this.m_if_match_header_value);
+                        //this.errorLogger().info("If-Match Value: " + this.m_if_match_header_value);
+
+                        // Always reset to the established default
+                        this.resetIfMatchValue();
+                    }
+
+                    // specify content type if requested
+                    if (content_type != null && content_type.length() > 0) {
+                        connection.setRequestProperty("Content-Type", content_type);
+                        connection.setRequestProperty("Accept", "*/*");
+
+                        // DEBUG
+                        this.errorLogger().info("ContentType: " + content_type);
+                    }
+
+                    // add Connection: keep-alive (does not work...)
+                    //connection.setRequestProperty("Connection", "keep-alive");
+                    // special gorp for HTTP DELETE
+                    if (verb != null && verb.equalsIgnoreCase("delete")) {
+                        connection.setRequestProperty("Access-Control-Allow-Methods", "OPTIONS, DELETE");
+                    }
+
+                    // specify a persistent connection or not
+                    if (persistent == true) {
+                        connection.setRequestProperty("Connection", "keep-alive");
+                    }
+
+                    // DEBUG dump the headers
+                    //if (doSSL) 
+                    //    this.errorLogger().info("HTTP: Headers: " + ((HttpsURLConnection)connection).getRequestProperties()); 
+                    //else
+                    //    this.errorLogger().info("HTTP: Headers: " + ((HttpURLConnection)connection).getRequestProperties()); 
+                    // specify data if requested - assumes it properly escaped if necessary
+                    if (doOutput && data != null && data.length() > 0) {
+                        try (OutputStreamWriter out = new OutputStreamWriter(connection.getOutputStream(),"UTF-8")) {
+                            this.errorLogger().info("HTTP(" + verb + "): DATA: " + data + " CONTENT_TYPE: " + content_type);
+                            out.write(data);
+                            out.flush();
+                            out.close();
                         }
                     }
-                    catch (java.io.FileNotFoundException ex) {
-                        this.errorLogger().info("HTTP(" + verb + ") empty response (OK).");
+
+                    // setup the output if requested
+                    if (doInput) {
+                        try {
+                            try (InputStream content = (InputStream) connection.getInputStream(); BufferedReader in = new BufferedReader(new InputStreamReader(content))) {
+                                StringBuilder buf = new StringBuilder();
+                                while ((line = in.readLine()) != null) {
+                                    buf.append(line);
+                                }
+                                result = buf.toString();
+                            }
+                        }
+                        catch (java.io.FileNotFoundException ex) {
+                            this.errorLogger().info("HTTP(" + verb + ") empty response (OK).");
+                            result = "";
+                        }
+                    }
+                    else {
+                        // no result expected
                         result = "";
                     }
+
+                    // save off the HTTP response code...
+                    this.saveResponseCode(((HttpsURLConnection) connection).getResponseCode());
+
+                    // DEBUG
+                    //this.errorLogger().info("HTTP(" + verb +") URL: " + url_str + " Data: " + data + " Response code: " + ((HttpsURLConnection)connection).getResponseCode());
                 }
                 else {
-                    // no result expected
-                    result = "";
+                    // non-SSL not supported
+                    this.errorLogger().critical("ERROR! doHTTP(): HTTP now unsupported in doHTTP(" + verb + "): URL: " + url_str);
                 }
-
-                // save off the HTTP response code...
-                this.saveResponseCode(((HttpsURLConnection) connection).getResponseCode());
-
-                // DEBUG
-                //this.errorLogger().info("HTTP(" + verb +") URL: " + url_str + " Data: " + data + " Response code: " + ((HttpsURLConnection)connection).getResponseCode());
             }
             else {
-                // non-SSL not supported
-                this.errorLogger().critical("ERROR! HTTP now unsupported in doHTTP(" + verb + "): URL: " + url_str);
+                // unable to setup SSL 
+                this.errorLogger().critical("ERROR: doHTTP(): Unable to configure/setup TLS! Aborting...");
             }
         }    
         catch (IOException ex) {
