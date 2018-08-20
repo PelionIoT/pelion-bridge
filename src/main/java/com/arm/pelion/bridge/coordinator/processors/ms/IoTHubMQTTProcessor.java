@@ -119,9 +119,6 @@ public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements Reconne
 
                 // re-subscribe
                 if (this.subscriptionsManager().containsSubscription(ep_name, (String) endpoint.get("ept"), (String) resource.get("path"))) {
-                    // re-subscribe to this resource
-                    this.orchestrator().subscribeToEndpointResource(ep_name, (String) resource.get("path"), false);
-
                     // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
                     this.subscriptionsManager().removeSubscription(ep_name, (String) endpoint.get("ept"), (String) resource.get("path"));
                     this.subscriptionsManager().addSubscription(ep_name, (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
@@ -129,9 +126,6 @@ public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements Reconne
 
                 // auto-subscribe
                 else if (this.isObservableResource(resource) && this.m_auto_subscribe_to_obs_resources == true) {
-                    // auto-subscribe to observable resources... if enabled.
-                    this.orchestrator().subscribeToEndpointResource(ep_name, (String) resource.get("path"), false);
-
                     // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
                     this.subscriptionsManager().removeSubscription(ep_name, (String) endpoint.get("ept"), (String) resource.get("path"));
                     this.subscriptionsManager().addSubscription(ep_name, (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));

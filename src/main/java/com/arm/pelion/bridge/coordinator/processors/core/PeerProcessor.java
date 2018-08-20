@@ -25,7 +25,7 @@ package com.arm.pelion.bridge.coordinator.processors.core;
 import com.arm.pelion.bridge.core.Processor;
 import com.arm.pelion.bridge.subscription.managers.BulkSubscriptionManager;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.arm.mbedCloudProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.pelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.SubscriptionManager;
@@ -119,22 +119,13 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             for (int j = 0; resources != null && j < resources.size(); ++j) {
                 Map resource = (Map) resources.get(j);
                 if (this.subscriptionsManager().containsSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"))) {
-                    if (this.m_re_subscribe == true) {
-                        // re-subscribe to this resource
-                        this.orchestrator().subscribeToEndpointResource((String) endpoint.get("ep"), (String) resource.get("path"), false);
-                    }
-                    else {
-                        // no re-processing of subscriptions
-                        this.errorLogger().info("processRegistration: not re-initializing subscription (OK)");
-                    }
+                    // no re-processing of subscriptions
+                    this.errorLogger().info("processRegistration: not re-initializing subscription (OK)");
                 }
                 else if (this.isObservableResource(resource) && this.m_auto_subscribe_to_obs_resources == true && this.subscriptionsManager().isFullyQualifiedResource((String)resource.get("path")) && this.subscriptionsManager().isNotASpecialityResource((String) resource.get("path"))) {
-                        // auto-subscribe to observable resources... if enabled.
-                        this.orchestrator().subscribeToEndpointResource((String) endpoint.get("ep"), (String) resource.get("path"), false);
-
-                        // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
-                        this.subscriptionsManager().removeSubscription( (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
-                        this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
+                    // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
+                    this.subscriptionsManager().removeSubscription( (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
+                    this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
                 }
             }
         }
@@ -362,7 +353,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String def = (String)this.m_endpoint_type_list.get(ep_name);
         if (def == null) {
             // not available... so use the default
-            def = mbedCloudProcessor.DEFAULT_ENDPOINT_TYPE;
+            def = pelionProcessor.DEFAULT_ENDPOINT_TYPE;
         }
         
         // return the cached/default value

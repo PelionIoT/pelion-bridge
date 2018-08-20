@@ -25,9 +25,9 @@ package com.arm.pelion.bridge.coordinator;
 // Interfaces
 
 // Processors
-import com.arm.pelion.bridge.coordinator.processors.arm.mbedCloudProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.pelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
-import com.arm.pelion.bridge.coordinator.processors.arm.mbedCloudProcessorAPI;
+import com.arm.pelion.bridge.coordinator.processors.arm.pelionProcessorAPI;
 import com.arm.pelion.bridge.coordinator.processors.factories.WatsonIoTPeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.factories.MSIoTHubPeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.factories.AWSIoTPeerProcessorFactory;
@@ -49,43 +49,52 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import com.arm.pelion.bridge.data.DatabaseConnector;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.mbedCloudProcessorInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.servlet.Manager;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.pelionProcessorInterface;
 
 /**
  * This the primary orchestrator for the connector bridge
  *
  * @author Doug Anson
  */
-public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorInterface {
+public class Orchestrator implements pelionProcessorInterface, PeerProcessorInterface {
+    // database table delimiter
     private static String DEF_TABLENAME_DELIMITER = "_";
 
+    // our servlet
     private final HttpServlet m_servlet = null;
 
+    // Logging and preferences...
     private ErrorLogger m_error_logger = null;
     private PreferenceManager m_preference_manager = null;
 
-    // mbed Cloud processor
-    private mbedCloudProcessorInterface m_mbed_cloud_processor = null;
+    // Pelion processor (1 only...)
+    private pelionProcessorInterface m_mbed_cloud_processor = null;
 
-    // Peer processor list
+    // Peer processor list (n-way...default is 1 though...)
     private ArrayList<PeerProcessorInterface> m_peer_processor_list = null;
 
+    // our HTTP transport interface
     private HttpTransport m_http = null;
 
+    // JSON support
     private JSONGeneratorFactory m_json_factory = null;
     private JSONGenerator m_json_generator = null;
     private JSONParser m_json_parser = null;
+    
+    // listeners initialized status...
     private boolean m_listeners_initialized = false;
     
+    // persist preferences and configuration
     private DatabaseConnector m_db = null;
     private String m_tablename_delimiter = null;
     private boolean m_is_master_node = true;        // default is to be a master node
     
-    // our manager
+    // our primary manager
     private Manager m_manager = null;
 
+    // primary constructor
     public Orchestrator(ErrorLogger error_logger, PreferenceManager preference_manager) {
         // save the error handler
         this.m_error_logger = error_logger;
@@ -126,14 +135,14 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
         // build out the HTTP transport
         this.m_http = new HttpTransport(this.m_error_logger, this.m_preference_manager);
 
-        // REQUIRED: We always create the mbed Cloud REST processor
-        //this.m_mbed_cloud_processor = new mbedCloudProcessorAPI(this,this.m_http);
-        this.m_mbed_cloud_processor = new mbedCloudProcessor(this, this.m_http);
+        // We always create the Pelion processor (1 only)
+        //this.m_mbed_cloud_processor = new pelionProcessorAPI(this,this.m_http);
+        this.m_mbed_cloud_processor = new pelionProcessor(this, this.m_http);
       
-        // initialize our peer processor list
+        // initialize our peer processors... (n-way... but default is just 1...)
         this.initPeerProcessorList();
         
-        // start any needed device discovery
+        // start device discovery in Pelion...
         this.initDeviceDiscovery();
     }
     
@@ -288,7 +297,7 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
     }
 
     // get the mbed Cloud processor
-    public mbedCloudProcessorInterface mbed_cloud_processor() {
+    public pelionProcessorInterface mbed_cloud_processor() {
         return this.m_mbed_cloud_processor;
     }
 
@@ -338,21 +347,6 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
     @Override
     public void processRegistrationsExpired(String[] endpoints) {
         this.mbed_cloud_processor().processRegistrationsExpired(endpoints);
-    }
-
-    @Override
-    public String subscribeToEndpointResource(String uri, Map options, Boolean init_webhook) {
-        return this.mbed_cloud_processor().subscribeToEndpointResource(uri, options, init_webhook);
-    }
-
-    @Override
-    public String subscribeToEndpointResource(String ep_name, String uri, Boolean init_webhook) {
-        return this.mbed_cloud_processor().subscribeToEndpointResource(ep_name, uri, init_webhook);
-    }
-
-    @Override
-    public String unsubscribeFromEndpointResource(String uri, Map options) {
-        return this.mbed_cloud_processor().unsubscribeFromEndpointResource(uri, options);
     }
 
     @Override
@@ -511,11 +505,6 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).stopListener();
         }
-    }
-
-    @Override
-    public String createSubscriptionURI(String ep_name, String resource_uri) {
-        return this.mbed_cloud_processor().createSubscriptionURI(ep_name, resource_uri);
     }
 
     @Override

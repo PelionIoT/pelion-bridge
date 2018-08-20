@@ -33,7 +33,7 @@ import javax.servlet.http.HttpServletResponse;
  *
  * @author Doug Anson
  */
-public interface mbedCloudProcessorInterface {
+public interface pelionProcessorInterface {
     // process an API request 
     public ApiResponse processApiRequestOperation(String uri,String data,String options,String verb,int request_id,String api_key,String caller_id,String content_type);
     
@@ -52,13 +52,6 @@ public interface mbedCloudProcessorInterface {
     // process endpoint registrations-expired from device server
     public void processRegistrationsExpired(String[] endpoints);
 
-    // process resource subscription request
-    public String subscribeToEndpointResource(String uri, Map options, Boolean init_webhook);
-    public String subscribeToEndpointResource(String ep_name, String uri, Boolean init_webhook);
-
-    // process resource un-subscribe request
-    public String unsubscribeFromEndpointResource(String uri, Map options);
-
     // Webhook management
     public boolean setWebhook();
     public boolean resetWebhook();
@@ -66,9 +59,6 @@ public interface mbedCloudProcessorInterface {
     // Device Metadata extraction
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor);
 
-    // create the mDS/mDC URI for subscriptions
-    public String createSubscriptionURI(String ep_name, String resource_uri);
-    
     // device removal on deregistration?
     public boolean deviceRemovedOnDeRegistration();
     

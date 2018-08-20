@@ -104,9 +104,6 @@ public class AWSIoTMQTTProcessor extends GenericMQTTProcessor implements Reconne
 
                 // re-subscribe
                 if (this.subscriptionsManager().containsSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"))) {
-                    // re-subscribe to this resource
-                    this.orchestrator().subscribeToEndpointResource((String) endpoint.get("ep"), (String) resource.get("path"), false);
-
                     // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
                     this.subscriptionsManager().removeSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
                     this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
@@ -114,9 +111,6 @@ public class AWSIoTMQTTProcessor extends GenericMQTTProcessor implements Reconne
 
                 // auto-subscribe
                 else if (this.isObservableResource(resource) && this.m_auto_subscribe_to_obs_resources == true) {
-                    // auto-subscribe to observable resources... if enabled.
-                    this.orchestrator().subscribeToEndpointResource((String) endpoint.get("ep"), (String) resource.get("path"), false);
-
                     // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
                     this.subscriptionsManager().removeSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
                     this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));

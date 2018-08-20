@@ -1,6 +1,6 @@
 /**
- * @file  mbedCloudProcessor.java
- * @brief Peer Processor for the mbed Cloud (API variant)
+ * @file  pelionProcessor.java
+ * @brief Peer Processor for the Pelion (API variant)
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -35,17 +35,17 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProc
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.mbedCloudProcessorInterface;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import java.util.HashMap;
 import java.util.List;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.pelionProcessorInterface;
 
 /**
  * mbed Cloud Peer processor 
  *
  * @author Doug Anson
  */
-public class mbedCloudProcessorAPI extends Processor implements mbedCloudProcessorInterface, AsyncResponseProcessor {
+public class pelionProcessorAPI extends Processor implements pelionProcessorInterface, AsyncResponseProcessor {
     private String m_api_token = null;
     private ConnectionOptions m_connect_options = null;
     private DeviceDirectory m_device_api = null;
@@ -67,7 +67,7 @@ public class mbedCloudProcessorAPI extends Processor implements mbedCloudProcess
     private String m_def_ep_type = DEFAULT_ENDPOINT_TYPE;
     
     // default constructor
-    public mbedCloudProcessorAPI(Orchestrator orchestrator, HttpTransport http) {
+    public pelionProcessorAPI(Orchestrator orchestrator, HttpTransport http) {
         super(orchestrator, null);
         this.m_http = http;
         
@@ -209,46 +209,28 @@ public class mbedCloudProcessorAPI extends Processor implements mbedCloudProcess
 
     @Override
     public void processDeviceDeletions(String[] endpoints) {
-        // XXX
+        // not enabled by default
     }
 
     @Override
     public void processDeregistrations(String[] endpoints) {
-        // XXX
+        // not enabled by default
     }
 
     @Override
     public void processRegistrationsExpired(String[] endpoints) {
-        // XXX
-    }
-
-    @Override
-    public String subscribeToEndpointResource(String uri, Map options, Boolean init_webhook) {
-        // XXX
-        return null;
-    }
-
-    @Override
-    public String subscribeToEndpointResource(String ep_name, String uri, Boolean init_webhook) {
-        // XXX 
-        return null;
-    }
-
-    @Override
-    public String unsubscribeFromEndpointResource(String uri, Map options) {
-        // XXX
-        return null;
+        // not enabled by default
     }
 
     @Override
     public boolean setWebhook() {
-        // XXX
+        // not used
         return false;    
     }
 
     @Override
     public boolean resetWebhook() {
-        // XXX
+        // not used
         return false;
     }
 
@@ -258,14 +240,8 @@ public class mbedCloudProcessorAPI extends Processor implements mbedCloudProcess
     }
 
     @Override
-    public String createSubscriptionURI(String ep_name, String resource_uri) {
-        // XXX
-        return null;
-    }
-
-    @Override
     public boolean deviceRemovedOnDeRegistration() {
-        // XXX
+        // disable by default
         return false;    
     }
 

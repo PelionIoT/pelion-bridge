@@ -1,6 +1,6 @@
 /**
- * @file  mbedCloudProcessor.java
- * @brief Peer Processor for the mbed Cloud
+ * @file  pelionProcessor.java
+ * @brief Peer Processor for the Pelion
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -37,45 +37,34 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import com.mbed.lwm2m.LWM2MResource;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.mbedCloudProcessorInterface;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.pelionProcessorInterface;
 
 /**
  * mbed Cloud Peer processor 
  *
  * @author Doug Anson
  */
-public class mbedCloudProcessor extends Processor implements Runnable, mbedCloudProcessorInterface, AsyncResponseProcessor {
+public class pelionProcessor extends Processor implements Runnable, pelionProcessorInterface, AsyncResponseProcessor {
     // defaulted number of webhook retries
-    private static final int MDS_WEBHOOK_RETRIES = 10;                          // 10 retries
+    private static final int PELION_WEBHOOK_RETRIES = 10;                      // 10 retries
     
     // webhook retry wait time in ms..
-    private static final int MDS_WEBHOOK_RETRY_WAIT_MS = 2500;                  // 2.5 seconds
+    private static final int PELION_WEBHOOK_RETRY_WAIT_MS = 2500;              // 2.5 seconds
     
     // amount of time to wait on boot before device discovery
-    private static final int MDS_BOOT_DEVICE_DISCOVERY_DELAY_MS = 15000;        // 15 seconds
+    private static final int DEVICE_DISCOVERY_DELAY_MS = 15000;                // 15 seconds
     
     // default endpoint type
     public static String DEFAULT_ENDPOINT_TYPE = "default";                    // default endpoint type
     
     private HttpTransport m_http = null;
-    private String m_mds_host = null;
-    private int m_mds_port = 0;
-    private String m_mds_username = null;
-    private String m_mds_password = null;
+    private String m_pelion_api_hostname = null;
+    private int m_pelion_api_port = 0;
     private String m_content_type = null;
     private String m_api_token = null;
-    private boolean m_use_api_token = false;
-    private String m_mds_gw_callback = null;
-    private String m_default_mds_uri = null;
-    private String m_default_gw_uri = null;
-    private boolean m_use_https_dispatch = false;
-    private String m_mds_version = null;
-    private boolean m_mds_gw_use_ssl = false;
-    private boolean m_mds_use_ssl = false;
-    private boolean m_using_callback_webhooks = true;
-    private boolean m_skip_validation = false;
-    private boolean m_disable_sync = true;
-    private long m_device_discovery_delay_ms = MDS_BOOT_DEVICE_DISCOVERY_DELAY_MS;
+    private String m_pelion_cloud_uri = null;
+    //private String m_pelion_version = null;
+    private long m_device_discovery_delay_ms = DEVICE_DISCOVERY_DELAY_MS;
 
     // device metadata resource URI from configuration
     private String m_device_manufacturer_res = null;
@@ -87,65 +76,54 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     private String m_device_hardware_info_res = null;
     private String m_device_descriptive_location_res = null;
     
-    private int m_webhook_validator_poll_ms = -1;
-    private WebhookValidator m_webhook_validator = null;
-    private boolean m_webhook_validator_enable = false;
-
     private String m_device_attributes_path = null;
     private String m_device_attributes_content_type = null;
-
-    private String m_rest_version = "2";
     
     // Long Poll vs Webhook usage
-    private boolean m_mds_enable_long_poll = false;
-    private String m_mds_long_poll_uri = null;
-    private String m_mds_long_poll_url = null;
+    private boolean m_using_callback_webhooks = false;
+    private boolean m_enable_long_poll = false;
+    private String m_long_poll_uri = null;
+    private String m_long_poll_url = null;
     private LongPollProcessor m_long_poll_processor = null;
     
     // Webhook establishment retries
-    private int m_webook_num_retries = MDS_WEBHOOK_RETRIES;
+    private int m_webook_num_retries = PELION_WEBHOOK_RETRIES;
     
     // defaulted endpoint type
     private String m_def_ep_type = DEFAULT_ENDPOINT_TYPE;
     
     // Webhook establishment retry wait time in ms
-    private int m_webhook_retry_wait_ms = MDS_WEBHOOK_RETRY_WAIT_MS;
+    private int m_webhook_retry_wait_ms = PELION_WEBHOOK_RETRY_WAIT_MS;
     
-    // Config: remove a device if it deregisters (default FALSE)
-    private boolean m_mds_remove_on_deregistration = false;
+    // Option - delete a device if it deregisters (default FALSE)
+    private boolean m_delete_device_on_deregistration = false;
     
-    // Integrating with mbed Cloud? (default FALSE)
-    private boolean m_mbed_cloud_integration = false;
+    // Pelion Connect API version
+    private String m_rest_version = "2";
     
-    // XXX Last Message
-    private String m_mds_last_message = null;
+    // Pelion duplicate message detection
+    private String m_last_message = null;
 
     // constructor
     @SuppressWarnings("empty-statement")
-    public mbedCloudProcessor(Orchestrator orchestrator, HttpTransport http) {
+    public pelionProcessor(Orchestrator orchestrator, HttpTransport http) {
         super(orchestrator, null);
         this.m_http = http;
-        this.m_mds_host = orchestrator.preferences().valueOf("mds_address");
-        if (this.m_mds_host == null || this.m_mds_host.length() == 0) {
-            this.m_mds_host = orchestrator.preferences().valueOf("api_endpoint_address");
+        this.m_pelion_api_hostname = orchestrator.preferences().valueOf("mds_address");
+        if (this.m_pelion_api_hostname == null || this.m_pelion_api_hostname.length() == 0) {
+            this.m_pelion_api_hostname = orchestrator.preferences().valueOf("api_endpoint_address");
         }
-        this.m_mds_port = orchestrator.preferences().intValueOf("mds_port");
-        this.m_mds_username = orchestrator.preferences().valueOf("mds_username");
-        this.m_mds_password = orchestrator.preferences().valueOf("mds_password");
+        this.m_pelion_api_port = orchestrator.preferences().intValueOf("mds_port");
         this.m_content_type = orchestrator.preferences().valueOf("mds_content_type");
-        this.m_mds_gw_callback = orchestrator.preferences().valueOf("mds_gw_callback");
-        this.m_use_https_dispatch = this.prefBoolValue("mds_use_https_dispatch"); 
-        this.m_mds_last_message = null;
+        this.m_last_message = null;
         this.m_webook_num_retries = orchestrator.preferences().intValueOf("mds_webhook_num_retries");
         if (this.m_webook_num_retries <= 0) {
-            this.m_webook_num_retries = MDS_WEBHOOK_RETRIES;
+            this.m_webook_num_retries = PELION_WEBHOOK_RETRIES;
         }
-        this.m_mds_version = this.prefValue("mds_version");
-        this.m_mds_gw_use_ssl = this.prefBoolValue("mds_gw_use_ssl");
         
         // LongPolling Support
-        this.m_mds_enable_long_poll = this.prefBoolValue("mds_enable_long_poll");
-        this.m_mds_long_poll_uri = this.prefValue("mds_long_poll_uri");
+        this.m_enable_long_poll = this.prefBoolValue("mds_enable_long_poll");
+        this.m_long_poll_uri = this.prefValue("mds_long_poll_uri");
        
         this.m_api_token = this.orchestrator().preferences().valueOf("mds_api_token");
         if (this.m_api_token == null || this.m_api_token.length() == 0) {
@@ -154,7 +132,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         }
         
         // display number of webhook setup retries allowed
-        this.errorLogger().warning("mbedCloudProcessor: Number of webhook retries set at: " + this.m_webook_num_retries);
+        this.errorLogger().warning("pelionProcessor: Number of webhook retries set at: " + this.m_webook_num_retries);
 
         // get the device attributes path
         this.m_device_attributes_path = orchestrator.preferences().valueOf("mds_device_attributes_path");
@@ -162,36 +140,12 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         // get the device attributes content type
         this.m_device_attributes_content_type = orchestrator.preferences().valueOf("mds_device_attributes_content_type");
 
-        // validation check override
-        this.m_skip_validation = orchestrator.preferences().booleanValueOf("mds_skip_validation_override");
-        if (this.m_skip_validation == true) {
-            orchestrator.errorLogger().info("mbedCloudProcessor: Validation Skip Override ENABLED");
-        }
-
-        // initialize our webhook validator
-        this.m_webhook_validator = null;
-        this.m_webhook_validator_poll_ms = 0;
-        this.m_webhook_validator_enable = orchestrator.preferences().booleanValueOf("mds_webhook_validator_enable");
-
-        // initialize the default type of URI for contacting us (GW) - this will be sent to mbed Cloud for the webhook URL
-        this.setupConnectorURI();
-
         // initialize the default type of URI for contacting mbed Cloud
-        this.setupDeviceServerURI();
-
-        // if using webhooks, we can optionally validate the webhook setting periodically in case it gets reset to nothing...
-        if (this.m_webhook_validator_enable == true) {
-            // enabling webhook/subscription validation
-            this.m_webhook_validator_poll_ms = orchestrator.preferences().intValueOf("mds_webhook_validator_poll_ms");
-            this.m_webhook_validator = new WebhookValidator(this, this.m_webhook_validator_poll_ms);
-
-            // DEBUG
-            orchestrator.errorLogger().warning("mbedCloudProcessor: webhook/subscription validator ENABLED (interval: " + this.m_webhook_validator_poll_ms + "ms)");
-        }
+        this.setupPelionCloudURI();
        
         // configure the callback type based on the version of mDS (only if not using long polling)
         if (this.longPollEnabled() == false) {
-            this.setupWebhookType();
+            this.m_using_callback_webhooks = true;
         }
         
         // default device type in case we need it
@@ -202,17 +156,14 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
 
         // init the device metadata resource URI's
         this.initDeviceMetadataResourceURIs();
-        
-        // mbed Cloud Integration defaulted
-        this.m_mbed_cloud_integration = true;
-        
+                
         // configuration for allowing de-registration messages to remove device shadows...or not.
-        this.m_mds_remove_on_deregistration = this.prefBoolValue("mds_remove_on_deregistration");
-        if (this.m_mds_remove_on_deregistration == true) {
-            orchestrator.errorLogger().warning("mbedCloudProcessor: device removal on deregistration ENABLED");
+        this.m_delete_device_on_deregistration = this.prefBoolValue("mds_remove_on_deregistration");
+        if (this.m_delete_device_on_deregistration == true) {
+            orchestrator.errorLogger().warning("pelionProcessor: device removal on deregistration ENABLED");
         }
         else {
-            orchestrator.errorLogger().warning("mbedCloudProcessor: device removal on deregistration DISABLED");
+            orchestrator.errorLogger().warning("pelionProcessor: device removal on deregistration DISABLED");
         }
         
         // OVEERRIDE - long polling vs. Webhook
@@ -223,13 +174,10 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     private void longPollOverrideSetup() {
         if (this.longPollEnabled()) {
             // DEBUG
-            this.errorLogger().warning("mbedCloudProcessor: Long Poll Override ENABLED. Using Long Polling (webhook DISABLED)");
-
-            // disable webhook validation
-            this.m_webhook_validator_enable = false;
+            this.errorLogger().warning("pelionProcessor: Long Poll Override ENABLED. Using Long Polling (webhook DISABLED)");
 
             // override use of long polling vs webhooks for notifications
-            this.m_mds_long_poll_url = this.constructLongPollURL();
+            this.m_long_poll_url = this.constructLongPollURL();
 
             // start the Long polling thread...
             this.startLongPolling();
@@ -238,17 +186,17 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     
     // Long polling enabled or disabled?
     private boolean longPollEnabled() {
-        return (this.m_mds_enable_long_poll == true && this.m_mds_long_poll_uri != null && this.m_mds_long_poll_uri.length() > 0);
+        return (this.m_enable_long_poll == true && this.m_long_poll_uri != null && this.m_long_poll_uri.length() > 0);
     }
     
     // get the long polling URL
     public String longPollURL() {
-        return this.m_mds_long_poll_url;
+        return this.m_long_poll_url;
     }
     
     // build out the long poll URL
     private String constructLongPollURL() {
-        String url = this.createBaseURL() + "/" + this.m_mds_long_poll_uri;
+        String url = this.createBaseURL() + "/" + this.m_long_poll_uri;
         this.errorLogger().info("constructLongPollURL: Long Poll URL: " + url);
         return url;
     }
@@ -367,12 +315,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     // device removal on deregistration?
     @Override
     public boolean deviceRemovedOnDeRegistration() {
-        return this.m_mds_remove_on_deregistration;
-    }
-
-    // using SSL or not for the webhook management set/get
-    public boolean usingSSLInWebhookEstablishment() {
-        return this.m_use_https_dispatch;
+        return this.m_delete_device_on_deregistration;
     }
 
     // initialize the device metadata resource URIs
@@ -387,34 +330,10 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         this.m_device_descriptive_location_res = this.prefValue("mds_device_descriptive_location_res");
     }
 
-    // mbed Cloud requires use of SSL (mbed Cloud)
-    private Boolean requireSSL() {
-        return this.m_mds_use_ssl;
-    }
-
-    // mbed Cloud using callback webhook vs. push-url
-    private boolean usingWebhookCallbacks() {
-        return (this.m_mds_gw_callback.equalsIgnoreCase("callback"));
-    }
-
-    // setup the connector bridge URI
-    private void setupConnectorURI() {
-        this.m_default_gw_uri = "https://";
-    }
-
     // setup the mbed device server default URI
-    @SuppressWarnings("empty-statement")
-    private void setupDeviceServerURI() {
-        this.m_default_mds_uri = "https://";
-        this.m_mds_port = 443;
-        this.m_mds_use_ssl = true;
-    }
-
-    // set the callback type we are using
-    @SuppressWarnings("empty-statement")
-    private void setupWebhookType() {
-        this.m_mds_gw_callback = "callback"; 
-        this.m_using_callback_webhooks = true;
+    private void setupPelionCloudURI() {
+        this.m_pelion_cloud_uri = "https://";
+        this.m_pelion_api_port = 443;
     }
 
     // our the mbed Cloud notifications coming in over the webhook validatable?
@@ -436,11 +355,6 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
                     this.errorLogger().warning("validateNotification: failed: calc: " + calc_hash + " header: " + header_hash);
                 }
 
-                // override
-                if (this.m_skip_validation == true) {
-                    validated = true;
-                }
-
                 // return validation status
                 return validated;
             }
@@ -458,23 +372,9 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     // create any authentication header JSON that may be necessary
     @SuppressWarnings("empty-statement")
     private Map createWebhookHeaderAuthJSON() {
-        String hash = this.orchestrator().createAuthenticationHash();
-
-        try {
-            Double ver = Double.valueOf(this.m_mds_version);
-            if (hash != null && hash.equalsIgnoreCase("none") == true && ver > 3.0 && this.prefBoolValue("mds_use_gw_address") == true) {
-                // local mbed Cloud does not use thi
-                return null;
-            }
-        }
-        catch (NumberFormatException ex) {
-            // parsing error of mds_version... just use the default hash (likely "none")
-            ;
-        }
-        
         // Create a hashmap and fill it
         HashMap<String,String> map = new HashMap<>();
-        map.put("Authentication",hash);
+        map.put("Authentication",this.orchestrator().createAuthenticationHash());
         return map;
     }
 
@@ -483,19 +383,16 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         String url = null;
 
         String local_ip = Utils.getExternalIPAddress(this.prefBoolValue("mds_use_gw_address"), this.prefValue("mds_gw_address"));
-        int local_port = this.prefIntValue("mds_gw_port");
-        if (this.m_mds_gw_use_ssl == true) {
-            ++local_port;        // SSL will use +1 of this port... ensure firewall configs match!
-        }
+        int local_port = this.prefIntValue("mds_gw_port") + 1;
         String notify_uri = this.prefValue("mds_gw_context_path") + this.prefValue("mds_gw_events_path");
 
         // build and return the webhook callback URL
-        return this.m_default_gw_uri + local_ip + ":" + local_port + notify_uri;
+        return this.m_pelion_cloud_uri + local_ip + ":" + local_port + notify_uri;
     }
 
-    // create the dispatch URL for changing the notification webhook URL
+    // mbed Cloud: create the dispatch URL for changing the notification webhook URL
     private String createWebhookDispatchURL() {
-        return this.createBaseURL() + "/notification/" + this.m_mds_gw_callback;
+        return this.createBaseURL() + "/notification/callback";
     }
 
     // get the currently configured callback URL (public, used by webhook validator)
@@ -510,32 +407,20 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         String json = this.httpsGet(dispatch_url);
         try {
             if (json != null && json.length() > 0) {
-                if (this.m_mds_gw_callback.equalsIgnoreCase("callback")) {
-                    // JSON parser does not like "headers":{}... so map it out
-                    json = json.replace(",\"headers\":{}", "");
+                // Callback API used: parse the JSON
+                Map parsed = (Map) this.parseJson(json);
+                url = (String) parsed.get("url");
 
-                    // Callback API used: parse the JSON
-                    Map parsed = (Map) this.parseJson(json.replace(",\"headers\":{}", ""));
-                    url = (String) parsed.get("url");
-
-                    // headers are optional...
-                    try {
-                        headers = (String) parsed.get("headers");
-                    }
-                    catch (Exception json_ex) {
-                        headers = "";
-                    }
-
-                    // DEBUG
-                    this.orchestrator().errorLogger().info("getNotificationCallbackURL(callback): url: " + url + " headers: " + headers + " dispatch: " + dispatch_url);
+                // headers are optional...
+                try {
+                    headers = (String) parsed.get("headers");
                 }
-                else {
-                    // use the Deprecated push-url API... (no JSON)
-                    url = json;
-
-                    // DEBUG
-                    this.orchestrator().errorLogger().info("getNotificationCallbackURL(push-url): url: " + url + " dispatch: " + dispatch_url);
+                catch (Exception json_ex) {
+                    headers = "";
                 }
+
+                // DEBUG
+                this.orchestrator().errorLogger().info("getNotificationCallbackURL(callback): url: " + url + " headers: " + headers + " dispatch: " + dispatch_url);
             }
             else {
                 // no response received back from mbed Cloud
@@ -557,23 +442,23 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     // determine if our callback URL has already been set
     private boolean webhookSet(String target_url, boolean skip_check) {
         String current_url = this.getWebhook();
-        this.errorLogger().info("mbedCloudProcessor: current_url: " + current_url + " target_url: " + target_url);
+        this.errorLogger().info("pelionProcessor: current_url: " + current_url + " target_url: " + target_url);
         boolean is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
-        if (is_set == true && this.usingWebhookCallbacks() && skip_check == false) {
+        if (is_set == true && skip_check == false) {
             // for Connector, lets ensure that we always have the expected Auth Header setup. So, while the same, lets delete and re-install...
-            this.errorLogger().info("mbedCloudProcessor: deleting existing webhook URL...");
+            this.errorLogger().info("pelionProcessor: deleting existing webhook URL...");
             this.removeWebhook();
-            this.errorLogger().info("mbedCloudProcessor: re-establishing webhook URL...");
+            this.errorLogger().info("pelionProcessor: re-establishing webhook URL...");
             is_set = this.setWebhook(target_url, skip_check); // skip_check, go ahead and assume we need to set it...
             if (is_set) {
                 // SUCCESS
-                this.errorLogger().info("mbedCloudProcessor: re-checking that webhook URL is properly set...");
+                this.errorLogger().info("pelionProcessor: re-checking that webhook URL is properly set...");
                 current_url = this.getWebhook();
                 is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
             }
             else {
                 // ERROR
-                this.errorLogger().info("mbedCloudProcessor: re-checking that webhook URL is properly set...");
+                this.errorLogger().info("pelionProcessor: re-checking that webhook URL is properly set...");
             }
         }
         return is_set;
@@ -604,30 +489,30 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         boolean ok = false;
         if (this.longPollEnabled() == false) {
             for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
-                this.errorLogger().warning("mbedCloudProcessor: Setting up webhook to mbed Cloud...");
+                this.errorLogger().warning("pelionProcessor: Setting up webhook to mbed Cloud...");
                 String target_url = this.createWebhookURL();
                 ok = this.setWebhook(target_url);
 
                 // EXPERIMENTAL - test for bulk subscriptions setting
                 if (ok) {
                     // bulk subscriptions enabled
-                    this.errorLogger().warning("mbedCloudProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
+                    this.errorLogger().warning("pelionProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
                     ok = this.setupBulkSubscriptions();
                     if (ok) {
                         // scan for devices now
-                        this.errorLogger().warning("mbedCloudProcessor: Initial scan for mbed devices...");
+                        this.errorLogger().warning("pelionProcessor: Initial scan for mbed devices...");
                         this.startDeviceDiscovery();
                     }
                     else {
                         // ERROR
-                        this.errorLogger().warning("mbedCloudProcessor: Webhook not setup. Not scanning for devices yet...");
+                        this.errorLogger().warning("pelionProcessor: Webhook not setup. Not scanning for devices yet...");
                     }
                 }
 
                 // wait a bit if we have failed
                 else {
                     // log and wait
-                    this.errorLogger().warning("mbedCloudProcessor: Waiting a bit... then retry establishing webhook to mbed Cloud...");
+                    this.errorLogger().warning("pelionProcessor: Waiting a bit... then retry establishing webhook to mbed Cloud...");
                     Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
                 }
             }
@@ -635,11 +520,11 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             // Final status
             if (ok) {
                 // SUCCESS
-                this.errorLogger().warning("mbedCloudProcessor: webhook setup SUCCESS");
+                this.errorLogger().warning("pelionProcessor: webhook setup SUCCESS");
             }
             else {
                 // FAILURE
-                this.errorLogger().critical("mbedCloudProcessor: UNABLE TO SET WEBHOOK. Resetting bridge...");
+                this.errorLogger().critical("pelionProcessor: UNABLE TO SET WEBHOOK. Resetting bridge...");
 
                 // RESET
                 this.orchestrator().reset();
@@ -659,7 +544,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         boolean ok = false;
         
         // DEBUG
-        this.errorLogger().warning("mbedCloudProcessor: setting up bulk subscriptions...");
+        this.errorLogger().warning("pelionProcessor: setting up bulk subscriptions...");
         
         // JSON for the bulk subscription (must be an array)
         String json = "[" + this.createJSONMessage("endpoint-name","*") + "]";
@@ -668,7 +553,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         String url = this.createBaseURL() + "/subscriptions";
         
         // DEBUG
-        this.errorLogger().info("mbedCloudProcessor: bulk subscriptions URL: " + url + " DATA: " + json);
+        this.errorLogger().info("pelionProcessor: bulk subscriptions URL: " + url + " DATA: " + json);
         
         // send PUT to establish the bulk subscriptions
         String result = this.httpsPut(url, json, "application/json", this.m_api_token);
@@ -676,18 +561,18 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         
         // DEBUG
         if (result != null && result.length() > 0) {
-            this.errorLogger().info("mbedCloudProcessor: bulk subscriptions setup RESULT: " + result);
+            this.errorLogger().info("pelionProcessor: bulk subscriptions setup RESULT: " + result);
         }
         
         // check the setup error code 
         if (error_code == 204) {    // SUCCESS response code: 204
             // success!
-            this.errorLogger().warning("mbedCloudProcessor: bulk subscriptions setup SUCCESS: Code: " + error_code);
+            this.errorLogger().warning("pelionProcessor: bulk subscriptions setup SUCCESS: Code: " + error_code);
             ok = true;
         }
         else {
             // failure
-            this.errorLogger().warning("mbedCloudProcessor: bulk subscriptions setup FAILED: Code: " + error_code);
+            this.errorLogger().warning("pelionProcessor: bulk subscriptions setup FAILED: Code: " + error_code);
         }
         
         // return our status
@@ -727,7 +612,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             }
 
             // DEBUG
-            this.errorLogger().info("mbedCloudProcessor: json: " + json + " dispatch: " + dispatch_url);
+            this.errorLogger().info("pelionProcessor: json: " + json + " dispatch: " + dispatch_url);
 
             // set the callback URL (SSL)
             this.httpsPut(dispatch_url, json);
@@ -735,24 +620,14 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             // check that it succeeded
             if (!this.webhookSet(target_url, !check_url_set)) {
                 // DEBUG
-                this.errorLogger().warning("mbedCloudProcessor: ERROR: unable to set callback URL to: " + target_url);
-
-                // reset the webhook - its not set anymore
-                if (this.m_webhook_validator != null) {
-                    this.m_webhook_validator.resetWebhook();
-                }
+                this.errorLogger().warning("pelionProcessor: ERROR: unable to set callback URL to: " + target_url);
                 
                 // not set...
                 webhook_set_ok = false;
             }
             else {
                 // DEBUG
-                this.errorLogger().info("mbedCloudProcessor: notification URL set to: " + target_url + " (SUCCESS)");
-
-                // record the webhook
-                if (this.m_webhook_validator != null) {
-                    this.m_webhook_validator.setWebhook(target_url);
-                }
+                this.errorLogger().info("pelionProcessor: notification URL set to: " + target_url + " (SUCCESS)");
                 
                 // SUCCESS
                 webhook_set_ok = true;
@@ -760,12 +635,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         }
         else {
             // DEBUG
-            this.errorLogger().info("mbedCloudProcessor: notification URL already set to: " + target_url + " (OK)");
-
-            // record the webhook
-            if (this.m_webhook_validator != null) {
-                this.m_webhook_validator.setWebhook(target_url);
-            }
+            this.errorLogger().info("pelionProcessor: notification URL already set to: " + target_url + " (OK)");
             
             // SUCCESS
             webhook_set_ok = true;
@@ -775,115 +645,10 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         return webhook_set_ok;
     }
 
-    // create the Endpoint Subscription Notification URL
-    private String createEndpointResourceSubscriptionURL(String uri, Map options) {
-        // build out the URL for mbed Cloud Endpoint notification subscriptions...
-        String url = this.createBaseURL() + "/" + uri;
-
-        // SYNC Usage
-        // add options if present
-        if (options != null && this.m_disable_sync == false) {
-            // valid options...
-            String sync = (String) options.get("sync");
-
-            // construct the query string...
-            String qs = "";
-            qs = this.buildQueryString(qs, "sync", sync);
-            if (qs != null && qs.length() > 0) {
-                url = url + "?" + qs;
-            }
-        }
-
-        // DEBUG
-        this.errorLogger().info("createEndpointResourceSubscriptionURL: " + url);
-
-        // return the endpoint notification subscription URL
-        return url;
-    }
-
-    // create the Endpoint Subscription Notification URL (default options)
-    private String createEndpointResourceSubscriptionURL(String endpoint, String uri) {
-        HashMap<String, String> options = new HashMap<>();
-
-        // SYNC Usage
-        if (this.m_disable_sync == false) {
-            options.put("sync", "true");
-        }
-        return this.createEndpointResourceSubscriptionURL(endpoint, uri, options);
-    }
-
-    // create the Endpoint Subscription Notification URL
-    private String createEndpointResourceSubscriptionURL(String endpoint, String uri, Map<String, String> options) {
-        // build out the URL for mbed Cloud Endpoint notification subscriptions...
-        // /{domain}/subscriptions/{endpoint-name}/{resource-path}?sync={true&#124;false}
-        String url = this.createBaseURL() + "/subscriptions/" + endpoint + uri;
-
-        // SYNC Usage 
-        // add options if present
-        if (options != null && this.m_disable_sync == false) {
-            // valid options...
-            String sync = (String) options.get("sync");
-
-            // construct the query string...
-            String qs = "";
-            qs = this.buildQueryString(qs, "sync", sync);
-            if (qs != null && qs.length() > 0) {
-                url = url + "?" + qs;
-            }
-        }
-
-        // DEBUG
-        this.errorLogger().info("createEndpointResourceSubscriptionURL: " + url);
-
-        // return the endpoint notification subscription URL
-        return url;
-    }
-
-    // create the Endpoint Resource Request URL 
-    private String createEndpointResourceRequestURL(String uri, Map options) {
-        // build out the URL for mbed Cloud Endpoint Resource requests...
-        String url = this.createBaseURL() + uri;
-
-        // add options if present
-        if (options != null) {
-            // valid options...
-            String sync = (String) options.get("sync");
-            String cacheOnly = (String) options.get("cacheOnly");
-            String noResp = (String) options.get("noResp");
-            String pri = (String) options.get("pri");
-
-            // construct the query string...
-            String qs = "";
-
-            // SYNC Usage
-            if (this.m_disable_sync == false) {
-                qs = this.buildQueryString(qs, "sync", sync);
-            }
-
-            qs = this.buildQueryString(qs, "cacheOnly", cacheOnly);
-            qs = this.buildQueryString(qs, "noResp", noResp);
-            qs = this.buildQueryString(qs, "pri", pri);
-            if (qs != null && qs.length() > 0) {
-                url = url + "?" + qs;
-            }
-        }
-
-        // DEBUG
-        this.errorLogger().info("createEndpointResourceRequestURL: " + url);
-
-        // return the endpoint resource request URL
-        return url;
-    }
-    
     // process device-deletions of endpoints (mbed Cloud only)
     @Override
     public void processDeviceDeletions(String[] endpoints) {
-        for (int i = 0; i < endpoints.length; ++i) {
-            // remove from the validator - bookkeeping
-            if (this.m_webhook_validator != null) {
-                this.m_webhook_validator.removeSubscriptionsforEndpoint(endpoints[i]);
-            }
-        }
+        // XXX TO DO
     }
     
     // process de-registeration of endpoints
@@ -894,11 +659,6 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             String url = this.createBaseURL() + "/endpoints/" + endpoints[i];
             this.errorLogger().info("processDeregistrations: sending endpoint subscription removal request: " + url);
             this.httpsDelete(url);
-
-            // remove from the validator - bookkeeping
-            if (this.m_webhook_validator != null) {
-                this.m_webhook_validator.removeSubscriptionsforEndpoint(endpoints[i]);
-            }
         }
     }
     
@@ -917,7 +677,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             // Check for message duplication... 
             if (this.isDuplicateMessage(json) == false) {
                 // record the "last" message
-                this.m_mds_last_message = json;
+                this.m_last_message = json;
                 
                 // process and route the mbed Cloud message
                 this.processDeviceServerMessage(json, request);
@@ -934,7 +694,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     
     // check for duplicated messages
     private boolean isDuplicateMessage(String message) {
-        if (this.m_mds_last_message != null && message != null && message.length() > 0 && this.m_mds_last_message.equalsIgnoreCase(message) == true) {
+        if (this.m_last_message != null && message != null && message.length() > 0 && this.m_last_message.equalsIgnoreCase(message) == true) {
             // possible duplicate to previous message
             
             // check for duplicate de-registrations
@@ -1033,50 +793,6 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         }
     }
 
-    // process an endpoint resource subscription request
-    @Override
-    public String subscribeToEndpointResource(String uri, Map options, Boolean init_webhook) {
-        this.errorLogger().info("subscribeToEndpointResource: Using bulk subscriptions: URI: " + uri + " Map: " + options + " webhook: " + init_webhook);
-        return "";
-    }
-
-    // process an endpoint resource subscription request
-    @Override
-    public String subscribeToEndpointResource(String ep_name, String uri, Boolean init_webhook) {
-        this.errorLogger().info("subscribeToEndpointResource: Using bulk subscriptions: URI: " + uri + " EP: " + ep_name + " webhook: " + init_webhook);
-        return "";
-    }
-
-    // subscribe to endpoint resources
-    public String subscribeToEndpointResource(String url) {
-        return this.subscribeToEndpointResource(url, false);
-    }
-
-    // create the mbed Cloud/mbed Cloud URI for subscriptions:  "subscriptions/<endpoint>/<uri>"  
-    @Override
-    public String createSubscriptionURI(String ep_name, String uri) {
-        return "subscriptions" + "/" + ep_name + uri;
-    }
-
-    // subscribe to endpoint resources
-    private String subscribeToEndpointResource(String url, Boolean init_webhook) {
-        if (init_webhook) {
-            this.errorLogger().info("subscribeToEndpointResource: (re)setting the event notification URL...");
-            this.setWebhook();
-        }
-
-        this.errorLogger().info("subscribeToEndpointResource: (re)establishing subscription request: " + url);
-        String json = this.httpsPut(url);
-
-        // save off the subscription
-        if (this.m_webhook_validator != null) {
-            this.m_webhook_validator.addSubscription(url);
-        }
-
-        // return the result
-        return json;
-    }
-
     // get to endpoint resource subscription 
     public boolean getEndpointResourceSubscriptionStatus(String url) {
         boolean subscribed = false;
@@ -1144,37 +860,6 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
         return json;
     }
     
-    // process an endpoint resource un-subscribe request
-    @Override
-    public String unsubscribeFromEndpointResource(String uri, Map options) {
-        String url = this.createEndpointResourceSubscriptionURL(uri, options);
-
-        // remove the subscription
-        String json = this.unsubscribeFromEndpointResource(url);
-
-        // remove subscription
-        if (this.m_webhook_validator != null) {
-            this.m_webhook_validator.removeSubscription(url);
-        }
-
-        // return the JSON result
-        return json;
-    }
-
-    // remove the mbed Cloud Connector Notification Callback
-    public String unsubscribeFromEndpointResource(String url) {
-        String json = null;
-
-        // DEBUG
-        this.errorLogger().info("unsubscribeFromEndpointResource: unsubscribing: " + url);
-
-        // delete the callback URL (SSL)
-        json = this.httpsDelete(url);
- 
-        // return any resultant json
-        return json;
-    }
-
     // initialize the endpoint's default attributes 
     private void initDeviceWithDefaultAttributes(Map endpoint) {
         this.pullDeviceManufacturer(endpoint);
@@ -1418,19 +1103,12 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     
     // create the base URL for mbed Cloud operations
     private String createBaseURL(String version) {
-        return this.m_default_mds_uri + this.m_mds_host + ":" + this.m_mds_port + version;
+        return this.m_pelion_cloud_uri + this.m_pelion_api_hostname + ":" + this.m_pelion_api_port + version;
     }
 
     // create the CoAP operation URL
     private String createCoAPURL(String ep_name, String uri) {
-        String sync_option = "";
-
-        // SYNC Usage
-        if (this.m_disable_sync == false) {
-            sync_option = "?sync=true";
-        }
-
-        String url = this.createBaseURL() + "/endpoints/" + ep_name + uri + sync_option;
+        String url = this.createBaseURL() + "/endpoints/" + ep_name + uri;
         return url;
     }
 
@@ -1546,7 +1224,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             endpoint.put("ept",(String)device.get("endpoint_type"));
 
             // DEBUG
-            this.errorLogger().warning("mbedCloudProcessor(BOOT): discovered mbed Cloud device ID: " + (String)device.get("id") + " Type: " + (String)device.get("endpoint_type"));
+            this.errorLogger().warning("pelionProcessor(BOOT): discovered mbed Cloud device ID: " + (String)device.get("id") + " Type: " + (String)device.get("endpoint_type"));
 
             // now, query mbed Cloud again for each device and get its resources
             List resources = this.discoverDeviceResources((String)device.get("id"));
@@ -1555,9 +1233,6 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
             for(int j=0;resources != null && j<resources.size();++j) {
                 Map resource = (Map)resources.get(j);
                 resource.put("path", (String)resource.get("uri"));
-
-                // auto-subscribe to observable resources... if enabled.
-                this.orchestrator().subscribeToEndpointResource((String) endpoint.get("ep"), (String) resource.get("path"), false);
 
                 // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mbed Cloud and setup for it...
                 this.orchestrator().removeSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
