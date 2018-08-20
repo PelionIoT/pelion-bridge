@@ -27,6 +27,7 @@ package com.arm.pelion.bridge.coordinator;
 // Processors
 import com.arm.pelion.bridge.coordinator.processors.arm.mbedCloudProcessor;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.mbedCloudProcessorAPI;
 import com.arm.pelion.bridge.coordinator.processors.factories.WatsonIoTPeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.factories.MSIoTHubPeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.factories.AWSIoTPeerProcessorFactory;
@@ -126,6 +127,7 @@ public class Orchestrator implements mbedCloudProcessorInterface, PeerProcessorI
         this.m_http = new HttpTransport(this.m_error_logger, this.m_preference_manager);
 
         // REQUIRED: We always create the mbed Cloud REST processor
+        //this.m_mbed_cloud_processor = new mbedCloudProcessorAPI(this,this.m_http);
         this.m_mbed_cloud_processor = new mbedCloudProcessor(this, this.m_http);
       
         // initialize our peer processor list

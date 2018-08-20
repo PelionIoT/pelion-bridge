@@ -51,6 +51,12 @@ public class LongPollProcessor extends Thread {
     // initialize the poller
     public void startPolling() {
         // DEBUG
+        this.errorLogger().info("Removing previous webhook (if any)...");
+        
+        // delete any older webhooks
+        this.m_mbed_cloud_processor.removeWebhook();
+        
+        // DEBUG
         this.errorLogger().info("Beginning long polling...");
 
         // start our thread...

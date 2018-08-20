@@ -580,7 +580,7 @@ public class mbedCloudProcessor extends Processor implements Runnable, mbedCloud
     }
 
     // remove the mbed Cloud Connector Notification Callback webhook
-    private void removeWebhook() {
+    public void removeWebhook() {
         // create the dispatch URL
         String dispatch_url = this.createWebhookDispatchURL();
 
