@@ -1,5 +1,5 @@
 /**
- * @file  pelionProcessor.java
+ * @file  PelionProcessor.java
  * @brief Peer Processor for the Pelion
  * @author Doug Anson
  * @version 1.0
@@ -41,7 +41,7 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorIn
  *
  * @author Doug Anson
  */
-public class pelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
+public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
     // defaulted number of webhook retries
     private static final int PELION_WEBHOOK_RETRIES = 10;                      // 10 retries
     
@@ -100,7 +100,7 @@ public class pelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
     // constructor
     @SuppressWarnings("empty-statement")
-    public pelionProcessor(Orchestrator orchestrator, HttpTransport http) {
+    public PelionProcessor(Orchestrator orchestrator, HttpTransport http) {
         super(orchestrator, http);
         this.m_pelion_api_hostname = orchestrator.preferences().valueOf("mds_address");
         if (this.m_pelion_api_hostname == null || this.m_pelion_api_hostname.length() == 0) {

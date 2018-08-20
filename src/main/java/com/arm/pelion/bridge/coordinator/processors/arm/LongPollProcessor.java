@@ -34,11 +34,11 @@ import com.arm.pelion.bridge.core.ErrorLogger;
  */
 public class LongPollProcessor extends Thread {
 
-    private pelionProcessor m_mbed_cloud_processor = null;
+    private PelionProcessor m_mbed_cloud_processor = null;
     private boolean m_running = false;
 
     // default constructor
-    public LongPollProcessor(pelionProcessor mds) {
+    public LongPollProcessor(PelionProcessor mds) {
         this.m_mbed_cloud_processor = mds;
         this.m_running = false;
     }

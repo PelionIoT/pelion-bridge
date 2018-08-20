@@ -25,7 +25,7 @@ package com.arm.pelion.bridge.coordinator.processors.core;
 import com.arm.pelion.bridge.core.Processor;
 import com.arm.pelion.bridge.subscription.managers.BulkSubscriptionManager;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.arm.pelionProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.SubscriptionManager;
@@ -353,7 +353,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String def = (String)this.m_endpoint_type_list.get(ep_name);
         if (def == null) {
             // not available... so use the default
-            def = pelionProcessor.DEFAULT_ENDPOINT_TYPE;
+            def = PelionProcessor.DEFAULT_ENDPOINT_TYPE;
         }
         
         // return the cached/default value
