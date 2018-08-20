@@ -80,6 +80,9 @@ public class MQTTTransport extends Transport implements GenericSender {
     private static final int DEFAULT_NUM_CONNECT_TRIES = 10;
     private int m_max_connect_tries = DEFAULT_NUM_CONNECT_TRIES;
     
+    // default retain behavior
+    private static final boolean DEFAULT_RETAIN_ENABLED = true;     // set to true
+    
     // Access our instance 
     private static volatile MQTTTransport m_self = null;
     
@@ -103,7 +106,7 @@ public class MQTTTransport extends Transport implements GenericSender {
     private String m_connect_id = null;
     private boolean m_set_mqtt_version = true;  
     private String[] m_unsubscribe_topics = null;
-    private boolean m_retain = false;
+    private boolean m_retain = DEFAULT_RETAIN_ENABLED;
     
     // reset mode/state
     private boolean m_is_in_reset = false;
