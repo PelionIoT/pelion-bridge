@@ -62,7 +62,6 @@ public final class Manager {
     }
 
     // default constructor
-    @SuppressWarnings("empty-statement")
     public Manager(ErrorLogger error_logger,PreferenceManager preferences) {
         // save the error handler
         this.m_error_logger = error_logger;
