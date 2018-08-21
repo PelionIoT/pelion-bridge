@@ -423,6 +423,13 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 this.errorLogger().info("PelionProcessor: re-checking that webhook URL is properly set...");
             }
         }
+        
+        // Not set... so confirm by delete
+        if (current_url == null) {
+            this.errorLogger().warning("PelionProcessor: no response. Deleting existing webhook to reset and retry...");
+            this.removeWebhook();
+        }
+        
         return is_set;
     }
     
@@ -451,15 +458,15 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 }
 
                 // DEBUG
-                this.orchestrator().errorLogger().info("getNotificationCallbackURL(callback): url: " + url + " headers: " + headers + " dispatch: " + dispatch_url);
+                this.orchestrator().errorLogger().info("PelionProcessor(getWebhook): received url: " + url + " headers: " + headers + " from pelion callback dispatch: " + dispatch_url + " http response code: " + this.getLastResponseCode());
             }
             else {
                 // no response received back from mbed Cloud
-                this.orchestrator().errorLogger().warning("getNotificationCallbackURL: no response recieved from dispatch: " + dispatch_url);
+                this.orchestrator().errorLogger().warning("PelionProcessor(getWebhook): ERROR: no response from pelion callback dispatch: " + dispatch_url + " http response code: " + this.getLastResponseCode() + " (may need to re-create API Key if using long polling previously...)");
             }
         }
         catch (Exception ex) {
-            this.orchestrator().errorLogger().warning("getNotificationCallbackURL: exception: " + ex.getMessage() + ". json=" + json);
+            this.orchestrator().errorLogger().warning("PelionProcessor(getWebhook): ERROR exception during pelion callback dispatch: " + dispatch_url + " message: " + ex.getMessage() + " http response code: " + this.getLastResponseCode() + " JSON: " + json);
         }
 
         return url;
