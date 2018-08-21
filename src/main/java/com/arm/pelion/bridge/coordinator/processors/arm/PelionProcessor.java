@@ -555,6 +555,13 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String url = null;
 
         String local_ip = Utils.getExternalIPAddress();
+        String override_ip = this.preferences().valueOf("mds_gw_address");
+        if (override_ip != null && override_ip.length() > 0 && override_ip.contains(".") == true) {
+            // override our local IP address...
+            local_ip = override_ip;
+            this.errorLogger().warning("PelionProcessor: Overring our webhook IP address to: " + local_ip);
+        }
+        
         int local_port = this.prefIntValue("mds_gw_port") + 1;
         String notify_uri = this.prefValue("mds_gw_context_path") + this.prefValue("mds_gw_events_path");
 

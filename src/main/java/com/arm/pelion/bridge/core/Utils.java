@@ -338,6 +338,7 @@ public class Utils {
         if (Utils._externalIPAddress == null) {
             BufferedReader in = null;
             try {
+                // this does not seem to work correctly for MS Azure VMs... so you need to set mds_gw_address in service.properties to override
                 URL whatismyip = new URL("http://checkip.amazonaws.com");
                 in = new BufferedReader(new InputStreamReader(whatismyip.openStream()));
                 Utils._externalIPAddress = in.readLine();
