@@ -482,6 +482,10 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
         // proceed to set the URL if its not already set.. 
         if (!webhook_set_ok) {
+            // first lets reset Pelion so that we can setup our webhook
+            this.removeWebhook();
+            
+            // now, lets create our webhook URL and Auth JSON
             String dispatch_url = this.createWebhookDispatchURL();
             Map auth_header_json = this.createWebhookHeaderAuthJSON();
             String json = null;
