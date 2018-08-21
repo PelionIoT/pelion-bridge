@@ -334,28 +334,23 @@ public class Utils {
     }
 
     // get our external IP Address
-    public static String getExternalIPAddress(boolean use_gw_address, String gw_address) {
+    public static String getExternalIPAddress() {
         if (Utils._externalIPAddress == null) {
-            if (use_gw_address == true && gw_address != null && gw_address.length() > 0) {
-                Utils._externalIPAddress = gw_address;
+            BufferedReader in = null;
+            try {
+                URL whatismyip = new URL("http://checkip.amazonaws.com");
+                in = new BufferedReader(new InputStreamReader(whatismyip.openStream()));
+                Utils._externalIPAddress = in.readLine();
+                in.close();
             }
-            else {
-                BufferedReader in = null;
+            catch (IOException ex) {
                 try {
-                    URL whatismyip = new URL("http://checkip.amazonaws.com");
-                    in = new BufferedReader(new InputStreamReader(whatismyip.openStream()));
-                    Utils._externalIPAddress = in.readLine();
-                    in.close();
+                    if (in != null) {
+                        in.close();
+                    }
                 }
-                catch (IOException ex) {
-                    try {
-                        if (in != null) {
-                            in.close();
-                        }
-                    }
-                    catch (IOException ex2) {
-                        // silent
-                    }
+                catch (IOException ex2) {
+                    // silent
                 }
             }
         }

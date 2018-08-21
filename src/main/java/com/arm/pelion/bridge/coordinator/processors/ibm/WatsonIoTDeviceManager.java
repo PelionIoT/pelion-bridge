@@ -75,7 +75,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         super(logger, preferences,suffix,http,orchestrator);
 
         // pull the needed configuration/preferences
-        this.m_watson_iot_gw_id = this.preferences().valueOf("iotf_gw_id", this.m_suffix) + Utils.getExternalIPAddress(this.prefBoolValue("mds_use_gw_address"), this.prefValue("mds_gw_address")).replace(".", "");
+        this.m_watson_iot_gw_id = this.preferences().valueOf("iotf_gw_id", this.m_suffix) + Utils.getExternalIPAddress().replace(".", "");
         this.m_watson_iot_gw_type_id = this.preferences().valueOf("iotf_gw_type_id", this.m_suffix);
 
         this.m_watson_iot_org_id = this.preferences().valueOf("iotf_org_id", this.m_suffix);

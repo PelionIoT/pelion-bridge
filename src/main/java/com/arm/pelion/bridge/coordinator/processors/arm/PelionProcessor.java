@@ -543,8 +543,8 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private String createWebhookURL() {
         String url = null;
 
-        String local_ip = Utils.getExternalIPAddress(this.prefBoolValue("mds_use_gw_address"), this.prefValue("mds_gw_address"));
-        int local_port = this.prefIntValue("mds_gw_port") + 1;
+        String local_ip = Utils.getExternalIPAddress();
+        int local_port = this.prefIntValue("mds_gw_port");
         String notify_uri = this.prefValue("mds_gw_context_path") + this.prefValue("mds_gw_events_path");
 
         // build and return the webhook callback URL
