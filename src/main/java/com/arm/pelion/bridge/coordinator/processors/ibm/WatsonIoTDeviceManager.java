@@ -77,7 +77,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         // pull the needed configuration/preferences
         String local_ip = Utils.getExternalIPAddress();
         String override_ip = this.preferences().valueOf("mds_gw_address");
-        if (override_ip != null && override_ip.length() > 0 && override_ip.contains(".") == true) {
+        if (override_ip != null && override_ip.length() > 0 && override_ip.contains(".") == true && override_ip.equalsIgnoreCase("off") == false) {
             // override our local IP address...
             local_ip = override_ip;
             this.errorLogger().info("WatsonIoTDeviceManager: Overring our local IP address to: " + local_ip);
