@@ -22,6 +22,7 @@
  */
 package com.arm.pelion.bridge.transport;
 
+import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ReconnectionInterface;
 import com.arm.pelion.bridge.core.ErrorLogger;
@@ -828,6 +829,11 @@ public class MQTTTransport extends Transport implements GenericSender {
                 Utils.resetBridge(this.errorLogger(),"Unable to acquire MQTT connection handle");
             }
         }
+        
+        // if we are connected, the we our out of the reset condition
+        if (this.m_connected == true) {
+            this.m_is_in_reset = false;
+        }
 
         // return our connection status
         return this.m_connected;
@@ -946,7 +952,13 @@ public class MQTTTransport extends Transport implements GenericSender {
             }
             else {
                 // unable to re-validate shadow device
-                this.errorLogger().info("resetConnection(MQTT): unable to restart MQTT connection for device: " + this.m_ep_name);
+                this.errorLogger().warning("resetConnection(MQTT): unable to restart MQTT connection for device: " + this.m_ep_name + ". Restarting bridge...");
+                
+                // reboot bridge
+                Orchestrator orchestrator = (Orchestrator)this.errorLogger().getParent();
+                if (orchestrator != null) {
+                    orchestrator.reset();
+                }
             }
         }
         else {

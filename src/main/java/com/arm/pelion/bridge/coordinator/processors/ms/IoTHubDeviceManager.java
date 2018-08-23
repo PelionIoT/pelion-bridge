@@ -100,24 +100,6 @@ public class IoTHubDeviceManager extends DeviceManager {
         //this.errorLogger().info("addDeviceIDPrefix: ep_name: " + ep_name + " --> iothub_ep_name: " + iothub_ep_name);
         return iothub_ep_name;
     }
-
-    /* IoTHub DeviceID Prefix remover
-    private String removeDeviceIDPrefix(String iothub_ep_name) {
-        String ep_name = iothub_ep_name;
-        if (this.m_iot_event_hub_device_id_prefix != null && iothub_ep_name != null) {
-            return iothub_ep_name.replace(this.m_iot_event_hub_device_id_prefix, "");
-        }
-
-        // trim..
-        if (ep_name != null) {
-            ep_name = ep_name.trim();
-        }
-
-        // DEBUG
-        //this.errorLogger().info("removeDeviceIDPrefix: iothub_ep_name: " + iothub_ep_name + " --> ep_name: " + ep_name);
-        return ep_name;
-    } 
-    */
     
     // get the orchestrator
     private Orchestrator orchestrator() {
