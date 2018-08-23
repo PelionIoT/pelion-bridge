@@ -125,7 +125,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         
         // determine if the API key is configured or not
-        this.setAPIKeyConfigured(orchestrator.preferences().valueOf("api_key"));
+        this.setAPIKeyConfigured(this.apiToken());
         
         // LongPolling Support
         this.m_enable_long_poll = this.prefBoolValue("mds_enable_long_poll");
@@ -182,7 +182,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // set whether our API Key is configured or not...
     private void setAPIKeyConfigured(String api_key) {
         this.m_api_key_is_configured = false;
-        if (api_key != null && api_key.contains("API_Key_Goes_Here") == false) {
+        if (api_key != null && api_key.contains("Goes_Here") == false) {
             // its not in its default configuration... so we assume configured!
             this.m_api_key_is_configured = true;
         }
