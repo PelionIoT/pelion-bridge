@@ -692,6 +692,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     }
                     if (parsed.containsKey("reg-updates")) {
                         this.orchestrator().processReRegistration(parsed);
+                        this.reEstablishBulkSubscriptions();
                     }
                     if (parsed.containsKey("de-registrations")) {
                         this.orchestrator().processDeregistrations(parsed);
@@ -1200,7 +1201,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
     }
     
-    // establish bulk subscription 
+    // establish bulk subscriptions in Pelion
     private boolean setupBulkSubscriptions() {
         boolean ok = false;
         
@@ -1214,7 +1215,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String url = this.createBaseURL() + "/subscriptions";
         
         // DEBUG
-        this.errorLogger().info("PelionProcessor: bulk subscriptions URL: " + url + " DATA: " + json);
+        this.errorLogger().info("PelionProcessor: Bulk subscriptions URL: " + url + " DATA: " + json);
         
         // send PUT to establish the bulk subscriptions
         String result = this.httpsPut(url, json, "application/json", this.apiToken());
@@ -1222,22 +1223,40 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         
         // DEBUG
         if (result != null && result.length() > 0) {
-            this.errorLogger().info("PelionProcessor: bulk subscriptions setup RESULT: " + result);
+            this.errorLogger().info("PelionProcessor: Bulk subscriptions setup RESULT: " + result);
         }
         
         // check the setup error code 
         if (error_code == 204) {    // SUCCESS response code: 204
             // success!
-            this.errorLogger().warning("PelionProcessor: bulk subscriptions setup SUCCESS: Code: " + error_code);
+            this.errorLogger().warning("PelionProcessor: Bulk subscriptions setup SUCCESS: Code: " + error_code);
             ok = true;
         }
         else {
             // failure
-            this.errorLogger().warning("PelionProcessor: bulk subscriptions setup FAILED: Code: " + error_code);
+            this.errorLogger().warning("PelionProcessor: Bulk subscriptions setup FAILED: Code: " + error_code);
         }
         
         // return our status
         return ok;
+    }
+    
+    // re-establish bulk subscriptions
+    private void reEstablishBulkSubscriptions() {
+        // re-establish bulk subscriptions
+        this.errorLogger().info("PelionProcssor: Re-establishing bulk subscriptions...");
+        boolean ok = this.setupBulkSubscriptions();
+        if (ok == true) {
+            // SUCESS
+            this.errorLogger().info("PelionProcssor: Re-established bulk subscriptions - SUCCESS.");
+        }
+        else {
+            // FAILURE
+            this.errorLogger().warning("PelionProcssor: FAILED to re-establish bulk subscriptions. Restarting bridge...");
+
+            // reset the bridge
+            this.orchestrator().reset();
+        }
     }
     
     // setup the mbed device server default URI
