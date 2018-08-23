@@ -280,47 +280,66 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     @Override
     public boolean setWebhook() {
         boolean ok = false;
+        boolean do_restart = true;
+        
         if (this.longPollEnabled() == false) {
-            for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
-                this.errorLogger().warning("PelionProcessor: Setting up webhook to mbed Cloud...");
-                String target_url = this.createWebhookURL();
-                ok = this.setWebhook(target_url);
+            // lets make sure that we have a configured API Key...
+            if (this.isConfiguredAPIKey() == true) {
+                // API Key has been set... so lets try to setup the webhook now...
+                for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
+                    this.errorLogger().warning("PelionProcessor: Setting up webhook to mbed Cloud...");
+                    
+                    // create the dispatch URL
+                    String target_url = this.createWebhookURL();
+                    
+                    // set the webhook
+                    ok = this.setWebhook(target_url);
 
-                // EXPERIMENTAL - test for bulk subscriptions setting
-                if (ok) {
-                    // bulk subscriptions enabled
-                    this.errorLogger().warning("PelionProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
-                    ok = this.setupBulkSubscriptions();
+                    // if OK, lets set bulk subscriptions...
                     if (ok) {
-                        // scan for devices now
-                        this.errorLogger().warning("PelionProcessor: Initial scan for mbed devices...");
-                        this.startDeviceDiscovery();
+                        // bulk subscriptions enabled
+                        this.errorLogger().warning("PelionProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
+                        ok = this.setupBulkSubscriptions();
+                        if (ok) {
+                            // scan for devices now
+                            this.errorLogger().warning("PelionProcessor: Initial scan for mbed devices...");
+                            this.startDeviceDiscovery();
+                        }
+                        else {
+                            // ERROR
+                            this.errorLogger().warning("PelionProcessor: Webhook not setup. Not scanning for devices yet...");
+                        }
                     }
+
+                    // wait a bit if we have failed
                     else {
-                        // ERROR
-                        this.errorLogger().warning("PelionProcessor: Webhook not setup. Not scanning for devices yet...");
+                        // log and wait
+                        this.errorLogger().warning("PelionProcessor: Pausing.. then will retry to set the webhook to Pelion...");
+                        Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
                     }
                 }
-
-                // wait a bit if we have failed
-                else {
-                    // log and wait
-                    this.errorLogger().warning("PelionProcessor: Waiting a bit... then retry establishing webhook to mbed Cloud...");
-                    Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
-                }
-            }
-
-            // Final status
-            if (ok) {
-                // SUCCESS
-                this.errorLogger().warning("PelionProcessor: webhook setup SUCCESS");
             }
             else {
+                // Webhook has not been set. 
+                this.errorLogger().warning("PelionProcessor: Pelion API Key has not been set. Unable to setup webhook. Please set the API Key and restart the bridge...");
+                do_restart = false;
+            }   
+
+            // Final status
+            if (ok == true) {
+                // SUCCESS
+                this.errorLogger().warning("PelionProcessor: webhook to Pelion setup SUCCESSFULLY");
+            }
+            else if (do_restart == true) {
                 // FAILURE
-                this.errorLogger().critical("PelionProcessor: UNABLE TO SET WEBHOOK. Restarting bridge...");
+                this.errorLogger().critical("PelionProcessor: Unable to set the webhook to Pelion. Restarting bridge...");
 
                 // RESET
                 this.orchestrator().reset();
+            }
+            else {
+                // FAILURE
+                this.errorLogger().critical("PelionProcessor: Pelion API Key has not been set. Unable to set the webhook..");
             }
         }
         else {
