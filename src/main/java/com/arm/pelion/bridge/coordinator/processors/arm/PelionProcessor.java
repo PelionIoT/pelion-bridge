@@ -44,13 +44,13 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorIn
  */
 public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
     // defaulted number of webhook retries
-    private static final int PELION_WEBHOOK_RETRIES = 10;                      // 10 retries
+    private static final int PELION_WEBHOOK_RETRIES = 50;                      // 50 retries
     
     // webhook retry wait time in ms..
-    private static final int PELION_WEBHOOK_RETRY_WAIT_MS = 2500;              // 2.5 seconds
+    private static final int PELION_WEBHOOK_RETRY_WAIT_MS = 10000;             // 10 seconds
     
     // amount of time to wait on boot before device discovery
-    private static final int DEVICE_DISCOVERY_DELAY_MS = 15000;                // 15 seconds
+    private static final int DEVICE_DISCOVERY_DELAY_MS = 10000;                // 10 seconds
     
     // default endpoint type
     public static String DEFAULT_ENDPOINT_TYPE = "default";                    // default endpoint type
@@ -100,6 +100,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // Pelion duplicate message detection
     private String m_last_message = null;
+    
+    // Pelion API Key is configured or not?
+    private boolean m_api_key_is_configured = false;
 
     // constructor
     public PelionProcessor(Orchestrator orchestrator, HttpTransport http) {
@@ -111,7 +114,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             this.m_pelion_api_hostname = orchestrator.preferences().valueOf("api_endpoint_address");
         }
         this.m_pelion_api_port = orchestrator.preferences().intValueOf("mds_port");
-        
+                
         // Last message buffer init
         this.m_last_message = null;
         
@@ -120,6 +123,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         if (this.m_webook_num_retries <= 0) {
             this.m_webook_num_retries = PELION_WEBHOOK_RETRIES;
         }
+        
+        // determine if the API key is configured or not
+        this.setAPIKeyConfigured(orchestrator.preferences().valueOf("api_key"));
         
         // LongPolling Support
         this.m_enable_long_poll = this.prefBoolValue("mds_enable_long_poll");
@@ -171,6 +177,30 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             // start the Long polling thread...
             this.startLongPolling();
         }
+    }
+    
+    // set whether our API Key is configured or not...
+    private void setAPIKeyConfigured(String api_key) {
+        this.m_api_key_is_configured = false;
+        if (api_key != null && api_key.contains("API_Key_Goes_Here") == false) {
+            // its not in its default configuration... so we assume configured!
+            this.m_api_key_is_configured = true;
+        }
+        
+        // DEBUG
+        if (this.isConfiguredAPIKey()) {
+            // configured
+            this.errorLogger().warning("PelionProcessor: API Key is CONFIGURED");
+        }
+        else {
+            // not configured... note as the bridge will be paused if long polling...
+            this.errorLogger().warning("PelionProcessor: API Key is UNCONFIGURED");
+        }
+    }
+    
+    // is our API Key configured?
+    public boolean isConfiguredAPIKey() {
+        return this.m_api_key_is_configured;
     }
     
     // device removal on deregistration?
@@ -287,7 +317,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
             else {
                 // FAILURE
-                this.errorLogger().critical("PelionProcessor: UNABLE TO SET WEBHOOK. Resetting bridge...");
+                this.errorLogger().critical("PelionProcessor: UNABLE TO SET WEBHOOK. Restarting bridge...");
 
                 // RESET
                 this.orchestrator().reset();
