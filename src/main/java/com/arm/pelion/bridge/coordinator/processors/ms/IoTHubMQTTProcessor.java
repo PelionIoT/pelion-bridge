@@ -915,9 +915,6 @@ public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements Reconne
                 // but DONT initialize the SSL context with self signed certs/keys
                 mqtt.noSelfSignedCertsOrKeys(true);
                 
-                // enable retain 
-                mqtt.setRetain(true);
-
                 // add it to the list indexed by the endpoint name... not the clientID...
                 this.addMQTTTransport(iothub_ep_name, mqtt);
 

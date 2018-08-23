@@ -1206,7 +1206,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         boolean ok = false;
         
         // DEBUG
-        this.errorLogger().warning("PelionProcessor: setting up bulk subscriptions...");
+        this.errorLogger().info("PelionProcessor: setting up bulk subscriptions...");
         
         // JSON for the bulk subscription (must be an array)
         String json = "[" + this.createJSONMessage("endpoint-name","*") + "]";
@@ -1229,7 +1229,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // check the setup error code 
         if (error_code == 204) {    // SUCCESS response code: 204
             // success!
-            this.errorLogger().warning("PelionProcessor: Bulk subscriptions setup SUCCESS: Code: " + error_code);
+            this.errorLogger().info("PelionProcessor: Bulk subscriptions setup SUCCESS: Code: " + error_code);
             ok = true;
         }
         else {

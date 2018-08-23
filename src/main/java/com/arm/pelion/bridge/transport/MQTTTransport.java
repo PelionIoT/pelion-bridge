@@ -742,7 +742,7 @@ public class MQTTTransport extends Transport implements GenericSender {
                     if (endpoint.getClientId() != null) {
                         this.m_client_id = endpoint.getClientId().toString();
                     }
-
+                    
                     // OK... now lets try to connect to the broker...
                     try {
                         // wait a bit
