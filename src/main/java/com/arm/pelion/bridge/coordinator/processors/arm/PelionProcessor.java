@@ -44,10 +44,10 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorIn
  */
 public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
     // defaulted number of webhook retries
-    private static final int PELION_WEBHOOK_RETRIES = 50;                      // 50 retries
+    private static final int PELION_WEBHOOK_RETRIES = 20;                      // 20 retries
     
     // webhook retry wait time in ms..
-    private static final int PELION_WEBHOOK_RETRY_WAIT_MS = 10000;             // 10 seconds
+    private static final int PELION_WEBHOOK_RETRY_WAIT_MS = 5000;              // 5 seconds
     
     // amount of time to wait on boot before device discovery
     private static final int DEVICE_DISCOVERY_DELAY_MS = 10000;                // 10 seconds
@@ -692,7 +692,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     }
                     if (parsed.containsKey("reg-updates")) {
                         this.orchestrator().processReRegistration(parsed);
-                        this.reEstablishBulkSubscriptions();
                     }
                     if (parsed.containsKey("de-registrations")) {
                         this.orchestrator().processDeregistrations(parsed);
@@ -1207,25 +1206,25 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         
         // DEBUG
         this.errorLogger().info("PelionProcessor: setting up bulk subscriptions...");
-        
+
         // JSON for the bulk subscription (must be an array)
         String json = "[" + this.createJSONMessage("endpoint-name","*") + "]";
-        
+
         // Create the URI for the bulk subscription PUT
         String url = this.createBaseURL() + "/subscriptions";
-        
+
         // DEBUG
         this.errorLogger().info("PelionProcessor: Bulk subscriptions URL: " + url + " DATA: " + json);
-        
+
         // send PUT to establish the bulk subscriptions
         String result = this.httpsPut(url, json, "application/json", this.apiToken());
         int error_code = this.getLastResponseCode();
-        
+
         // DEBUG
         if (result != null && result.length() > 0) {
             this.errorLogger().info("PelionProcessor: Bulk subscriptions setup RESULT: " + result);
         }
-        
+
         // check the setup error code 
         if (error_code == 204) {    // SUCCESS response code: 204
             // success!
@@ -1239,24 +1238,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         
         // return our status
         return ok;
-    }
-    
-    // re-establish bulk subscriptions
-    private void reEstablishBulkSubscriptions() {
-        // re-establish bulk subscriptions
-        this.errorLogger().info("PelionProcssor: Re-establishing bulk subscriptions...");
-        boolean ok = this.setupBulkSubscriptions();
-        if (ok == true) {
-            // SUCESS
-            this.errorLogger().info("PelionProcssor: Re-established bulk subscriptions - SUCCESS.");
-        }
-        else {
-            // FAILURE
-            this.errorLogger().warning("PelionProcssor: FAILED to re-establish bulk subscriptions. Restarting bridge...");
-
-            // reset the bridge
-            this.orchestrator().reset();
-        }
     }
     
     // setup the mbed device server default URI
