@@ -351,28 +351,33 @@ public class AWSIoTDeviceManager extends DeviceManager {
                 if (json.contains("ResourceNotFoundException") == false) {
                     // Parse the JSON...
                     Map parsed = this.orchestrator().getJSONParser().parseJson(json);
+                    if (parsed != null) {
+                        // Device Details
+                        String d = this.orchestrator().getTablenameDelimiter();
+                        ep = new SerializableHashMap(this.orchestrator(),"AWS_DEVICE" + d + device + d + device_type);
 
-                    // Device Details
-                    String d = this.orchestrator().getTablenameDelimiter();
-                    ep = new SerializableHashMap(this.orchestrator(),"AWS_DEVICE" + d + device + d + device_type);
+                        // Device Name
+                        ep.put("thingName", (String) parsed.get("thingName"));
+                        ep.put("defaultClientId", (String) parsed.get("defaultClientId"));
+                        ep.put("attributes", (String) parsed.get("thingName"));
+                        ep.put("thingArn",(String) parsed.get("thingArn"));
+                        ep.put("thingId", (String) parsed.get("thingId"));
+                        ep.put("thingTypeName", (String) parsed.get("thingTypeName"));
+                        ep.put("ep_name", device);
+                        ep.put("ep_type", device_type);
 
-                    // Device Name
-                    ep.put("thingName", (String) parsed.get("thingName"));
-                    ep.put("defaultClientId", (String) parsed.get("defaultClientId"));
-                    ep.put("attributes", (String) parsed.get("thingName"));
-                    ep.put("thingArn",(String) parsed.get("thingArn"));
-                    ep.put("thingId", (String) parsed.get("thingId"));
-                    ep.put("thingTypeName", (String) parsed.get("thingTypeName"));
-                    ep.put("ep_name", device);
-                    ep.put("ep_type", device_type);
+                        // record the entire record for later...
+                        if (json != null) {
+                            ep.put("json_record", json);
+                        }
 
-                    // record the entire record for later...
-                    if (json != null) {
-                        ep.put("json_record", json);
+                        // DEBUG
+                        this.errorLogger().info("AWSIoT: parseDeviceDetails for " + device + ": " + ep);
                     }
-
-                    // DEBUG
-                    this.errorLogger().info("AWSIoT: parseDeviceDetails for " + device + ": " + ep);
+                    else {
+                        // unable to parse
+                        this.errorLogger().warning("AWSIoT: parseDeviceDetails: ERROR Unable to parse device details!");
+                    }
                 }
                 else {
                     // device is not found
@@ -398,7 +403,13 @@ public class AWSIoTDeviceManager extends DeviceManager {
         }
 
         // return our endpoint details
-        return ep.map();
+        if (ep != null) {
+            return ep.map();
+        }
+        
+        // returning empty map
+        this.errorLogger().warning("AWSIoT: parseDeviceDetails: returning empty map!"); 
+        return null;
     }
 
     // generate keys and certs

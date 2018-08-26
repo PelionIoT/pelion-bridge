@@ -343,30 +343,35 @@ public class IoTHubDeviceManager extends DeviceManager {
                 if (json.contains("ErrorCode:DeviceNotFound;") == false) {
                     // Parse the JSON...
                     Map parsed = this.orchestrator().getJSONParser().parseJson(json);
+                    if (parsed != null) {
+                        // Device Details
+                        String d = this.orchestrator().getTablenameDelimiter();
+                        ep = new SerializableHashMap(this.orchestrator(),"AWS_DEVICE" + d + device + d + device_type);
 
-                    // Device Details
-                    String d = this.orchestrator().getTablenameDelimiter();
-                    ep = new SerializableHashMap(this.orchestrator(),"AWS_DEVICE" + d + device + d + device_type);
+                        // Device Keys
+                        Map authentication = (Map) parsed.get("authentication");
+                        Map symmetric_key = (Map) authentication.get("symmetricKey");
+                        ep.put("primary_key", (String) symmetric_key.get("primaryKey"));
+                        ep.put("secondary_key", (String) symmetric_key.get("secondaryKey"));
 
-                    // Device Keys
-                    Map authentication = (Map) parsed.get("authentication");
-                    Map symmetric_key = (Map) authentication.get("symmetricKey");
-                    ep.put("primary_key", (String) symmetric_key.get("primaryKey"));
-                    ep.put("secondary_key", (String) symmetric_key.get("secondaryKey"));
+                        // ETag for device
+                        ep.put("etag", (String) parsed.get("etag"));
 
-                    // ETag for device
-                    ep.put("etag", (String) parsed.get("etag"));
+                        // Device Name
+                        ep.put("deviceID", (String) parsed.get("deviceId"));
+                        ep.put("ep_name", iothub_ep_name);
+                        ep.put("ep_type", device_type);
 
-                    // Device Name
-                    ep.put("deviceID", (String) parsed.get("deviceId"));
-                    ep.put("ep_name", iothub_ep_name);
-                    ep.put("ep_type", device_type);
+                        // record the entire record for later...
+                        ep.put("json_record", json);
 
-                    // record the entire record for later...
-                    ep.put("json_record", json);
-
-                    // DEBUG
-                    //this.errorLogger().info("parseDeviceDetails for " + device + ": " + ep);
+                        // DEBUG
+                        //this.errorLogger().info("parseDeviceDetails for " + device + ": " + ep);
+                    }
+                    else {
+                        // unable to parse device details
+                        this.errorLogger().warning("IoTHub: parseDeviceDetails: ERROR Unable to parse device details!");
+                    }
                 }
                 else {
                     // device is not found
