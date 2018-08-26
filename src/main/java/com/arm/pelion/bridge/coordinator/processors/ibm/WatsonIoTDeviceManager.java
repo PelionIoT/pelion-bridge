@@ -89,6 +89,9 @@ public class WatsonIoTDeviceManager extends DeviceManager {
 
         this.m_watson_iot_org_id = this.preferences().valueOf("iotf_org_id", this.m_suffix);
         this.m_watson_iot_org_key = this.preferences().valueOf("iotf_org_key", this.m_suffix);
+        
+        // resync org_id and m_watson_iot_org_key
+        this.parseWatsonIoTUsername();
 
         this.m_watson_iot_rest_uri_template = this.preferences().valueOf("iotf_rest_uri_template", this.m_suffix);
         this.m_watson_iot_add_gw_type_template = this.preferences().valueOf("iotf_add_gw_type_template", this.m_suffix);
@@ -107,6 +110,19 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         this.m_watson_iot_def_type = this.preferences().valueOf("mds_def_ep_type", this.m_suffix);
         if (this.m_watson_iot_def_type == null || this.m_watson_iot_def_type.length() <= 0) {
             this.m_watson_iot_def_type = DEFAULT_ENDPOINT_TYPE;
+        }
+    }
+    
+    // parse the WatsonIoT Username
+    private void parseWatsonIoTUsername() {
+        String[] elements = this.m_watson_iot_api_key.replace("-", " ").split(" ");
+        if (elements != null && elements.length >= 3) {
+            this.m_watson_iot_org_id = elements[1];
+            this.m_watson_iot_org_key = elements[2];
+            //this.errorLogger().info("WatsonIoT: org_id: " + elements[1] + " apikey: " + elements[2]);
+        }
+        else {
+            this.errorLogger().info("Watson IoT: unable to parse WatsonIoT Username: " + this.m_watson_iot_api_key);
         }
     }
 

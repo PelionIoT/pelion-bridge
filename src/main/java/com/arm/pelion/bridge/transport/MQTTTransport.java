@@ -618,6 +618,13 @@ public class MQTTTransport extends Transport implements GenericSender {
             clientID = this.prefValue("mqtt_client_id", this.m_suffix);
         }
         String def_client_id = this.prefValue("mqtt_default_client_id", this.m_suffix);
+        
+        // sanity checking
+        if (host == null || host.length() == 0 || port <= 0) {
+            // just error out
+            this.errorLogger().critical("MQTTTransport: no hostname supplied for MQTT connection. aborting (bridge unconfigured?)");
+            return false;
+        }
 
         // DEBUG
         this.errorLogger().info("MQTTTransport: connect() starting... URL: [" + url + "]");
