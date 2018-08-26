@@ -26,8 +26,7 @@ package com.arm.pelion.bridge.core;
 import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.servlet.EventsProcessor;
 import com.arm.pelion.bridge.servlet.Manager;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ssl.SslSocketConnector;
@@ -169,28 +168,18 @@ public class BridgeMain {
     // restart
     public void restart() {
         try {
-            // restarting the bridge
-            this.errorLogger().warning("Main: restarting bridge...");
-            Class<?> main = Class.forName("Main");
-            if (main != null) {
-                Method restart_method = main.getMethod("restart");
-                if (restart_method != null) {
-                    // invoke the restart() method
-                    this.errorLogger().warning("Main: calling restart() to restart the bridge...");
-                    restart_method.invoke(main.newInstance());
-                }
-                else {
-                    // no restart method found
-                    this.errorLogger().critical("Main: UNABLE to restart bridge (no restart() method found)");
-                }
-            }
-            else {
-                // no Main class found
-                this.errorLogger().critical("Main: UNABLE to restart bridge (no Main class found)");
-            }
+            // Simply call the script to kill and restart this bridge
+            this.errorLogger().critical("Main: Killing and restarting the bridge....");
+            Utils.waitForABit(null, 1000);
+            
+            //
+            // restart.sh lives in the HOME directory of the "arm" account running the bridge...
+            // java is running in ${HOME}/service/target
+            //
+            Runtime.getRuntime().exec("../../restart.sh");
         }
-        catch (ClassNotFoundException | IllegalAccessException | IllegalArgumentException | InstantiationException | NoSuchMethodException | SecurityException | InvocationTargetException ex) {
-            this.errorLogger().critical("Main: EXCEPTION in restart(): " + ex.getMessage(),ex);
+        catch (IOException ex) {
+            this.errorLogger().critical("Main: Exception caught during killing and Restarting the bridge: " + ex.getMessage());
         }
     }
     

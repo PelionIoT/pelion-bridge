@@ -22,6 +22,7 @@
  */
 package com.arm.pelion.bridge.transport;
 
+import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
 
@@ -37,6 +38,9 @@ public class TransportReceiveThread extends Thread implements Transport.ReceiveL
     private int m_sleep_time_ms = 0;
     private ErrorLogger m_error_logger = null;
     private Transport.ReceiveListener m_listener = null;
+    
+    // RESET Test: enable to test recovery via RESET (DISABLED by default)
+    private static final boolean ENABLE_RESET_TEST = false;
 
     /**
      * Constructor
@@ -135,7 +139,32 @@ public class TransportReceiveThread extends Thread implements Transport.ReceiveL
      */
     @SuppressWarnings("empty-statement")
     private void listenerThreadLoop() {
+        int countdown = 4;              // RESET (if enabled) after processing 3 messages
+        
+        // DEBUG
+        if (ENABLE_RESET_TEST == true) {
+            this.errorLogger().warning("TransportReceiveThread: RESET TEST ENABLED");
+        }
+        
+        // primary listener loop
         while (this.m_running == true) {
+            // RESET Test (Option)
+            if (ENABLE_RESET_TEST == true) {
+                --countdown;
+                this.errorLogger().warning("TransportReceiveThread: RESET Countdown: " + countdown);
+                if (countdown <= 0) {
+                    // RESET
+                    this.errorLogger().warning("TransportReceiveThread: RESETTING Bridge NOW...");
+                    Utils.waitForABit(null, 1000);
+                    
+                    // get the orchestrator
+                    Orchestrator o = (Orchestrator)this.errorLogger().getParent();
+                    if (o != null) {
+                        o.reset();
+                    }
+                }
+            }
+            
             // DEBUG
             this.errorLogger().info("TransportReceiveThread: Event Loop Tick....");
             

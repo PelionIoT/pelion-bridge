@@ -698,9 +698,12 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // expected format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
         //this.errorLogger().info("getCoAPValue: payload: " + message);
         Map parsed = this.tryJSONParse(message);
-        String val = (String) parsed.get("ep");
-        if (val == null || val.length() == 0) {
-            val = (String) parsed.get("deviceId");
+        String val = null;
+        if (parsed != null) {
+            val = (String) parsed.get("ep");
+            if (val == null || val.length() == 0) {
+                val = (String) parsed.get("deviceId");
+            }
         }
         return val;
     }
@@ -710,9 +713,12 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // expected format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
         //this.errorLogger().info("getCoAPValue: payload: " + message);
         Map parsed = this.tryJSONParse(message);
-        String val = (String) parsed.get("coap_verb");
-        if (val == null || val.length() == 0) {
-            val = (String) parsed.get("method");
+        String val = null;
+        if (parsed != null) {
+            val = (String) parsed.get("coap_verb");
+            if (val == null || val.length() == 0) {
+                val = (String) parsed.get("method");
+            }
         }
 
         // map to lower case
@@ -727,9 +733,12 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // expected format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
         //this.errorLogger().info("getCoAPURI: payload: " + message);
         Map parsed = this.tryJSONParse(message);
-        String val = (String) parsed.get("path");
-        if (val == null || val.length() == 0) {
-            val = (String) parsed.get("resourceId");
+        String val = null;
+        if (parsed != null) {
+            val = (String) parsed.get("path");
+            if (val == null || val.length() == 0) {
+                val = (String) parsed.get("resourceId");
+            }
         }
 
         // adapt for those variants that have path as "311/0/5850" vs. "/311/0/5850"... 
@@ -745,27 +754,30 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // expected format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
         //this.errorLogger().info("getCoAPValue: payload: " + message);
         Map parsed = this.tryJSONParse(message);
-        String val = (String) parsed.get("new_value");
-        if (val == null || val.length() == 0) {
-            val = (String) parsed.get("payload");
-            if (val != null) {
-                // see if the value is Base64 encoded
-                String last = val.substring(val.length() - 1);
-                if (val.contains("==") || last.contains("=")) {
-                    // value appears to be Base64 encoded... so decode... 
-                    try {
-                        // DEBUG
-                        this.errorLogger().info("getCoAPValue: Value: " + val + " flagged as Base64 encoded... decoding...");
+        String val = null;
+        if (parsed != null) {
+            val = (String) parsed.get("new_value");
+            if (val == null || val.length() == 0) {
+                val = (String) parsed.get("payload");
+                if (val != null) {
+                    // see if the value is Base64 encoded
+                    String last = val.substring(val.length() - 1);
+                    if (val.contains("==") || last.contains("=")) {
+                        // value appears to be Base64 encoded... so decode... 
+                        try {
+                            // DEBUG
+                            this.errorLogger().info("getCoAPValue: Value: " + val + " flagged as Base64 encoded... decoding...");
 
-                        // Decode
-                        val = new String(Base64.decodeBase64(val));
+                            // Decode
+                            val = new String(Base64.decodeBase64(val));
 
-                        // DEBUG
-                        this.errorLogger().info("getCoAPValue: Base64 Decoded Value: " + val);
-                    }
-                    catch (Exception ex) {
-                        // just use the value itself...
-                        this.errorLogger().info("getCoAPValue: Exception in base64 decode", ex);
+                            // DEBUG
+                            this.errorLogger().info("getCoAPValue: Base64 Decoded Value: " + val);
+                        }
+                        catch (Exception ex) {
+                            // just use the value itself...
+                            this.errorLogger().info("getCoAPValue: Exception in base64 decode", ex);
+                        }
                     }
                 }
             }
@@ -778,7 +790,10 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // expected format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get", "options":"noResp=true" }
         //this.errorLogger().info("getCoAPValue: payload: " + message);
         Map parsed = this.tryJSONParse(message);
-        return (String) parsed.get("options");
+        if (parsed != null) {
+            return (String) parsed.get("options");
+        }
+        return null;
     }
     
     // retrieve a specific element from the topic structure
