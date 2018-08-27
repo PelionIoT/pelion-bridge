@@ -1193,7 +1193,19 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
     // start the long polling thread
     private void startLongPolling() {
-        // now long poll
+        // setup bulk subscriptions
+        this.errorLogger().warning("PelionProcessor(LongPolling): Enabling bulk subscriptions...");
+        boolean ok = this.setupBulkSubscriptions();
+        if (ok == true) {
+            // success
+            this.errorLogger().info("PelionProcessor(LongPolling): bulk subscriptions enabled SUCCESS");
+        }
+        else {
+            // failure
+            this.errorLogger().info("PelionProcessor(LongPolling): bulk subscriptions enabled FAILED");
+        }
+        
+        // now begin to long poll Pelion
         if (this.m_long_poll_processor == null) {
             this.m_long_poll_processor = new LongPollProcessor(this);
             this.m_long_poll_processor.startPolling();
