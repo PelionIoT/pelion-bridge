@@ -5,7 +5,7 @@
  * @version 1.0
  * @see
  *
- * Copyright 2015. ARM Ltd. All rights reserved.
+ * Copyright 2018. ARM Ltd. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,17 +26,20 @@ import com.arm.pelion.bridge.preferences.PreferenceManager;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Error Handler
+ * Error Logger - log bridge messages to the appropriate logging facility
  *
  * @author Doug Anson
  */
 public class ErrorLogger extends BaseClass {
-    // SLF4J log hook
-    private Logger m_slf4j_instance = null;
-    private boolean m_enable_slf4j_instance = false;        // true to hook into SLF4J logging...
+    // We can add other SLF4J hooks here... need to also integrate in logit() method... 
+    
+    // SLF4J stdio logging instance
+    private Logger m_slf4j_stdio_logging_instance = null;
+    private boolean m_enable_slf4j_stdio_loggin_instance = true;   // true: enabled. false: use System.out/err
 
     /**
      * default message
@@ -101,8 +104,8 @@ public class ErrorLogger extends BaseClass {
         this.m_level = ErrorLogger.INFO;
         this.m_mask = ErrorLogger.SHOW_ALL;
         this.m_log = new ArrayList<>();
-        if (this.m_enable_slf4j_instance == true) {
-            this.m_slf4j_instance = Logger.getRootLogger();
+        if (this.m_enable_slf4j_stdio_loggin_instance == true) {
+            this.m_slf4j_stdio_logging_instance = LoggerFactory.getLogger(this.getClass().getName());
         }
     }
     
@@ -293,39 +296,58 @@ public class ErrorLogger extends BaseClass {
     
     // log it
     private void logit(String message) {
-        // Dump to stdout
-        System.out.println(message);
-        
         // SLF4J integration... check if enabled...
-        if (this.m_enable_slf4j_instance == true && this.m_slf4j_instance != null) {
+        if (this.m_enable_slf4j_stdio_loggin_instance == true && this.m_slf4j_stdio_logging_instance != null) {        
             // Dump to SLF4J instance
             if (this.m_level == ErrorLogger.INFO) {
                 // debug
-                this.m_slf4j_instance.debug(message);
+                this.m_slf4j_stdio_logging_instance.debug(message);
             }
             if (this.m_level == ErrorLogger.WARNING) {
                 // info
-                this.m_slf4j_instance.info(message);
+                this.m_slf4j_stdio_logging_instance.info(message);
             }
             if (this.m_level == ErrorLogger.CRITICAL) {
                 // error
-                this.m_slf4j_instance.error(message);
+                this.m_slf4j_stdio_logging_instance.error(message);
+            }
+        }
+        else {
+            // Dump to SLF4J instance
+            if (this.m_level == ErrorLogger.INFO) {
+                // Dump to stdout
+                System.out.println(message);
+            }
+            if (this.m_level == ErrorLogger.WARNING) {
+                // Dump to stderr
+                System.err.println(message);
+            }
+            if (this.m_level == ErrorLogger.CRITICAL) {
+                // Dump to stderr
+                System.err.println(message);
             }
         }
     }
 
     // pretty display of logging level
     private String prettyLevel() {
-        if (this.m_level == ErrorLogger.INFO) {
-            return "INFO: ";
+        if (this.m_enable_slf4j_stdio_loggin_instance == true && this.m_slf4j_stdio_logging_instance != null) {
+            // SLF4J handles this
+            return "";
         }
-        if (this.m_level == ErrorLogger.WARNING) {
-            return "WARN: ";
+        else {
+            // we have to handle tags
+            if (this.m_level == ErrorLogger.INFO) {
+                return "INFO: ";
+            }
+            if (this.m_level == ErrorLogger.WARNING) {
+                return "WARN: ";
+            }
+            if (this.m_level == ErrorLogger.CRITICAL) {
+                return "CRIT: ";
+            }
+            return "UNK: ";
         }
-        if (this.m_level == ErrorLogger.CRITICAL) {
-            return "CRIT: ";
-        }
-        return "UNK: ";
     }
 
     // convert a stack trace to a string
