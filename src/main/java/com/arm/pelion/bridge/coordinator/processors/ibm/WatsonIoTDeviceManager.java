@@ -23,6 +23,7 @@
 package com.arm.pelion.bridge.coordinator.processors.ibm;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
+import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
@@ -39,9 +40,6 @@ import java.util.Map;
  * @author Doug Anson
  */
 public class WatsonIoTDeviceManager extends DeviceManager {
-    // defaulted endpoint type
-    protected static String DEFAULT_ENDPOINT_TYPE="default";
-    
     private String m_watson_iot_rest_uri_template = null;
     private String m_watson_iot_add_device_template = null;
     private String m_watson_iot_add_gw_type_template = null;
@@ -64,14 +62,14 @@ public class WatsonIoTDeviceManager extends DeviceManager {
     private String m_gw_iotf_auth_token = null;
 
     private String m_watson_iot_def_type = null;
-
+    
     // constructor
-    public WatsonIoTDeviceManager(ErrorLogger logger, PreferenceManager preferences, HttpTransport http, Orchestrator orchestrator) {
-        this(logger, preferences,null,http,orchestrator);
+    public WatsonIoTDeviceManager(ErrorLogger logger, PreferenceManager preferences, HttpTransport http, Orchestrator orchestrator,String org_id,String org_key) {
+        this(logger, preferences,null,http,orchestrator,org_id,org_key);
     }
 
     // constructor
-    public WatsonIoTDeviceManager(ErrorLogger logger, PreferenceManager preferences, String suffix, HttpTransport http, Orchestrator orchestrator) {
+    public WatsonIoTDeviceManager(ErrorLogger logger, PreferenceManager preferences, String suffix, HttpTransport http, Orchestrator orchestrator,String org_id,String org_key) {
         super(logger, preferences,suffix,http,orchestrator);
 
         // pull the needed configuration/preferences
@@ -82,69 +80,36 @@ public class WatsonIoTDeviceManager extends DeviceManager {
             local_ip = override_ip;
             this.errorLogger().info("WatsonIoTDeviceManager: Overring our local IP address to: " + local_ip);
         }
-        
-        // configuration settings
-        this.m_watson_iot_gw_id = this.preferences().valueOf("iotf_gw_id", this.m_suffix) + local_ip.replace(".", "");
-        this.m_watson_iot_gw_type_id = this.preferences().valueOf("iotf_gw_type_id", this.m_suffix);
 
-        this.m_watson_iot_org_id = this.preferences().valueOf("iotf_org_id", this.m_suffix);
-        this.m_watson_iot_org_key = this.preferences().valueOf("iotf_org_key", this.m_suffix);
-        
-        // resync org_id and m_watson_iot_org_key
-        this.parseWatsonIoTUsername();
-
+        // get the templates
         this.m_watson_iot_rest_uri_template = this.preferences().valueOf("iotf_rest_uri_template", this.m_suffix);
         this.m_watson_iot_add_gw_type_template = this.preferences().valueOf("iotf_add_gw_type_template", this.m_suffix);
         this.m_watson_iot_add_gw_dev_type_template = this.preferences().valueOf("iotf_add_gw_dev_type_template", this.m_suffix);
         this.m_watson_iot_add_gw_template = this.preferences().valueOf("iotf_add_gw_template", this.m_suffix);
         this.m_watson_iot_add_device_template = this.preferences().valueOf("iotf_add_device_template", this.m_suffix);
-        this.m_watson_iot_rest_hostname = this.preferences().valueOf("iotf_rest_hostname_template", this.m_suffix).replace("__ORG_ID__", this.m_watson_iot_org_id);
-
-        // build out Basic Auth username/password for the REST calls
-        this.m_watson_iot_api_key = "a-" + this.m_watson_iot_org_id + "-" + this.m_watson_iot_org_key;
-        this.m_watson_iot_gw_key = "g/" + this.m_watson_iot_org_id + "/" + this.m_watson_iot_gw_type_id + "/" + this.m_watson_iot_gw_id;
-        this.m_watson_iot_auth_token = this.preferences().valueOf("iotf_auth_token", this.m_suffix);
-        this.m_watson_iot_gw_auth_token = Utils.createURLSafeToken(this.m_watson_iot_auth_token);
 
         // default device type in case we need it
         this.m_watson_iot_def_type = this.preferences().valueOf("mds_def_ep_type", this.m_suffix);
         if (this.m_watson_iot_def_type == null || this.m_watson_iot_def_type.length() <= 0) {
-            this.m_watson_iot_def_type = DEFAULT_ENDPOINT_TYPE;
+            this.m_watson_iot_def_type = PelionProcessor.DEFAULT_ENDPOINT_TYPE;
         }
-    }
-    
-    // parse the WatsonIoT Username
-    private void parseWatsonIoTUsername() {
-        String[] elements = this.m_watson_iot_api_key.replace("-", " ").split(" ");
-        if (elements != null && elements.length >= 3) {
-            this.m_watson_iot_org_id = elements[1];
-            this.m_watson_iot_org_key = elements[2];
-            //this.errorLogger().info("WatsonIoT: org_id: " + elements[1] + " apikey: " + elements[2]);
-        }
-        else {
-            this.errorLogger().info("Watson IoT: unable to parse WatsonIoT Username: " + this.m_watson_iot_api_key);
-        }
-    }
-
-    // upsert the OrgID and APIKey
-    public void updateWatsonIoTBindings(String org_id, String api_key) {
+        
+        // configuration settings
         this.m_watson_iot_org_id = org_id;
-        this.m_watson_iot_org_key = api_key;
-        this.m_watson_iot_rest_hostname = this.preferences().valueOf("iotf_rest_hostname_template", this.m_suffix).replace("__ORG_ID__", this.m_watson_iot_org_id);
+        this.m_watson_iot_org_key = org_key;
+        this.m_watson_iot_gw_id = this.preferences().valueOf("iotf_gw_id", this.m_suffix) + local_ip.replace(".", "");
+        this.m_watson_iot_gw_type_id = this.preferences().valueOf("iotf_gw_type_id", this.m_suffix);
         this.m_watson_iot_api_key = "a-" + this.m_watson_iot_org_id + "-" + this.m_watson_iot_org_key;
         this.m_watson_iot_gw_key = "g/" + this.m_watson_iot_org_id + "/" + this.m_watson_iot_gw_type_id + "/" + this.m_watson_iot_gw_id;
+        this.m_watson_iot_auth_token = this.preferences().valueOf("iotf_auth_token", this.m_suffix);
+        this.m_watson_iot_rest_hostname = this.preferences().valueOf("iotf_rest_hostname_template", this.m_suffix).replace("__ORG_ID__", this.m_watson_iot_org_id);
+        this.m_watson_iot_gw_auth_token = Utils.createURLSafeToken(this.m_watson_iot_auth_token);
         this.m_gw_iotf_auth_token = this.m_watson_iot_gw_auth_token;
-        this.initWatsonIoTMetadata();
-    }
-
-    // initialize the WatsonIoT Gateway/Device/Type metadata
-    private void initWatsonIoTMetadata() {
-        // ensure we are initialized properly
+        this.m_watson_iot_gw_client_id = "g:" + this.m_watson_iot_org_id + ":" + this.m_watson_iot_gw_type_id + ":" + this.m_watson_iot_gw_id;
+       
+        // initialize Watson metadata
         this.createGatewayType();
         this.createGatewayDevice();
-
-        // initialize the Gateway client ID
-        this.m_watson_iot_gw_client_id = "g:" + this.m_watson_iot_org_id + ":" + this.m_watson_iot_gw_type_id + ":" + this.m_watson_iot_gw_id;
     }
 
     // upsert the WatsonIoT Username bindings to use
@@ -298,7 +263,8 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         String payload = this.createAddGatewayJSON();
 
         // DEBUG
-        //this.errorLogger().info("installGatewayDeviceType: URL: " + url + " DATA: " + payload + " USER: " + this.m_watson_iot_api_key + " PW: " + this.m_watson_iot_auth_token);
+        this.errorLogger().info("Watson IoT: installGatewayDeviceType: URL: " + url + " DATA: " + payload + " USER: " + this.m_watson_iot_api_key + " PW: " + this.m_watson_iot_auth_token);
+        
         // dispatch and look for the result
         String result = this.post(url, payload);
 
@@ -345,28 +311,28 @@ public class WatsonIoTDeviceManager extends DeviceManager {
     // GET specific URL contents
     private String get(String url) {
         String result = this.m_http.httpsGet(url, this.m_watson_iot_api_key, this.m_watson_iot_auth_token, null, "application/json");
-        //this.errorLogger().info("Watson IoT(get): URL: " + url + " RESULT: " + result);
+        this.errorLogger().info("Watson IoT(get): URL: " + url + " RESULT: " + result);
         return result;
     }
 
     // POST specific data to a given URL
     private String post(String url, String payload) {
         String result = this.m_http.httpsPost(url, this.m_watson_iot_api_key, this.m_watson_iot_auth_token, payload, "application/json");
-        //this.errorLogger().info("Watson IoT: URL(post): " + url + " DATA: " + payload + " RESULT: " + result);
+        this.errorLogger().info("Watson IoT: URL(post): " + url + " DATA: " + payload + " RESULT: " + result);
         return result;
     }
 
     // POST specific data to a given URL
     private String gwpost(String url, String payload) {
         String result = this.m_http.httpsPost(url, this.m_watson_iot_gw_key, this.m_gw_iotf_auth_token, payload, "application/json");
-        //this.errorLogger().info("Watson IoT(gwpost): URL: " + url + " DATA: " + payload + " RESULT: " + result);
+        this.errorLogger().info("Watson IoT(gwpost): URL: " + url + " DATA: " + payload + " RESULT: " + result);
         return result;
     }
 
     // DELETE specific data to a given URL
     private String delete(String url) {
         String result = this.m_http.httpsDelete(url, this.m_watson_iot_gw_key, this.m_gw_iotf_auth_token, null, "application/json");
-        //this.errorLogger().info("Watson IoT(delete): URL: " + url + " RESULT: " + result);
+        this.errorLogger().info("Watson IoT(delete): URL: " + url + " RESULT: " + result);
         return result;
     }
     
@@ -378,15 +344,10 @@ public class WatsonIoTDeviceManager extends DeviceManager {
     // DELETE specific data to a given URL
     private String gwdelete(String url) {
         String result = this.delete(url, null);
-        //this.errorLogger().info("Watson IoT: delete: URL: " + url + " RESULT: " + result);
+        this.errorLogger().info("Watson IoT: delete: URL: " + url + " RESULT: " + result);
         return result;
     }
-
-    /* DELETE specific data to a given URL (with data)
-    private String gwdelete(String url,String payload) {
-        return this.m_http.httpsDelete(url, this.m_watson_iot_gw_key, this.m_gw_iotf_auth_token, payload, "application/json", null);
-    }
-     */
+    
     // build out the metadata JSON
     private String createMetadataJSON(Map metadata) {
         // initialize
@@ -480,8 +441,8 @@ public class WatsonIoTDeviceManager extends DeviceManager {
 
     // build out the ADD Gateway Device Type JSON
     private String createAddGatewayDeviceTypeJSON(String device_type) {
-        if (device_type == null) {
-            this.errorLogger().info("createAddGatewayDeviceTypeJSON: ERROR device type is NULL. Defaulting to: mbed-endpoint");
+        if (device_type == null || device_type.length() == 0) {
+            this.errorLogger().info("createAddGatewayDeviceTypeJSON: ERROR device type is NULL. Defaulting to: " + this.m_watson_iot_def_type);
             device_type = this.getDeviceType(device_type);
         }
         return this.m_watson_iot_add_gw_dev_type_template.replace("__TYPE_ID__", device_type);

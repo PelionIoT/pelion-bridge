@@ -101,7 +101,7 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
         this.m_watson_iot_api_key = this.orchestrator().preferences().valueOf("iotf_api_key", this.m_suffix);
         this.m_watson_iot_auth_token = this.orchestrator().preferences().valueOf("iotf_auth_token", this.m_suffix);
 
-        // resync org_id and m_watson_iot_org_key
+        // parse out the ID and Key from the given API Key
         this.parseWatsonIoTUsername();
 
         // create the client ID
@@ -109,29 +109,11 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
         this.m_client_id = this.createWatsonIoTClientID();
 
         // Watson IoT Device Manager - will initialize and upsert our WatsonIoT bindings/metadata
-        this.m_device_manager = new WatsonIoTDeviceManager(this.orchestrator().errorLogger(),this.orchestrator().preferences(),this.m_suffix,http,this.orchestrator());
-        this.m_device_manager.updateWatsonIoTBindings(this.m_watson_iot_org_id, this.m_watson_iot_org_key);
+        this.m_device_manager = new WatsonIoTDeviceManager(this.orchestrator().errorLogger(),this.orchestrator().preferences(),this.m_suffix,http,this.orchestrator(),this.m_watson_iot_org_id, this.m_watson_iot_org_key);
         this.m_watson_iot_api_key = this.m_device_manager.updateUsernameBinding(this.m_watson_iot_api_key);
         this.m_watson_iot_auth_token = this.m_device_manager.updatePasswordBinding(this.m_watson_iot_auth_token);
         this.m_client_id = this.m_device_manager.updateClientIDBinding(this.m_client_id);
         this.m_mqtt_ip_address = this.m_device_manager.updateHostnameBinding(this.m_mqtt_ip_address);
-
-        // RESET in case we want to just connect as an WatsonIoT Application
-        if (this.orchestrator().preferences().booleanValueOf("iotf_force_app_binding", this.m_suffix) == true) {
-            // DEBUG
-            this.errorLogger().warning("WatsonIoT Processor: FORCED binding as WatsonIoT Application - ENABLED");
-
-            // override - simply bind as a WatsonIoT applciation
-            this.m_watson_iot_api_key = this.orchestrator().preferences().valueOf("iotf_api_key", this.m_suffix).replace("__ORG_ID__", this.m_watson_iot_org_id).replace("__ORG_KEY__", this.m_watson_iot_org_key);
-            this.m_watson_iot_auth_token = this.orchestrator().preferences().valueOf("iotf_auth_token", this.m_suffix);
-
-            // resync org_id and m_watson_iot_org_key
-            this.parseWatsonIoTUsername();
-
-            // create the client ID
-            this.m_client_id_template = this.orchestrator().preferences().valueOf("iotf_client_id_template", this.m_suffix).replace("__ORG_ID__", this.m_watson_iot_org_id);
-            this.m_client_id = this.createWatsonIoTClientID();
-        }
 
         // create the transport
         mqtt.setUsername(this.m_watson_iot_api_key);
@@ -140,9 +122,20 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
         // add the transport
         this.initMQTTTransportList();
         this.addMQTTTransport(this.m_client_id, mqtt);
-
-        // DEBUG
-        //this.errorLogger().info("WatsonIoT Credentials: Username: " + this.m_mqtt.getUsername() + " PW: " + this.m_mqtt.getPassword());
+    }
+    
+    // parse the WatsonIoT APIKey
+    private void parseWatsonIoTUsername() {
+        String[] elements = this.m_watson_iot_api_key.replace("-", " ").split(" ");
+        if (elements != null && elements.length >= 3) {
+            this.m_watson_iot_org_id = elements[1];
+            this.m_watson_iot_org_key = elements[2];
+            this.errorLogger().info("WatsonIoT: Parsed API Key: ID: " + this.m_watson_iot_org_id + " Key: " + this.m_watson_iot_org_key);
+        }
+        else {
+            // ERROR
+            this.errorLogger().warning("Watson IoT: unable to parse WatsonIoT Username: " + this.m_watson_iot_api_key);
+        }
     }
 
     // OVERRIDE: process a received new registration for WatsonIoT
@@ -338,11 +331,18 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
             // ... but do not use self-signed certs/keys
             this.mqtt().noSelfSignedCertsOrKeys(true);
             
-            // now connect
+            // DEBUG
+            this.errorLogger().info("WatsonIoT: connecting: " + this.m_mqtt_ip_address + " port: " + this.m_mqtt_port + "clientID: " + this.m_client_id + " cleanSession: " + this.m_use_clean_session);
+            
+            // attempt connect
             if (this.mqtt().connect(this.m_mqtt_ip_address, this.m_mqtt_port, this.m_client_id, this.m_use_clean_session)) {
                 this.orchestrator().errorLogger().info("Watson IoT: Setting CoAP command listener...");
                 this.mqtt().setOnReceiveListener(this);
                 this.orchestrator().errorLogger().info("Watson IoT: connection completed successfully");
+            }
+            else {
+                // ERROR
+                this.errorLogger().warning("WatsonIoT: Unable to connect to: " + this.m_mqtt_ip_address + " port: " + this.m_mqtt_port);
             }
         }
         else {
@@ -359,19 +359,6 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
     @Override
     protected void subscribeToMQTTTopics() {
         // unused: WatsonIoT will have "listenable" topics for the CoAP verbs via the CMD event type...
-    }
-    
-    // parse the WatsonIoT Username
-    private void parseWatsonIoTUsername() {
-        String[] elements = this.m_watson_iot_api_key.replace("-", " ").split(" ");
-        if (elements != null && elements.length >= 3) {
-            this.m_watson_iot_org_id = elements[1];
-            this.m_watson_iot_org_key = elements[2];
-            //this.errorLogger().info("WatsonIoT: org_id: " + elements[1] + " apikey: " + elements[2]);
-        }
-        else {
-            this.errorLogger().info("Watson IoT: unable to parse WatsonIoT Username: " + this.m_watson_iot_api_key);
-        }
     }
     
     // create the WatsonIoT clientID
