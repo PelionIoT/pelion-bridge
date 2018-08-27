@@ -26,6 +26,7 @@ import com.arm.pelion.bridge.preferences.PreferenceManager;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import org.apache.log4j.Logger;
 
 /**
  * Error Handler
@@ -33,6 +34,9 @@ import java.util.ArrayList;
  * @author Doug Anson
  */
 public class ErrorLogger extends BaseClass {
+    // SLF4J log hook
+    private Logger m_slf4j_instance = null;
+    private boolean m_enable_slf4j_instance = false;        // true to hook into SLF4J logging...
 
     /**
      * default message
@@ -97,6 +101,9 @@ public class ErrorLogger extends BaseClass {
         this.m_level = ErrorLogger.INFO;
         this.m_mask = ErrorLogger.SHOW_ALL;
         this.m_log = new ArrayList<>();
+        if (this.m_enable_slf4j_instance == true) {
+            this.m_slf4j_instance = Logger.getRootLogger();
+        }
     }
     
     // set the parent
@@ -254,29 +261,55 @@ public class ErrorLogger extends BaseClass {
             if (this.m_exception != null) {
                 if (this.m_message != null) {
                     // log the message
-                    System.out.println(this.prettyLevel() + this.m_message + " Exception: " + this.m_exception + ".\n\nStackTrace: " + this.stackTraceToString(this.m_exception));
+                    this.logit(this.prettyLevel() + this.m_message + " Exception: " + this.m_exception + ".\n\nStackTrace: " + this.stackTraceToString(this.m_exception));
                     this.buffer(this.m_message + " Exception: " + this.m_exception + ".\n\nStackTrace: " + this.stackTraceToString(this.m_exception));
                 }
                 else {
                     // log the exception
-                    System.out.println(this.prettyLevel() + this.m_exception);
+                    this.logit(this.prettyLevel() + this.m_exception);
                     this.buffer("" + this.m_exception);
-                    System.out.println(this.prettyLevel() + this.stackTraceToString(this.m_exception));
+                    this.logit(this.prettyLevel() + this.stackTraceToString(this.m_exception));
                 }
             }
+            
             // log what we have
             else if (this.m_message != null) {
                 // log the message
-                System.out.println(this.prettyLevel() + this.m_message);
+                this.logit(this.prettyLevel() + this.m_message);
                 this.buffer(this.m_message);
             }
+            
+            // catch all
             else {
                 // no message
                 this.m_message = "UNKNOWN ERROR";
 
                 // log the message
-                System.out.println(this.prettyLevel() + this.m_message);
+                this.logit(this.prettyLevel() + this.m_message);
                 this.buffer(this.m_message);
+            }
+        }
+    }
+    
+    // log it
+    private void logit(String message) {
+        // Dump to stdout
+        System.out.println(message);
+        
+        // SLF4J integration... check if enabled...
+        if (this.m_enable_slf4j_instance == true && this.m_slf4j_instance != null) {
+            // Dump to SLF4J instance
+            if (this.m_level == ErrorLogger.INFO) {
+                // debug
+                this.m_slf4j_instance.debug(message);
+            }
+            if (this.m_level == ErrorLogger.WARNING) {
+                // info
+                this.m_slf4j_instance.info(message);
+            }
+            if (this.m_level == ErrorLogger.CRITICAL) {
+                // error
+                this.m_slf4j_instance.error(message);
             }
         }
     }
