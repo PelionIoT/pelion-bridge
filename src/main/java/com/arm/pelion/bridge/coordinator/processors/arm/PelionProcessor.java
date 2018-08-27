@@ -1061,7 +1061,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         
         // large number!  So we have to take this in blocks
-        else {
+        else if (devices != null && devices.size() > 0) {
             // Chop the list up into a list of lists
             List<List<Map>> chopped_list = Utils.chopList(devices,this.m_mds_max_shadow_create_threads);
             for(int i=0;chopped_list != null && i<chopped_list.size();++i) {
@@ -1074,6 +1074,10 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 // now invoke the dispatch of the ith group of devices
                 this.beginDispatchGroup(device_list_i);
             }
+        }
+        else {
+            // no devices
+            this.errorLogger().warning("PelionProcessor(DeviceShadowSetup): No devices to shadow (OK)");
         }
     }
     
