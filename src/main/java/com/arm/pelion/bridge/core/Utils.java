@@ -1086,11 +1086,11 @@ public class Utils {
     // credit: https://stackoverflow.com/questions/2895342/java-how-can-i-split-an-arraylist-in-multiple-small-arraylists
     public static <T> List<List<T>> chopList(List<T> list, final int L) {
         List<List<T>> parts = new ArrayList<>();
-        final int N = list.size();
-        for (int i = 0; i < N; i += L) {
-            parts.add(new ArrayList<>(
-                list.subList(i, Math.min(N, i + L)))
-            );
+        if (list != null) {
+            int N = list.size();
+            for (int i = 0; i < N; i += L) {
+                parts.add(new ArrayList<>(list.subList(i, Math.min(N, i + L))));
+            }
         }
         return parts;
     }
