@@ -92,6 +92,7 @@ public class ErrorLogger extends BaseClass {
     private int m_mask = SHOW_ALL;                      // default error classification mask
     private volatile ArrayList<String> m_log = null;    // error log
     private Object m_parent = null;                     // our parent object
+    private String m_bridge_error_level = null;         // our preference
 
     /**
      * constructor
@@ -104,6 +105,8 @@ public class ErrorLogger extends BaseClass {
         this.m_level = ErrorLogger.INFO;
         this.m_mask = ErrorLogger.SHOW_ALL;
         this.m_log = new ArrayList<>();
+        this.m_bridge_error_level = null;
+        
         if (this.m_enable_slf4j_stdio_loggin_instance == true) {
             this.m_slf4j_stdio_logging_instance = LoggerFactory.getLogger(this.getClass().getName());
         }
@@ -123,20 +126,23 @@ public class ErrorLogger extends BaseClass {
      * Configure the logging level
      */
     public void configureLoggingLevel(PreferenceManager preferences) {
-        String config = preferences.valueOf("mds_bridge_error_level", null);
-        if (config != null && config.length() > 0) {
-            int mask = 0;
-            if (config.contains("info")) {
-                mask |= ErrorLogger.SHOW_INFO;
+        if (this.m_bridge_error_level == null) {
+            // get once only...
+            this.m_bridge_error_level = preferences.valueOf("mds_bridge_error_level", null);
+        }
+        if (this.m_bridge_error_level != null && this.m_bridge_error_level.length() > 0) {
+            int mask = 0; // init mask
+            if (this.m_bridge_error_level.contains("all")) {
+                mask = ErrorLogger.SHOW_ALL;
             }
-            if (config.contains("warning")) {
-                mask |= ErrorLogger.SHOW_WARNING;
-            }
-            if (config.contains("critical")) {
+            if (this.m_bridge_error_level.contains("critical")) {
                 mask |= ErrorLogger.SHOW_CRITICAL;
             }
-            if (config.contains("all")) {
-                mask = ErrorLogger.SHOW_ALL;
+            if (this.m_bridge_error_level.contains("warning")) {
+                mask |= ErrorLogger.SHOW_WARNING;
+            }
+            if (this.m_bridge_error_level.contains("info")) {
+                mask |= ErrorLogger.SHOW_INFO;
             }
             this.setLoggingMask(mask);
         }
@@ -299,40 +305,26 @@ public class ErrorLogger extends BaseClass {
         // SLF4J integration... check if enabled...
         if (this.m_enable_slf4j_stdio_loggin_instance == true && this.m_slf4j_stdio_logging_instance != null) {        
             // Dump to SLF4J instance
-            if (this.m_level == ErrorLogger.INFO) {
-                // debug
-                this.m_slf4j_stdio_logging_instance.debug(message);
-            }
-            if (this.m_level == ErrorLogger.WARNING) {
-                // info
-                this.m_slf4j_stdio_logging_instance.info(message);
-            }
-            if (this.m_level == ErrorLogger.CRITICAL) {
-                // error
-                this.m_slf4j_stdio_logging_instance.error(message);
-            }
+            this.m_slf4j_stdio_logging_instance.info(message); 
         }
         else {
-            // Dump to SLF4J instance
-            if (this.m_level == ErrorLogger.INFO) {
-                // Dump to stdout
-                System.out.println(message);
-            }
-            if (this.m_level == ErrorLogger.WARNING) {
-                // Dump to stderr
-                System.err.println(message);
-            }
-            if (this.m_level == ErrorLogger.CRITICAL) {
-                // Dump to stderr
-                System.err.println(message);
-            }
+            // Dump to stdout
+            System.out.println(message);
         }
     }
 
     // pretty display of logging level
     private String prettyLevel() {
         if (this.m_enable_slf4j_stdio_loggin_instance == true && this.m_slf4j_stdio_logging_instance != null) {
-            // SLF4J handles this
+            if (this.m_level == ErrorLogger.INFO) {
+                return "(info): ";
+            }
+            if (this.m_level == ErrorLogger.WARNING) {
+                return "(warning): ";
+            }
+            if (this.m_level == ErrorLogger.CRITICAL) {
+                return "(critical): ";
+            }
             return "";
         }
         else {
