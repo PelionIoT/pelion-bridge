@@ -51,16 +51,16 @@ public class IoTHubDeviceManager extends DeviceManager {
     private String m_iot_event_hub_device_id_prefix = null;
 
     // constructor
-    public IoTHubDeviceManager(ErrorLogger logger, PreferenceManager preferences, HttpTransport http, Orchestrator orchestrator) {
-        this(logger, preferences, null, http, orchestrator);
+    public IoTHubDeviceManager(ErrorLogger logger, PreferenceManager preferences, HttpTransport http, Orchestrator orchestrator,String hub_name,String sas_token) {
+        this(logger, preferences, null, http, orchestrator, hub_name, sas_token);
     }
 
     // constructor
-    public IoTHubDeviceManager(ErrorLogger logger, PreferenceManager preferences, String suffix, HttpTransport http, Orchestrator orchestrator) {
+    public IoTHubDeviceManager(ErrorLogger logger, PreferenceManager preferences, String suffix, HttpTransport http, Orchestrator orchestrator, String hub_name,String sas_token) {
         super(logger, preferences,suffix,http,orchestrator);
 
         // IoTHub Name
-        this.m_iot_event_hub_name = this.preferences().valueOf("iot_event_hub_name", this.m_suffix);
+        this.m_iot_event_hub_name = hub_name;
 
         // IoTHub REST API Version
         this.m_api_version = this.preferences().valueOf("iot_event_hub_api_version", this.m_suffix);
@@ -72,7 +72,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         this.m_iot_event_hub_add_device_json = this.preferences().valueOf("iot_event_hub_add_device_json", this.m_suffix);
 
         // IoTHub SAS Token (take out the qualifier if present...)
-        this.m_iot_event_hub_sas_token = this.preferences().valueOf("iot_event_hub_sas_token", this.m_suffix).replace("SharedAccessSignature ", "").trim();
+        this.m_iot_event_hub_sas_token = sas_token.replace("SharedAccessSignature ", "").trim();
 
         // Enable prefixing of mbed Cloud names for IoTHub
         this.m_iot_event_hub_enable_device_id_prefix = this.prefBoolValue("iot_event_hub_enable_device_id_prefix", this.m_suffix);

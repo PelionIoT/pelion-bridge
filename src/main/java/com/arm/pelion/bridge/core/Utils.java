@@ -36,10 +36,13 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -70,6 +73,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.UUID;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -1093,5 +1098,52 @@ public class Utils {
             }
         }
         return parts;
+    }
+    
+    // Create the IoTHub SAS Token
+    public static String CreateIoTHubSASToken(ErrorLogger logger,String resourceUri, String keyName, String key) {
+        String expiry = Utils.CreateSASTokenExpirationTime(logger);
+        String sasToken = null;
+        
+        try {
+            String stringToSign = URLEncoder.encode(resourceUri, "UTF-8") + "\n" + expiry;
+            String signature = Utils.GenerateIoTHubSASTokenHMAC256(logger,key,stringToSign);
+            sasToken = "SharedAccessSignature sr=" + URLEncoder.encode(resourceUri, "UTF-8") +"&sig=" + URLEncoder.encode(signature, "UTF-8") + "&se=" + expiry + "&skn=" + keyName;
+        } 
+        catch (UnsupportedEncodingException ex) {
+            logger.warning("Utils(CreateIoTHubSASToken): Exception caught: " + ex.getMessage());
+        }
+        
+        // DEBUG
+        logger.info("Utils(CreateIoTHubSASToken): Generated Token: " + sasToken);
+        
+        // return the SAS Token
+        return sasToken;
+    }
+    
+    // Calculate the IoTHub SAS Token Expiration Time
+    private static String CreateSASTokenExpirationTime(ErrorLogger logger) {
+        // Hard code to 2 years... 
+        long now = System.currentTimeMillis()/1000L;
+        long day = 60*60*24;
+        long year = 365*day;  
+        long two_year = 2*year;
+        return Long.toString(now + two_year);
+    }
+
+    // SAS Token HMAC256 Generator
+    private static String GenerateIoTHubSASTokenHMAC256(ErrorLogger logger,String key, String input) {
+        Mac sha256_HMAC = null;
+        String hash = null;
+        try {
+            sha256_HMAC = Mac.getInstance("HmacSHA256");
+            SecretKeySpec secret_key = new SecretKeySpec(Base64.decodeBase64(key),"HmacSHA256");
+            sha256_HMAC.init(secret_key);
+            hash = new String(Base64.encodeBase64(sha256_HMAC.doFinal(input.getBytes("UTF-8"))));
+        } 
+        catch (InvalidKeyException | NoSuchAlgorithmException | IllegalStateException | UnsupportedEncodingException ex) {
+            logger.warning("Utils(GenerateIoTHubSASTokenHMAC256):getHMAC256: Exception caught: " + ex.getMessage());
+        }
+        return hash;
     }
 }

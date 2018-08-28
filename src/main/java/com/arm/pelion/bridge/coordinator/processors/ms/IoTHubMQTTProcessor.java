@@ -46,11 +46,13 @@ import org.fusesource.mqtt.client.Topic;
  *
  * @author Doug Anson
  */
-public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {
+public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {    
     private int m_num_coap_topics = 1;                                  // # of MQTT Topics for CoAP verbs in IoTHub implementation
     private String m_iot_hub_observe_notification_topic = null;
     private String m_iot_hub_coap_cmd_topic_base = null;
     private String m_iot_hub_name = null;
+    private String m_iot_hub_sas_token = null;
+    private String m_iot_hub_connect_string = null;
     private String m_iot_hub_password_template = null;
     private IoTHubDeviceManager m_device_manager = null;
     private boolean m_iot_event_hub_enable_device_id_prefix = false;
@@ -68,40 +70,137 @@ public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements Reconne
 
         // IoTHub Processor Announce
         this.errorLogger().info("MS IoTHub Processor ENABLED.");
-        
+
         // get the IoTHub version tag
         this.m_iot_hub_version_tag = this.orchestrator().preferences().valueOf("iot_event_hub_version_tag",this.m_suffix);
+                
+        // Get the IoTHub Connect String
+        this.m_iot_hub_connect_string = this.orchestrator().preferences().valueOf("iot_event_hub_connect_string",this.m_suffix);
         
-        // get our defaults
-        this.m_iot_hub_name = this.orchestrator().preferences().valueOf("iot_event_hub_name", this.m_suffix);
-        this.m_mqtt_host = this.orchestrator().preferences().valueOf("iot_event_hub_mqtt_ip_address", this.m_suffix).replace("__IOT_EVENT_HUB__", this.m_iot_hub_name);
-
-        // Observation notification topic
-        this.m_iot_hub_observe_notification_topic = this.orchestrator().preferences().valueOf("iot_event_hub_observe_notification_topic", this.m_suffix) + this.m_observation_key;
-
-        // Send CoAP commands back through mDS into the endpoint via these Topics... 
-        this.m_iot_hub_coap_cmd_topic_base = this.orchestrator().preferences().valueOf("iot_event_hub_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "#");
-
-        // IoTHub Device Manager - will initialize and upsert our IoTHub bindings/metadata
-        this.m_device_manager = new IoTHubDeviceManager(this.orchestrator().errorLogger(), this.orchestrator().preferences(), this.m_suffix, http, this.orchestrator());
-
-        // set the MQTT password template
-        this.m_iot_hub_password_template = this.orchestrator().preferences().valueOf("iot_event_hub_mqtt_password", this.m_suffix).replace("__IOT_EVENT_HUB__", this.m_iot_hub_name);
-
-        // Enable prefixing of mbed Cloud names for IoTHub
-        this.m_iot_event_hub_enable_device_id_prefix = this.prefBoolValue("iot_event_hub_enable_device_id_prefix", this.m_suffix);
-        this.m_iot_event_hub_device_id_prefix = null;
-
-        // If prefixing is enabled, get the prefix
-        if (this.m_iot_event_hub_enable_device_id_prefix == true) {
-            this.m_iot_event_hub_device_id_prefix = this.preferences().valueOf("iot_event_hub_device_id_prefix", this.m_suffix);
-            if (this.m_iot_event_hub_device_id_prefix != null) {
-                this.m_iot_event_hub_device_id_prefix += "-";
-            }
+        // initialize the SAS Token and set the IoTHub name
+        Map test_parse = this.parseConnectionString(this.m_iot_hub_connect_string);
+        if (test_parse != null && test_parse.isEmpty() == false) {
+            // we can generate the SAS Token from the connection string...
+            this.m_iot_hub_sas_token = this.createSASToken(this.m_iot_hub_connect_string);
+            this.m_iot_hub_name = this.getIoTHubNameFromConnectionString(this.m_iot_hub_connect_string);
         }
-
+        else {
+            // we must pull the SAS token and hub name from the configuration properties
+            this.m_iot_hub_sas_token = this.orchestrator().preferences().valueOf("iot_event_hub_sas_token", this.m_suffix);
+            this.m_iot_hub_name = this.orchestrator().preferences().valueOf("iot_event_hub_name", this.m_suffix);
+        }
+        
         // initialize our MQTT transport list
         this.initMQTTTransportList();
+        
+        // continue only if configured
+        if (this.m_iot_hub_sas_token != null && this.m_iot_hub_sas_token.contains("Goes_Here") == false) {
+            // get our defaults
+            this.m_mqtt_host = this.orchestrator().preferences().valueOf("iot_event_hub_mqtt_ip_address", this.m_suffix).replace("__IOT_EVENT_HUB__", this.m_iot_hub_name);
+
+            // Observation notification topic
+            this.m_iot_hub_observe_notification_topic = this.orchestrator().preferences().valueOf("iot_event_hub_observe_notification_topic", this.m_suffix) + this.m_observation_key;
+
+            // Send CoAP commands back through mDS into the endpoint via these Topics... 
+            this.m_iot_hub_coap_cmd_topic_base = this.orchestrator().preferences().valueOf("iot_event_hub_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "#");
+
+            // IoTHub Device Manager - will initialize and upsert our IoTHub bindings/metadata
+            this.m_device_manager = new IoTHubDeviceManager(this.orchestrator().errorLogger(), this.orchestrator().preferences(), this.m_suffix, http, this.orchestrator(), this.m_iot_hub_name, this.m_iot_hub_sas_token);
+
+            // set the MQTT password template
+            this.m_iot_hub_password_template = this.orchestrator().preferences().valueOf("iot_event_hub_mqtt_password", this.m_suffix).replace("__IOT_EVENT_HUB__", this.m_iot_hub_name);
+
+            // Enable prefixing of mbed Cloud names for IoTHub
+            this.m_iot_event_hub_enable_device_id_prefix = this.prefBoolValue("iot_event_hub_enable_device_id_prefix", this.m_suffix);
+            this.m_iot_event_hub_device_id_prefix = null;
+
+            // If prefixing is enabled, get the prefix
+            if (this.m_iot_event_hub_enable_device_id_prefix == true) {
+                this.m_iot_event_hub_device_id_prefix = this.preferences().valueOf("iot_event_hub_device_id_prefix", this.m_suffix);
+                if (this.m_iot_event_hub_device_id_prefix != null) {
+                    this.m_iot_event_hub_device_id_prefix += "-";
+                }
+            }
+        }
+        else {
+            // unconfigured
+            this.errorLogger().warning("IoTHub: IoTHub Connection String is UNCONFIGURED. Pausing...");
+        }
+    }
+    
+    // create our SAS Token
+    private String createSASToken(String connection_string) {
+        String iot_hub_host = this.getHostNameFromConnectionString(connection_string);
+        String key_value= this.getSharedAccessKeyFromConnectionString(connection_string);
+        String key_name = this.getSharedAccessKeyNameFromConnectionString(connection_string);
+        if (iot_hub_host != null && key_value != null && key_name != null) {
+            return Utils.CreateIoTHubSASToken(this.errorLogger(), iot_hub_host, key_name, key_value);
+        }
+        return null;
+    }
+    
+    // get our IoTHub Name from the Connection String
+    private String getIoTHubNameFromConnectionString(String connection_string) {
+        // remove the fully qualified domain name and just return the iothub name
+        return this.getHostNameFromConnectionString(connection_string).replace(".azure-devices.net",""); 
+    }
+    
+    // get the HostName from the ConnectionString
+    private String getHostNameFromConnectionString(String connection_string) {
+        return this.getConnectionStringElement("HostName",connection_string);
+    }
+    
+    // get the SharedAccessKey from the ConnectionString
+    private String getSharedAccessKeyFromConnectionString(String connection_string) {
+        return this.getConnectionStringElement("SharedAccessKey",connection_string);
+    }
+    
+    // get the SharedAccessKeyName from the ConnectionString
+    private String getSharedAccessKeyNameFromConnectionString(String connection_string) {
+        return this.getConnectionStringElement("SharedAccessKeyName",connection_string);
+    }
+    
+    // get a specific element from the Connection String
+    private String getConnectionStringElement(String key,String connection_string) {
+        HashMap<String,String> connection_string_map = this.parseConnectionString(connection_string);
+        if (connection_string_map != null && connection_string_map.isEmpty() == false) {
+            return connection_string_map.get(key);
+        }
+        return null;
+    }
+    
+    // parse the connection string into a HashMap<String,String>
+    private HashMap<String,String> parseConnectionString(String connection_string) {
+        HashMap<String,String> map = null;
+        // Connection String format: HostName=<hubname>.azure-devices.net;SharedAccessKeyName=<keyName>;SharedAccessKey=<key>
+        if (connection_string != null && connection_string.contains("HostName=") == true && connection_string.contains("SharedAccessKeyName=") == true && connection_string.contains("SharedAccessKey=") == true) {
+            // divide into elements via semicolon
+            String[] elements = connection_string.split(";");
+            if (elements != null) {
+                map = new HashMap<>();
+                for(int i=0;i<elements.length;++i) {
+                    // divide ith element from key=value
+                    String[] kvp = elements[i].split("=");
+                    if (kvp != null && kvp.length >= 2) {
+                        // place the key and value in the map
+                        map.put(kvp[0],kvp[1]);
+                    }
+                }
+            }
+        }
+        
+        // DEBUG
+        if (map != null) {
+            // we have a good connection string
+            this.errorLogger().info("IoTHub: Parsed Connection String: " + map);
+        }
+        else {
+            // we dont have a connection string... compatibility with older configs
+            this.errorLogger().warning("IoTHub: No Connection String supplied. SASToken/HubName required in configuration (OK)");
+        }
+        
+        // return the map
+        return map;
     }
 
     // OVERRIDE: process a received new registration for IoTHub
@@ -888,78 +987,85 @@ public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements Reconne
     public boolean createAndStartMQTTForEndpoint(String ep_name, String ep_type, Topic topics[]) {
         boolean connected = false; 
         
-        // IOTHUB DeviceID Prefix
-        String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
+        // make sure we configured
+        if (this.m_iot_hub_sas_token != null && this.m_iot_hub_sas_token.contains("Goes_Here") == false) {
+            // IOTHUB DeviceID Prefix
+            String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
 
-        if (this.mqtt(iothub_ep_name) == null) {
-            // create a new MQTT Transport instance
-            MQTTTransport mqtt = new MQTTTransport(this.errorLogger(), this.preferences(), this);
-            if (mqtt != null) {
-                // set the additional endpoint details
-                mqtt.setEndpointDetails(ep_name, ep_type);
+            if (this.mqtt(iothub_ep_name) == null) {
+                // create a new MQTT Transport instance
+                MQTTTransport mqtt = new MQTTTransport(this.errorLogger(), this.preferences(), this);
+                if (mqtt != null) {
+                    // set the additional endpoint details
+                    mqtt.setEndpointDetails(ep_name, ep_type);
 
-                // MQTT username is based upon the device ID (endpoint_name)
-                String username = this.orchestrator().preferences().valueOf("iot_event_hub_mqtt_username", this.m_suffix).replace("__IOT_EVENT_HUB__", this.m_iot_hub_name).replace("__EPNAME__", iothub_ep_name);
+                    // MQTT username is based upon the device ID (endpoint_name)
+                    String username = this.orchestrator().preferences().valueOf("iot_event_hub_mqtt_username", this.m_suffix).replace("__IOT_EVENT_HUB__", this.m_iot_hub_name).replace("__EPNAME__", iothub_ep_name);
 
-                // add a version tag per: https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support
-                username = username + "/" + this.m_iot_hub_version_tag;
+                    // add a version tag per: https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support
+                    username = username + "/" + this.m_iot_hub_version_tag;
 
-                // set the creds for the IoTHub MQTT Transport instance
-                mqtt.setClientID(iothub_ep_name);
-                mqtt.setUsername(username);
-                mqtt.setPassword(this.m_device_manager.createMQTTPassword(iothub_ep_name));
+                    // set the creds for the IoTHub MQTT Transport instance
+                    mqtt.setClientID(iothub_ep_name);
+                    mqtt.setUsername(username);
+                    mqtt.setPassword(this.m_device_manager.createMQTTPassword(iothub_ep_name));
 
-                // IoTHub only works with SSL... 
-                mqtt.useSSLConnection(true);
+                    // IoTHub only works with SSL... 
+                    mqtt.useSSLConnection(true);
 
-                // but DONT initialize the SSL context with self signed certs/keys
-                mqtt.noSelfSignedCertsOrKeys(true);
-                
-                // add it to the list indexed by the endpoint name... not the clientID...
-                this.addMQTTTransport(iothub_ep_name, mqtt);
+                    // but DONT initialize the SSL context with self signed certs/keys
+                    mqtt.noSelfSignedCertsOrKeys(true);
 
-                // DEBUG
-                this.errorLogger().info("IoTHub: connecting to MQTT for endpoint: " + iothub_ep_name + " type: " + ep_type + "...");
+                    // add it to the list indexed by the endpoint name... not the clientID...
+                    this.addMQTTTransport(iothub_ep_name, mqtt);
 
-                // connect and start listening... 
-                if (this.connect(iothub_ep_name) == true) {
                     // DEBUG
-                    this.errorLogger().info("IoTHub: connected to MQTT. Creating and registering listener Thread for endpoint: " + iothub_ep_name + " type: " + ep_type);
+                    this.errorLogger().info("IoTHub: connecting to MQTT for endpoint: " + iothub_ep_name + " type: " + ep_type + "...");
 
-                    // start the listener thread
-                    this.startListenerThread(ep_name, mqtt);
-                    
-                    // if we have topics in our param list, lets go ahead and subscribe
-                    if (topics != null) {
+                    // connect and start listening... 
+                    if (this.connect(iothub_ep_name) == true) {
                         // DEBUG
-                        this.errorLogger().info("IoTHub: re-subscribing to topics...");
+                        this.errorLogger().info("IoTHub: connected to MQTT. Creating and registering listener Thread for endpoint: " + iothub_ep_name + " type: " + ep_type);
 
-                        // re-subscribe
-                        this.mqtt(iothub_ep_name).subscribe(topics);
+                        // start the listener thread
+                        this.startListenerThread(ep_name, mqtt);
+
+                        // if we have topics in our param list, lets go ahead and subscribe
+                        if (topics != null) {
+                            // DEBUG
+                            this.errorLogger().info("IoTHub: re-subscribing to topics...");
+
+                            // re-subscribe
+                            this.mqtt(iothub_ep_name).subscribe(topics);
+                        }
+
+                        // we are connected
+                        connected = true;
                     }
+                    else {
+                        // unable to connect!
+                        this.errorLogger().critical("IoTHub: Unable to connect to MQTT for endpoint: " + iothub_ep_name + " type: " + ep_type);
+                        this.remove(iothub_ep_name);
 
-                    // we are connected
-                    connected = true;
+                        // ensure we only have 1 thread/endpoint
+                        this.stopListenerThread(iothub_ep_name);
+                    }
                 }
                 else {
-                    // unable to connect!
-                    this.errorLogger().critical("IoTHub: Unable to connect to MQTT for endpoint: " + iothub_ep_name + " type: " + ep_type);
-                    this.remove(iothub_ep_name);
-
-                    // ensure we only have 1 thread/endpoint
-                    this.stopListenerThread(iothub_ep_name);
+                    // unable to allocate MQTT transport
+                    this.errorLogger().critical("IoTHub: CRITICAL: Unable to allocate MQTT transport... ERROR");
+                    connected = false;
                 }
             }
             else {
-                // unable to allocate MQTT transport
-                this.errorLogger().critical("IoTHub: CRITICAL: Unable to allocate MQTT transport... ERROR");
-                connected = false;
+                // already connected... just ignore
+                this.errorLogger().info("IoTHub: already have connection for " + iothub_ep_name + " (OK)");
+                connected = true;
             }
         }
         else {
-            // already connected... just ignore
-            this.errorLogger().info("IoTHub: already have connection for " + iothub_ep_name + " (OK)");
-            connected = true;
+            // we are unconfigured
+            this.errorLogger().warning("IoTHub: Unable to connect to IoTHub - UNCONFIGURED (OK)");
         }
         
         // return the connection status
@@ -1051,7 +1157,7 @@ public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements Reconne
     // IoTHub Specific: we have to override the creation of the authentication hash.. it has to be dependent on a given endpoint name
     @Override
     public String createAuthenticationHash() {
-        return Utils.createHash(this.prefValue("iot_event_hub_sas_token", this.m_suffix));
+        return Utils.createHash(this.m_iot_hub_sas_token);
     }
 
     // OVERRIDE: initListener() needs to accomodate a MQTT connection for each endpoint
