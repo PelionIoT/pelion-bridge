@@ -23,6 +23,7 @@
 package com.arm.pelion.bridge.core;
 
 import com.arm.pelion.bridge.preferences.PreferenceManager;
+import com.arm.pelion.bridge.loggerservlet.LoggerTracker;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -93,6 +94,7 @@ public class ErrorLogger extends BaseClass {
     private volatile ArrayList<String> m_log = null;    // error log
     private Object m_parent = null;                     // our parent object
     private String m_bridge_error_level = null;         // our preference
+    private LoggerTracker m_logger_tracker = null;      // send logs over websocket
 
     /**
      * constructor
@@ -106,6 +108,7 @@ public class ErrorLogger extends BaseClass {
         this.m_mask = ErrorLogger.SHOW_ALL;
         this.m_log = new ArrayList<>();
         this.m_bridge_error_level = null;
+        this.m_logger_tracker = LoggerTracker.getInstance();
         
         if (this.m_enable_slf4j_stdio_loggin_instance == true) {
             this.m_slf4j_stdio_logging_instance = LoggerFactory.getLogger(this.getClass().getName());
@@ -305,7 +308,8 @@ public class ErrorLogger extends BaseClass {
         // SLF4J integration... check if enabled...
         if (this.m_enable_slf4j_stdio_loggin_instance == true && this.m_slf4j_stdio_logging_instance != null) {        
             // Dump to SLF4J instance
-            this.m_slf4j_stdio_logging_instance.info(message); 
+            this.m_slf4j_stdio_logging_instance.info(message);
+            this.m_logger_tracker.write(message);
         }
         else {
             // Dump to stdout

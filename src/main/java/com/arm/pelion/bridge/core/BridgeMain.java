@@ -177,6 +177,7 @@ public class BridgeMain implements Runnable {
 
             // Join me!
             this.m_server.join();
+            this.m_logger_server.join();
         }
         catch (Exception ex) {
             this.errorLogger().critical("Main: EXCEPTION during bridge start(): " + ex.getMessage(),ex);

@@ -30,6 +30,9 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket;
  */
 @WebSocket
 public class LoggerWebSocket {
+        public Session session;
+        
+        /*
 	@OnWebSocketMessage
 	public void onText(Session session, String message) throws IOException {
 		System.out.println("Message received:" + message);
@@ -38,15 +41,19 @@ public class LoggerWebSocket {
 			session.getRemote().sendString(response);
 		}
 	}
+        */
 
 	@OnWebSocketConnect
 	public void onConnect(Session session) throws IOException {
+                this.session = session;
 		System.out.println(session.getRemoteAddress().getHostString() + " connected!");
+                LoggerTracker.getInstance().join(this);
 	}
 
 	@OnWebSocketClose
 	public void onClose(Session session, int status, String reason) {
 		System.out.println(session.getRemoteAddress().getHostString() + " closed!");
+                LoggerTracker.getInstance().leave(this);
 	}
 
 }
