@@ -127,9 +127,14 @@ public class BridgeMain implements Runnable {
             }
         );
         
-        // start our thread counter task
-        Thread t = new Thread(this);
-        t.run();
+        try {
+            // start our thread counter task
+            Thread t = new Thread(this);
+            t.start();
+        }
+        catch (Exception ex) {
+            this.errorLogger().warning("Main: Exception caught while starting thread count updater task: " + ex.getMessage());
+        }
     }
     
     // start the bridge
@@ -199,9 +204,15 @@ public class BridgeMain implements Runnable {
     
     // update the active thread count
     private void updateActiveThreadCount() {
-        final ThreadGroup root = getRootThreadGroup();
-        final ThreadMXBean thbean = ManagementFactory.getThreadMXBean();
-        this.m_thread_count = thbean.getThreadCount();
+        try {
+            final ThreadGroup root = getRootThreadGroup();
+            final ThreadMXBean thbean = ManagementFactory.getThreadMXBean();
+            this.m_thread_count = thbean.getThreadCount();
+        }
+        catch (Exception ex) {
+            this.errorLogger().warning("Main: Exception caught while counting threads: " + ex.getMessage());
+            this.m_thread_count = -1;
+        }
     }
     
     // thread count looper
