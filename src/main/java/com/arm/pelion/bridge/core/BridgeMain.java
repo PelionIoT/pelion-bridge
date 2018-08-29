@@ -140,6 +140,9 @@ public class BridgeMain {
 
             // Direct the manager to establish the webhooks to Connector/mDS/Cloud
             this.m_manager.initWebhooks();
+            
+            // Start statistics generation
+            this.m_manager.startStatisticsMonitoring();
 
             // Join me!
             this.m_server.join();

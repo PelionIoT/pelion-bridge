@@ -193,6 +193,11 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
     }
     
+    // long polling enabled
+    public boolean webHookEnabled() {
+        return !(this.m_enable_long_poll);
+    }
+    
     // set whether our API Key is configured or not...
     private void setAPIKeyConfigured(String api_key) {
         this.m_api_key_is_configured = false;
@@ -492,7 +497,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
     
     // get the currently configured callback URL (public, used by webhook validator)
-    private String getWebhook() {
+    public String getWebhook() {
         String url = null;
         String headers = null;
 

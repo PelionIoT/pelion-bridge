@@ -1,11 +1,11 @@
 /**
  * @file orchestrator.java
- * @brief orchestrator for the connector bridge
+ * @brief orchestrator for the Pelion bridge
  * @author Doug Anson
  * @version 1.0
  * @see
  *
- * Copyright 2015. ARM Ltd. All rights reserved.
+ * Copyright 2018. ARM Ltd. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,13 +49,19 @@ import com.arm.pelion.bridge.data.DatabaseConnector;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.servlet.Manager;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
+import com.arm.pelion.bridge.health.HealthCheckServiceProvider;
+import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
+import com.arm.pelion.bridge.health.interfaces.HealthStatisticListenerInterface;
 
 /**
  * This the primary orchestrator for the pelion bridge
  *
  * @author Doug Anson
  */
-public class Orchestrator implements PelionProcessorInterface, PeerProcessorInterface {
+public class Orchestrator implements PelionProcessorInterface, PeerProcessorInterface, HealthStatisticListenerInterface {
+    // Default Health Check Service Provider Sleep time in MS
+    private static final int DEF_HEALTH_CHECK_SERVICE_PROVIDER_SLEEP_TIME_MS = (60000 * 10);    // 10 minutes
+    
     // database table delimiter
     private static String DEF_TABLENAME_DELIMITER = "_";
 
@@ -67,10 +73,18 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     private PreferenceManager m_preference_manager = null;
 
     // Pelion processor (1 only...)
-    private PelionProcessorInterface m_mbed_cloud_processor = null;
+    private PelionProcessorInterface m_pelion_processor = null;
 
     // Peer processor list (n-way...default is 1 though...)
     private ArrayList<PeerProcessorInterface> m_peer_processor_list = null;
+    
+    // Health Check Services Provider/Manager
+    private boolean m_enable_health_checks = false;                 // true: enabled, false: disabled
+    private HealthCheckServiceProvider m_health_check_service_provider = null;
+    private Thread m_health_check_service_provider_thread = null;
+    
+    // Health Check Services Provider Sleep time (in ms)
+    private int m_health_check_service_provider_sleep_time_ms = DEF_HEALTH_CHECK_SERVICE_PROVIDER_SLEEP_TIME_MS;
 
     // our HTTP transport interface
     private HttpTransport m_http = null;
@@ -133,13 +147,55 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         this.m_http = new HttpTransport(this.m_error_logger, this.m_preference_manager);
 
         // We always create the Pelion processor (1 only)
-        this.m_mbed_cloud_processor = new PelionProcessor(this, this.m_http);
+        this.m_pelion_processor = new PelionProcessor(this, this.m_http);
       
         // initialize our peer processors... (n-way... but default is just 1...)
         this.initPeerProcessorList();
         
+        // Get the health check service provider sleep time
+        if (this.m_enable_health_checks == true) {
+            this.m_health_check_service_provider_sleep_time_ms = preferences().intValueOf("heath_check_sleep_time_ms");
+            if (this.m_health_check_service_provider_sleep_time_ms <- 0) {
+                this.m_health_check_service_provider_sleep_time_ms = DEF_HEALTH_CHECK_SERVICE_PROVIDER_SLEEP_TIME_MS;
+            }
+
+            // DEBUG
+            this.errorLogger().warning("Orchestrator: Stats Check Sleep Interval (ms): " + this.m_health_check_service_provider_sleep_time_ms);
+
+            // create our health check service provider and its runtime thread...
+            this.m_health_check_service_provider = new HealthCheckServiceProvider(this,this.m_health_check_service_provider_sleep_time_ms); 
+            this.m_health_check_service_provider.initialize();
+            this.m_health_check_service_provider.addListener(this);
+        }
+        else {
+            // not enabled
+            this.errorLogger().warning("Orchestrator: Stats Checking DISABLED");
+        }
+       
         // start device discovery in Pelion...
         this.initDeviceDiscovery();
+    }
+    
+    // start the health check provider thread to monitor and provide statistics
+    public void startStatisticsMonitoring() {
+        if (this.m_enable_health_checks == true) {
+            try {
+                // DEBUG
+                this.errorLogger().warning("Orchestrator: Statistics and health monitoring starting...");
+                this.m_health_check_service_provider_thread = new Thread(this.m_health_check_service_provider);
+                if (this.m_health_check_service_provider_thread != null) {
+                    this.m_health_check_service_provider_thread.start();
+                }
+            }
+            catch (Exception ex) {
+                this.errorLogger().critical("Orchestrator: Exception caught while starting health check provider: " + ex.getMessage());
+            }
+        }
+    }
+    
+    // get the health check provider
+    public HealthCheckServiceInterface getHealthCheckServiceProvider() {
+        return (HealthCheckServiceInterface)this.m_health_check_service_provider;
     }
     
     // set our manager
@@ -171,28 +227,28 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
 
         // add peer processors
         if (this.ibmPeerEnabled()) {
-            // IBM/MQTT: create the MQTT processor manager
-            this.errorLogger().info("Orchestrator: adding IBM Watson IoT MQTT Processor");
+            // IBM WatsonIoT/MQTT
+            this.errorLogger().info("Orchestrator: Adding IBM WatsonIoT MQTT Processor");
             this.m_peer_processor_list.add(WatsonIoTPeerProcessorFactory.createPeerProcessor(this, this.m_http));
         }
         if (this.msPeerEnabled()) {
-            // MS IoTHub/MQTT: create the MQTT processor manager
-            this.errorLogger().info("Orchestrator: adding MS IoTHub MQTT Processor");
+            // MS IoTHub/MQTT
+            this.errorLogger().info("Orchestrator: Adding MS IoTHub MQTT Processor");
             this.m_peer_processor_list.add(MSIoTHubPeerProcessorFactory.createPeerProcessor(this, this.m_http));
         }
         if (this.awsPeerEnabled()) {
-            // AWS IoT/MQTT: create the MQTT processor manager
-            this.errorLogger().info("Orchestrator: adding AWS IoT MQTT Processor");
+            // Amazon AWSIoT/MQTT
+            this.errorLogger().info("Orchestrator: Adding AWSIoT MQTT Processor");
             this.m_peer_processor_list.add(AWSIoTPeerProcessorFactory.createPeerProcessor(this, this.m_http));
         }
         if (this.googleCloudPeerEnabled()) {
-            // Google Cloud: create the Google Cloud peer processor...
-            this.errorLogger().info("Orchestrator: adding Google Cloud Processor");
+            // Google CloudIoT/MQTT
+            this.errorLogger().info("Orchestrator: Adding Google CloudIoT MQTT Processor");
             this.m_peer_processor_list.add(GoogleCloudPeerProcessorFactory.createPeerProcessor(this, this.m_http));
         }
         if (this.genericMQTTPeerEnabled()) {
-            // Create the sample peer processor...
-            this.errorLogger().info("Orchestrator: adding Generic MQTT Processor");
+            // Generic MQTT
+            this.errorLogger().info("Orchestrator: Adding Generic MQTT Processor");
             this.m_peer_processor_list.add(GenericMQTTProcessor.createPeerProcessor(this, this.m_http));
         }
     }
@@ -251,17 +307,17 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
 
     // initialize the mbed Device Server webhook
     public void initializeDeviceServerWebhook() {
-        if (this.m_mbed_cloud_processor != null) {
+        if (this.m_pelion_processor != null) {
             // set the webhook
-            this.m_mbed_cloud_processor.setWebhook();
+            this.m_pelion_processor.setWebhook();
         }
     }
 
     // reset mbed Device Server webhook
     public void resetDeviceServerWebhook() {
         // REST (mbed Cloud)
-        if (this.m_mbed_cloud_processor != null) {
-            this.m_mbed_cloud_processor.resetWebhook();
+        if (this.m_pelion_processor != null) {
+            this.m_pelion_processor.resetWebhook();
         }
     }
 
@@ -269,7 +325,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     public void processIncomingDeviceServerMessage(HttpServletRequest request, HttpServletResponse response) {
         // process the received REST message
         //this.errorLogger().info("events (REST-" + request.getMethod() + "): " + request.getRequestURI());
-        this.mbed_cloud_processor().processNotificationMessage(request, response);
+        this.pelion_processor().processNotificationMessage(request, response);
     }
 
     // get the HttpServlet
@@ -287,14 +343,14 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         return this.m_preference_manager;
     }
 
-    // get the Peer processor
+    // get the peer processor list
     public ArrayList<PeerProcessorInterface> peer_processor_list() {
         return this.m_peer_processor_list;
     }
 
-    // get the mbed Cloud processor
-    public PelionProcessorInterface mbed_cloud_processor() {
-        return this.m_mbed_cloud_processor;
+    // get the pelion processor
+    public PelionProcessorInterface pelion_processor() {
+        return this.m_pelion_processor;
     }
 
     // get the JSON parser instance
@@ -318,56 +374,56 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     // Message: API Request
     @Override
     public ApiResponse processApiRequestOperation(String uri,String data,String options,String verb,int request_id,String api_key,String caller_id, String content_type) {
-        return this.mbed_cloud_processor().processApiRequestOperation(uri, data, options, verb, request_id, api_key, caller_id, content_type);
+        return this.pelion_processor().processApiRequestOperation(uri, data, options, verb, request_id, api_key, caller_id, content_type);
     }
     
     // Message: notifications
     @Override
     public void processNotificationMessage(HttpServletRequest request, HttpServletResponse response) {
-        this.mbed_cloud_processor().processNotificationMessage(request, response);
+        this.pelion_processor().processNotificationMessage(request, response);
     }
     
     // Message: device-deletions (mbed Cloud)
     @Override
     public void processDeviceDeletions(String[] endpoints) {
-        this.mbed_cloud_processor().processDeviceDeletions(endpoints);
+        this.pelion_processor().processDeviceDeletions(endpoints);
     }
 
     // Message: de-registrations
     @Override
     public void processDeregistrations(String[] endpoints) {
-        this.mbed_cloud_processor().processDeregistrations(endpoints);
+        this.pelion_processor().processDeregistrations(endpoints);
     }
     
     // Message: registrations-expired
     @Override
     public void processRegistrationsExpired(String[] endpoints) {
-        this.mbed_cloud_processor().processRegistrationsExpired(endpoints);
+        this.pelion_processor().processRegistrationsExpired(endpoints);
     }
 
     @Override
     public String processEndpointResourceOperation(String verb, String ep_name, String uri, String value, String options) {
-        return this.mbed_cloud_processor().processEndpointResourceOperation(verb, ep_name, uri, value, options);
+        return this.pelion_processor().processEndpointResourceOperation(verb, ep_name, uri, value, options);
     }
 
     @Override
     public boolean setWebhook() {
-        return this.mbed_cloud_processor().setWebhook();
+        return this.pelion_processor().setWebhook();
     }
 
     @Override
     public boolean resetWebhook() {
-        return this.mbed_cloud_processor().resetWebhook();
+        return this.pelion_processor().resetWebhook();
     }
     
     @Override
     public void removeWebhook() {
-        this.mbed_cloud_processor().removeWebhook();
+        this.pelion_processor().removeWebhook();
     }
 
     @Override
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {
-        this.mbed_cloud_processor().pullDeviceMetadata(endpoint, processor);
+        this.pelion_processor().pullDeviceMetadata(endpoint, processor);
     }
 
     // PeerProcessorInterface Orchestration
@@ -510,8 +566,8 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
 
     @Override
     public boolean deviceRemovedOnDeRegistration() {
-        if (this.mbed_cloud_processor() != null) {
-            return this.mbed_cloud_processor().deviceRemovedOnDeRegistration();
+        if (this.pelion_processor() != null) {
+            return this.pelion_processor().deviceRemovedOnDeRegistration();
         }
         
         // default is false
@@ -527,6 +583,13 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     // init any device discovery
     @Override
     public void initDeviceDiscovery() {
-        this.mbed_cloud_processor().initDeviceDiscovery();
+        this.pelion_processor().initDeviceDiscovery();
+    }
+
+    // orchestrator processing the publication of statistics 
+    @Override
+    public void publish(String json) {
+       // dump to error logger
+       this.errorLogger().warning("HEALTH STATS: " + json);
     }
 }

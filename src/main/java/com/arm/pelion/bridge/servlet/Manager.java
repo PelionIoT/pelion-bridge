@@ -89,6 +89,11 @@ public final class Manager {
         this.m_main = main;
     }
     
+    // start statistics gathering
+    public void startStatisticsMonitoring() {
+        this.m_orchestrator.startStatisticsMonitoring();
+    }
+    
     // RESET
     public void reset() {
         if (this.m_main != null) {
