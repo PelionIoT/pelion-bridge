@@ -595,6 +595,9 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     
     // get the active thread count
     public int getActiveThreadCount() {
-        return this.m_manager.getActiveThreadCount();
+        if (this.m_manager != null) {
+            return this.m_manager.getActiveThreadCount();
+        }
+        return 1;
     }
 }
