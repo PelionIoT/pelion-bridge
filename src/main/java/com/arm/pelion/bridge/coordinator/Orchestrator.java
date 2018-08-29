@@ -79,7 +79,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     private ArrayList<PeerProcessorInterface> m_peer_processor_list = null;
     
     // Health Check Services Provider/Manager
-    private boolean m_enable_health_checks = false;                 // true: enabled, false: disabled
+    private boolean m_enable_health_checks = true;                 // true: enabled, false: disabled
     private HealthCheckServiceProvider m_health_check_service_provider = null;
     private Thread m_health_check_service_provider_thread = null;
     
