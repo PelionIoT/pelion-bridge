@@ -25,7 +25,6 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
-import com.arm.pelion.bridge.transport.MQTTTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
@@ -43,29 +42,10 @@ public class GenericMQTTPeerProcessorFactory extends BasePeerProcessorFactory im
         GenericMQTTPeerProcessorFactory me = new GenericMQTTPeerProcessorFactory(manager, http);
 
         // initialize me
-        String mgr_config = manager.preferences().valueOf("mqtt_mgr_config");
-        if (mgr_config != null && mgr_config.length() > 0) {
-            // muliple MQTT brokers requested... follow configuration and assign suffixes
-            String[] config = mgr_config.split(";");
-            for (int i = 0; i < config.length; ++i) {
-                if (config[i].equalsIgnoreCase("std") == true) {
-                    manager.errorLogger().info("Registering Generic MQTT processor...");
-                    MQTTTransport mqtt = new MQTTTransport(manager.errorLogger(), manager.preferences(), null);
-                    GenericMQTTProcessor p = new GenericMQTTProcessor(manager, mqtt, "" + i, http);
-                    me.addProcessor(p);
-                }
-                if (config[i].equalsIgnoreCase("std-d") == true) {
-                    manager.errorLogger().info("Registering Generic MQTT processor (default)...");
-                    MQTTTransport mqtt = new MQTTTransport(manager.errorLogger(), manager.preferences(), null);
-                    GenericMQTTProcessor p = new GenericMQTTProcessor(manager, mqtt, "" + i, http);
-                    me.addProcessor(p, true);
-                }
-            }
-        }
-        else {
-            manager.errorLogger().info("Registering Generic MQTT processor (singleton)...");
-            MQTTTransport mqtt = new MQTTTransport(manager.errorLogger(), manager.preferences(), null);
-            GenericMQTTProcessor p = new GenericMQTTProcessor(manager, mqtt, http);
+        boolean generic_mqtt_processor_enabled = manager.preferences().booleanValueOf("enable_generic_mqtt_processor");
+        if (generic_mqtt_processor_enabled == true) {
+            manager.errorLogger().info("Registering Generic MQTT processor...");
+            GenericMQTTProcessor p = new GenericMQTTProcessor(manager, null, http);
             me.addProcessor(p);
         }
 

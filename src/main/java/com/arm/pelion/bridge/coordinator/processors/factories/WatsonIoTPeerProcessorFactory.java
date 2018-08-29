@@ -44,36 +44,12 @@ public class WatsonIoTPeerProcessorFactory extends BasePeerProcessorFactory impl
 
         // initialize me
         boolean iotf_enabled = manager.preferences().booleanValueOf("enable_iotf_addon");
-        String mgr_config = manager.preferences().valueOf("mqtt_mgr_config");
-        if (mgr_config != null && mgr_config.length() > 0) {
-            // muliple MQTT brokers requested... follow configuration and assign suffixes
-            String[] config = mgr_config.split(";");
-            for (int i = 0; i < config.length; ++i) {
-                if (iotf_enabled == true && config[i].equalsIgnoreCase("iotf") == true) {
-                    manager.errorLogger().info("Registering Watson IoT MQTT processor...");
-                    MQTTTransport mqtt = new MQTTTransport(manager.errorLogger(), manager.preferences(),null);
-                    WatsonIoTMQTTProcessor p = new WatsonIoTMQTTProcessor(manager, mqtt, "" + i, http);
-                    mqtt.setReconnectionProvider(p);
-                    me.addProcessor(p);
-                }
-                if (iotf_enabled == true && config[i].equalsIgnoreCase("iotf-d") == true) {
-                    manager.errorLogger().info("Registering Watson IoT MQTT processor (default)...");
-                    MQTTTransport mqtt = new MQTTTransport(manager.errorLogger(), manager.preferences(), null);
-                    WatsonIoTMQTTProcessor p = new WatsonIoTMQTTProcessor(manager, mqtt, "" + i, http);
-                    mqtt.setReconnectionProvider(p);
-                    me.addProcessor(p, true);
-                }
-            }
-        }
-        else // single MQTT broker configuration requested
-        {
-            if (iotf_enabled == true) {
-                manager.errorLogger().info("Registering Watson IoT MQTT processor (singleton)...");
-                MQTTTransport mqtt = new MQTTTransport(manager.errorLogger(), manager.preferences(), null);
-                WatsonIoTMQTTProcessor p = new WatsonIoTMQTTProcessor(manager, mqtt, http);
-                mqtt.setReconnectionProvider(p);
-                me.addProcessor(p);
-            }
+        if (iotf_enabled == true) {
+            manager.errorLogger().info("Registering Watson IoT MQTT processor (singleton)...");
+            MQTTTransport mqtt = new MQTTTransport(manager.errorLogger(), manager.preferences(), null);
+            WatsonIoTMQTTProcessor p = new WatsonIoTMQTTProcessor(manager, mqtt, http);
+            mqtt.setReconnectionProvider(p);
+            me.addProcessor(p);
         }
 
         // return me

@@ -44,30 +44,10 @@ public class GoogleCloudPeerProcessorFactory extends BasePeerProcessorFactory im
 
         // initialize me
         boolean google_cloud_gw_enabled = manager.preferences().booleanValueOf("enable_google_cloud_addon");
-        String mgr_config = manager.preferences().valueOf("mqtt_mgr_config");
-        if (mgr_config != null && mgr_config.length() > 0) {
-            // muliple MQTT brokers requested... follow configuration and assign suffixes
-            String[] config = mgr_config.split(";");
-            for (int i = 0; i < config.length; ++i) {
-                if (google_cloud_gw_enabled == true && config[i].equalsIgnoreCase("google_cloud") == true) {
-                    manager.errorLogger().info("Registering Google Cloud MQTT processor...");
-                    GenericMQTTProcessor p = new GoogleCloudMQTTProcessor(manager, null, "" + i, http);
-                    me.addProcessor(p);
-                }
-                if (google_cloud_gw_enabled == true && config[i].equalsIgnoreCase("google_cloud-d") == true) {
-                    manager.errorLogger().info("Registering Google Cloud MQTT processor (default)...");
-                    GenericMQTTProcessor p = new GoogleCloudMQTTProcessor(manager, null, "" + i, http);
-                    me.addProcessor(p, true);
-                }
-            }
-        }
-        else // single MQTT broker configuration requested
-        {
-            if (google_cloud_gw_enabled == true) {
-                manager.errorLogger().info("Registering Google Cloud MQTT processor (singleton)...");
-                GenericMQTTProcessor p = new GoogleCloudMQTTProcessor(manager, null, http);
-                me.addProcessor(p);
-            }
+        if (google_cloud_gw_enabled == true) {
+            manager.errorLogger().info("Registering Google Cloud MQTT processor...");
+            GenericMQTTProcessor p = new GoogleCloudMQTTProcessor(manager, null, http);
+            me.addProcessor(p);
         }
 
         // return me

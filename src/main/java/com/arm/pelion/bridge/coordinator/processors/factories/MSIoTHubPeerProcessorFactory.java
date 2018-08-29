@@ -44,30 +44,10 @@ public class MSIoTHubPeerProcessorFactory extends BasePeerProcessorFactory imple
 
         // initialize me
         boolean iot_event_hub_enabled = manager.preferences().booleanValueOf("enable_iot_event_hub_addon");
-        String mgr_config = manager.preferences().valueOf("mqtt_mgr_config");
-        if (mgr_config != null && mgr_config.length() > 0) {
-            // muliple MQTT brokers requested... follow configuration and assign suffixes
-            String[] config = mgr_config.split(";");
-            for (int i = 0; i < config.length; ++i) {
-                if (iot_event_hub_enabled == true && config[i].equalsIgnoreCase("iot_event_hub") == true) {
-                    manager.errorLogger().info("Registering MS IoTHub MQTT processor...");
-                    GenericMQTTProcessor p = new IoTHubMQTTProcessor(manager, null, "" + i, http);
-                    me.addProcessor(p);
-                }
-                if (iot_event_hub_enabled == true && config[i].equalsIgnoreCase("iot_event_hub-d") == true) {
-                    manager.errorLogger().info("Registering MS IoTHub MQTT processor (default)...");
-                    GenericMQTTProcessor p = new IoTHubMQTTProcessor(manager, null, "" + i, http);
-                    me.addProcessor(p, true);
-                }
-            }
-        }
-        else // single MQTT broker configuration requested
-        {
-            if (iot_event_hub_enabled == true) {
-                manager.errorLogger().info("Registering MS IoTHub MQTT processor (singleton)...");
-                GenericMQTTProcessor p = new IoTHubMQTTProcessor(manager, null, http);
-                me.addProcessor(p);
-            }
+        if (iot_event_hub_enabled == true) {
+            manager.errorLogger().info("Registering MS IoTHub MQTT processor...");
+            GenericMQTTProcessor p = new IoTHubMQTTProcessor(manager, null, http);
+            me.addProcessor(p);
         }
 
         // return me

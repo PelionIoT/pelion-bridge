@@ -44,30 +44,10 @@ public class AWSIoTPeerProcessorFactory extends BasePeerProcessorFactory impleme
 
         // initialize me
         boolean aws_iot_gw_enabled = manager.preferences().booleanValueOf("enable_aws_iot_gw_addon");
-        String mgr_config = manager.preferences().valueOf("mqtt_mgr_config");
-        if (mgr_config != null && mgr_config.length() > 0) {
-            // muliple MQTT brokers requested... follow configuration and assign suffixes
-            String[] config = mgr_config.split(";");
-            for (int i = 0; i < config.length; ++i) {
-                if (aws_iot_gw_enabled == true && config[i].equalsIgnoreCase("aws_iot_gw") == true) {
-                    manager.errorLogger().info("Registering AWS IoT MQTT processor...");
-                    GenericMQTTProcessor p = new AWSIoTMQTTProcessor(manager, null, "" + i, http);
-                    me.addProcessor(p);
-                }
-                if (aws_iot_gw_enabled == true && config[i].equalsIgnoreCase("aws_iot_gw-d") == true) {
-                    manager.errorLogger().info("Registering AWS IoT MQTT processor (default)...");
-                    GenericMQTTProcessor p = new AWSIoTMQTTProcessor(manager, null, "" + i, http);
-                    me.addProcessor(p, true);
-                }
-            }
-        }
-        else // single MQTT broker configuration requested
-        {
-            if (aws_iot_gw_enabled == true) {
-                manager.errorLogger().info("Registering AWS IoT MQTT processor (singleton)...");
-                GenericMQTTProcessor p = new AWSIoTMQTTProcessor(manager, null, http);
-                me.addProcessor(p);
-            }
+        if (aws_iot_gw_enabled == true) {
+            manager.errorLogger().info("Registering AWS IoT MQTT processor...");
+            GenericMQTTProcessor p = new AWSIoTMQTTProcessor(manager, null, http);
+            me.addProcessor(p);
         }
 
         // return me

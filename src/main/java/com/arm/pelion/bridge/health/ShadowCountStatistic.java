@@ -62,14 +62,8 @@ public class ShadowCountStatistic extends BaseValidatorClass implements Runnable
         int count = 0;
         List<PeerProcessorInterface> list = this.m_provider.getPeerProcessorList();
         for(int i=0;list != null && i<list.size();++i) {
-            GenericMQTTProcessor p = null;
-            if (list.get(i) instanceof BasePeerProcessorFactory) {
-                BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
-                p = f.mqttProcessor();
-            }
-            if (list.get(i) instanceof GenericMQTTProcessor) {
-                p = (GenericMQTTProcessor)list.get(i);
-            }
+            BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
+            GenericMQTTProcessor p = f.mqttProcessor();
             if (p != null) {
                 // cumulative
                 count += p.getEndpointCount();

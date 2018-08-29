@@ -24,10 +24,10 @@ package com.arm.pelion.bridge.coordinator;
 
 // Processors
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.processors.factories.WatsonIoTPeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.factories.MSIoTHubPeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.factories.AWSIoTPeerProcessorFactory;
+import com.arm.pelion.bridge.coordinator.processors.factories.GenericMQTTPeerProcessorFactory;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.factories.GoogleCloudPeerProcessorFactory;
 
@@ -79,7 +79,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     private ArrayList<PeerProcessorInterface> m_peer_processor_list = null;
     
     // Health Check Services Provider/Manager
-    private boolean m_enable_health_checks = true;                 // true: enabled, false: disabled
+    private boolean m_enable_health_checks = false;                 // true: enabled, false: disabled
     private HealthCheckServiceProvider m_health_check_service_provider = null;
     private Thread m_health_check_service_provider_thread = null;
     
@@ -249,7 +249,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         if (this.genericMQTTPeerEnabled()) {
             // Generic MQTT
             this.errorLogger().info("Orchestrator: Adding Generic MQTT Processor");
-            this.m_peer_processor_list.add(GenericMQTTProcessor.createPeerProcessor(this, this.m_http));
+            this.m_peer_processor_list.add(GenericMQTTPeerProcessorFactory.createPeerProcessor(this, this.m_http));
         }
     }
 

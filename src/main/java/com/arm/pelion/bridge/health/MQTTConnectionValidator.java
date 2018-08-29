@@ -73,14 +73,8 @@ public class MQTTConnectionValidator extends BaseValidatorClass implements Runna
         boolean ok = true;
         List<PeerProcessorInterface> list = this.m_provider.getPeerProcessorList();
         for(int i=0;list != null && i<list.size() && ok;++i) {
-            GenericMQTTProcessor p = null;
-            if (list.get(i) instanceof BasePeerProcessorFactory) {
-                BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
-                p = f.mqttProcessor();
-            }
-            if (list.get(i) instanceof GenericMQTTProcessor) {
-                p = (GenericMQTTProcessor)list.get(i);
-            }
+            BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
+            GenericMQTTProcessor p = f.mqttProcessor();
             if (p != null) {
                 // cumulative
                 ok = (ok & p.mqttConnectionsOK());
