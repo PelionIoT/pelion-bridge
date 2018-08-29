@@ -29,7 +29,8 @@ import com.arm.pelion.bridge.servlet.Manager;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.ssl.SslSocketConnector;
+import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
@@ -72,9 +73,6 @@ public class BridgeMain {
         this.m_manager = this.m_events_processor.manager();
         this.m_manager.setBridgeMain(this);
         
-        // initialize the server
-        this.m_server = new Server(this.m_preferences.intValueOf("mds_gw_port"));
-        
         // get the thread pooling configuration
         int core_pool_size = this.m_preferences.intValueOf("threads_core_pool_size");
         if (core_pool_size <= 0) {
@@ -84,33 +82,31 @@ public class BridgeMain {
         if (max_pool_size <= 0) {
             max_pool_size = DEF_MAX_POOL_SIZE;
         }
-        int keep_alive_time = this.m_preferences.intValueOf("threads_keep_alive_time");
-        if (keep_alive_time <= 0) {
-            keep_alive_time = DEF_KEEP_ALIVE;
-        }
-
+        
+        // DEBUG for the Threading Pool Config
+        System.out.println(Manager.LOG_TAG + ": Thread Executor Pool: corePool: " + core_pool_size + " maxPool: " + max_pool_size);
+        
+        // initialize the server
+        ExecutorThreadPool threadPool = new ExecutorThreadPool(max_pool_size, core_pool_size);
+        this.m_server = new Server(threadPool);
+        
         // create the SSL context and establish the handler for the context
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath(this.m_preferences.valueOf("mds_gw_context_path"));
         this.m_server.setHandler(context);
 
         // Enable SSL Support
-        SslSocketConnector sslConnector = new SslSocketConnector();
-        sslConnector.setPort(this.m_preferences.intValueOf("mds_gw_port") + 1);
+        SslContextFactory sslContextFactory = new SslContextFactory();
+        sslContextFactory.setKeyStorePath("keystore.jks");
+        sslContextFactory.setKeyStorePassword(this.m_preferences.valueOf("mds_gw_keystore_password"));
+        ServerConnector sslConnector = new ServerConnector(this.m_server, sslContextFactory);
         sslConnector.setHost("0.0.0.0");
-        sslConnector.setKeystore("keystore.jks");
-        sslConnector.setPassword(this.m_preferences.valueOf("mds_gw_keystore_password"));
+        sslConnector.setPort(this.m_preferences.intValueOf("mds_gw_port") + 1);
         this.m_server.addConnector(sslConnector);
-        
-        // set the max threads in our thread pool
-        this.m_server.setThreadPool(new ExecutorThreadPool(core_pool_size, max_pool_size, keep_alive_time, TimeUnit.SECONDS));
-        
-        // DEBUG for the Threading Pool Config
-        System.out.println(Manager.LOG_TAG + ": Thread Executor Pool: corePool: " + core_pool_size + " maxPool: " + max_pool_size + " keepalive (sec): " + keep_alive_time);
 
         // eventing process servlet bindings (wildcarded)
         context.addServlet(new ServletHolder(this.m_events_processor), this.m_preferences.valueOf("mds_gw_events_path") + "/*");
-
+        
         // add a shutdown hook for graceful shutdowns...
         Runtime.getRuntime().addShutdownHook(
             new Thread() {
