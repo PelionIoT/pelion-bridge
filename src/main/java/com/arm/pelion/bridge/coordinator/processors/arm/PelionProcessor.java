@@ -1388,4 +1388,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         return false;
     }
+    
+    // get the active thread count
+    public int getActiveThreadCount() {
+        return this.orchestrator().getActiveThreadCount();
+    }
 }

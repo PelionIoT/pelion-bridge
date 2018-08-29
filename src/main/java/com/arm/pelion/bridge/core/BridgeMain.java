@@ -27,19 +27,22 @@ import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.servlet.EventsProcessor;
 import com.arm.pelion.bridge.servlet.Manager;
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
+import static sun.misc.ThreadGroupUtils.getRootThreadGroup;
 
 /**
  * BridgeMain: Main entry point for the pelion-bridge application
  *
  * @author Doug Anson
  */
-public class BridgeMain {
+public class BridgeMain implements Runnable {
     // Defaults
     private static int DEF_CORE_POOL_SIZE = 1000;
     private static int DEF_MAX_POOL_SIZE = 1000000;
@@ -50,6 +53,10 @@ public class BridgeMain {
     private PreferenceManager m_preferences = null;
     private EventsProcessor m_events_processor = null;
     private Manager m_manager = null;
+    
+    // Thread count
+    private int m_thread_count = 1;   // ourself
+    private boolean m_running = false; 
     
     // Jetty Server
     private Server m_server = null;
@@ -119,6 +126,10 @@ public class BridgeMain {
                 }
             }
         );
+        
+        // start our thread counter task
+        Thread t = new Thread(this);
+        t.run();
     }
     
     // start the bridge
@@ -184,5 +195,34 @@ public class BridgeMain {
     // error logger
     private ErrorLogger errorLogger() {
         return this.m_logger;
+    }
+    
+    // update the active thread count
+    private void updateActiveThreadCount() {
+        final ThreadGroup root = getRootThreadGroup();
+        final ThreadMXBean thbean = ManagementFactory.getThreadMXBean();
+        this.m_thread_count = thbean.getThreadCount();
+    }
+    
+    // thread count looper
+    private void updateActiveThreadCountLoop() {
+        while(this.m_running == true) {
+            // Wait a bit
+            Utils.waitForABit(this.errorLogger(),120000);    // 2 minute wait
+            
+            // Get the updated thread count
+            this.updateActiveThreadCount();
+        }
+    }
+    
+    // get our active thread count
+    public int getActiveThreadCount() {
+        return this.m_thread_count;
+    }
+
+    @Override
+    public void run() {
+        this.m_running = true;
+        this.updateActiveThreadCountLoop();
     }
 }

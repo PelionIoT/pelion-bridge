@@ -113,6 +113,9 @@ public class HealthCheckServiceProvider extends BaseClass implements HealthCheck
         // Shadow Count Statistic
         this.m_validator_list.add(new ShadowCountStatistic(this));
         
+        // Thread Count Statistic
+        this.m_validator_list.add(new ThreadCountStatistic(this));
+        
         // ADD other validators here...
         
         // Run all..

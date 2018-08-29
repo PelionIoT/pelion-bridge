@@ -592,4 +592,9 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
        // dump to error logger
        this.errorLogger().warning("HEALTH STATS: " + json);
     }
+    
+    // get the active thread count
+    public int getActiveThreadCount() {
+        return this.m_manager.getActiveThreadCount();
+    }
 }

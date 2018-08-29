@@ -125,6 +125,10 @@ public final class Manager {
     public void resetNotifications() {
         this.m_orchestrator.resetDeviceServerWebhook();
     }
+    
+    public int getActiveThreadCount() {
+        return this.m_main.getActiveThreadCount();
+    }
 
     private void setServlet(HttpServlet servlet) {
         this.m_servlet = servlet;
