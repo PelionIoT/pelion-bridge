@@ -27,7 +27,6 @@ import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.servlet.EventsProcessor;
 import com.arm.pelion.bridge.servlet.Manager;
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
@@ -101,7 +100,7 @@ public class BridgeMain {
         sslContextFactory.setKeyStorePassword(this.m_preferences.valueOf("mds_gw_keystore_password"));
         ServerConnector sslConnector = new ServerConnector(this.m_server, sslContextFactory);
         sslConnector.setHost("0.0.0.0");
-        sslConnector.setPort(this.m_preferences.intValueOf("mds_gw_port") + 1);
+        sslConnector.setPort(this.m_preferences.intValueOf("mds_gw_port"));
         this.m_server.addConnector(sslConnector);
 
         // eventing process servlet bindings (wildcarded)

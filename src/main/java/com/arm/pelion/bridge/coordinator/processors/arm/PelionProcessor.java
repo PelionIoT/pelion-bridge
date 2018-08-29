@@ -625,7 +625,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             this.errorLogger().warning("PelionProcessor(Webhook): Overriding webhook IP address to: " + local_ip);
         }
         
-        int local_port = this.prefIntValue("mds_gw_port") + 1;
+        int local_port = this.prefIntValue("mds_gw_port");
         String notify_uri = this.prefValue("mds_gw_context_path") + this.prefValue("mds_gw_events_path");
 
         // build and return the webhook callback URL
