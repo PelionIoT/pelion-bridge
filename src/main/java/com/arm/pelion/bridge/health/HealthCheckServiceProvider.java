@@ -136,7 +136,8 @@ public class HealthCheckServiceProvider extends BaseClass implements HealthCheck
     
     // get the current time (formatted) 
     private String getCurrentFormattedTime() {
-        return new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
+        // RFC 3339 formatted date
+        return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX").format(new Date());
     }
     
     // create a map of key,value pairs 
