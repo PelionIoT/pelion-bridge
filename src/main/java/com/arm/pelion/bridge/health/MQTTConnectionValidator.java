@@ -22,7 +22,11 @@
  */
 package com.arm.pelion.bridge.health;
 
+import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.factories.BasePeerProcessorFactory;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
+import java.util.List;
 
 /**
  * This class periodically checks all MQTT connections
@@ -66,6 +70,16 @@ public class MQTTConnectionValidator extends BaseValidatorClass implements Runna
 
     // WORKER: validate the MQTT Connections
     private boolean validateMQTTConnections() {
-        return true;
+        boolean ok = true;
+        List<PeerProcessorInterface> list = this.m_provider.getPeerProcessorList();
+        for(int i=0;list != null && i<list.size() && ok;++i) {
+            BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
+            GenericMQTTProcessor p = f.mqttProcessor();
+            if (p != null) {
+                // cumulative
+                ok = (ok & p.mqttConnectionsOK());
+            }
+        }
+        return ok;
     }
 }

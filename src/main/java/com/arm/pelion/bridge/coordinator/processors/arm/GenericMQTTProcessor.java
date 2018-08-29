@@ -795,4 +795,23 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
             listener.halt();
         }
     }
+    
+    // Health Stats: Get connection status from MQTT connection(s)
+    public boolean mqttConnectionsOK() {
+        boolean ok = true; 
+        
+        for (Map.Entry<String, MQTTTransport> entry : m_mqtt.entrySet()) {
+            MQTTTransport t = entry.getValue();
+            if (t != null) {
+                ok = (ok & t.isConnected());
+            }
+        }   
+        
+        return ok;
+    }
+    
+    // Health Stats: Get the number of endpoints being shadowed
+    public int getEndpointCount() {
+        return this.m_endpoints.map().size();
+    }
 }

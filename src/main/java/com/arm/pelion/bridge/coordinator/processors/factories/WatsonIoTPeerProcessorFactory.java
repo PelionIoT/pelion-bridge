@@ -84,6 +84,6 @@ public class WatsonIoTPeerProcessorFactory extends BasePeerProcessorFactory impl
     public WatsonIoTPeerProcessorFactory(Orchestrator manager, HttpTransport http) {
         super(manager, null);
         this.m_http = http;
-        this.m_mqtt_list = new ArrayList<>();
+        this.m_mqtt_processor_list = new ArrayList<>();
     }
 }

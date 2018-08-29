@@ -22,6 +22,7 @@
  */
 package com.arm.pelion.bridge.health;
 
+import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
 
 /**
@@ -66,6 +67,7 @@ public class LongPollValidator extends BaseValidatorClass implements Runnable {
 
     // WORKER: validate the long poll health
     private boolean validateLongPollHealth() {
-        return true;
+        PelionProcessor p = (PelionProcessor)this.m_provider.getPelionProcessor();
+        return p.longPollOK();
     }
 }

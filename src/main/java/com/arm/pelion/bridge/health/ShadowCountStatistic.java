@@ -22,7 +22,11 @@
  */
 package com.arm.pelion.bridge.health;
 
+import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.factories.BasePeerProcessorFactory;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
+import java.util.List;
 
 /**
  * This class periodically checks how many device shadows its established
@@ -30,13 +34,13 @@ import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
  * @author Doug Anson
  */
 public class ShadowCountStatistic extends BaseValidatorClass implements Runnable {
-    private int m_last_value = 0;
+    private int m_last_value = -1;
     
     // default constructor
     public ShadowCountStatistic(HealthCheckServiceInterface provider) {
         super(provider,"shadow_count");
         this.m_value = (Integer)0;      // Integer value for this validator
-        this.m_last_value = 0;
+        this.m_last_value = -1;
     }   
     
     // validate
@@ -55,6 +59,16 @@ public class ShadowCountStatistic extends BaseValidatorClass implements Runnable
 
     // WORKER: query how many device shadows we currently have
     private int checkDeviceShadowCount() {
-        return this.m_last_value + 1;
+        int count = 0;
+        List<PeerProcessorInterface> list = this.m_provider.getPeerProcessorList();
+        for(int i=0;list != null && i<list.size();++i) {
+            BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
+            GenericMQTTProcessor p = f.mqttProcessor();
+            if (p != null) {
+                // cumulative
+                count += p.getEndpointCount();
+            }
+        }
+        return count;
     }
 }

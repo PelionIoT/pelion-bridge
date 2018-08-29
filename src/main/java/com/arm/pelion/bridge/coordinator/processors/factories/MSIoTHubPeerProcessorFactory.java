@@ -78,6 +78,6 @@ public class MSIoTHubPeerProcessorFactory extends BasePeerProcessorFactory imple
     public MSIoTHubPeerProcessorFactory(Orchestrator manager, HttpTransport http) {
         super(manager, null);
         this.m_http = http;
-        this.m_mqtt_list = new ArrayList<>();
+        this.m_mqtt_processor_list = new ArrayList<>();
     }
 }

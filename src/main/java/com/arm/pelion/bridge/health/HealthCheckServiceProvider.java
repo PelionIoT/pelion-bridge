@@ -189,6 +189,7 @@ public class HealthCheckServiceProvider extends BaseClass implements HealthCheck
     
     // main health statistics update loop
     private void healthStatsUpdateLoop() {
+        Utils.waitForABit(this.errorLogger(),120000);   // wait 2 minutes initially
         while (this.m_running == true) {
             // validate the webhook
             this.checkAndPublish();

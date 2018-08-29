@@ -1360,4 +1360,32 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // now discover our devices and setup shadows...
         this.setupExistingDeviceShadows();
     }
+    
+    // validate the webhook (Health Stats)
+    public boolean webhookOK() {
+        try {
+            String url = createWebhookURL();
+            String webhook = this.getWebhook();
+            return (url.equalsIgnoreCase(webhook) == true);
+        }
+        catch (Exception ex) {
+            // silent
+        }
+        return false;
+    }
+    
+    // validate long poll (Health Stats)
+    public boolean longPollOK() {
+        try {
+            // we cannot directly test long poll... just that we can make HTTP(get) calls
+            String my_ip = Utils.getExternalIPAddress();
+            if (my_ip != null && my_ip.length() > 0 && my_ip.contains(".") == true) {
+                return true;
+            }
+        }
+        catch (Exception ex) {
+            // silent
+        }
+        return false;
+    }
 }
