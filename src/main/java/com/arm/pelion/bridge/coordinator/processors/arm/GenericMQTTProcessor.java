@@ -706,7 +706,10 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
 
     // OVERRIDE: Connection stock MQTT...
     protected boolean connectMQTT() {
-        return this.mqtt().connect(this.m_mqtt_host, this.m_mqtt_port, null, true);
+        if (this.mqtt() != null) {
+            return this.mqtt().connect(this.m_mqtt_host, this.m_mqtt_port, null, true);
+        }
+        return false;
     }
 
     // OVERRIDE: Topics for stock MQTT...

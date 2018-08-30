@@ -28,6 +28,7 @@ import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
+import com.arm.pelion.bridge.transport.MQTTTransport;
 
 /**
  * Generic MQTT Peer Processor Manager: Factory for initiating a generic MQTT peer processor
@@ -45,7 +46,8 @@ public class GenericMQTTPeerProcessorFactory extends BasePeerProcessorFactory im
         boolean generic_mqtt_processor_enabled = manager.preferences().booleanValueOf("enable_generic_mqtt_processor");
         if (generic_mqtt_processor_enabled == true) {
             manager.errorLogger().info("Registering Generic MQTT processor...");
-            GenericMQTTProcessor p = new GenericMQTTProcessor(manager, null, http);
+            MQTTTransport mqtt = new MQTTTransport(manager.errorLogger(), manager.preferences(), null);
+            GenericMQTTProcessor p = new GenericMQTTProcessor(manager, mqtt, http);
             me.addProcessor(p);
         }
 
