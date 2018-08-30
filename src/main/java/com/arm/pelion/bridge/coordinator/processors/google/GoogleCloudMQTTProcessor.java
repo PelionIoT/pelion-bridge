@@ -167,71 +167,78 @@ public class GoogleCloudMQTTProcessor extends GenericMQTTProcessor implements Re
         
         // get our Google AUTH Json
         this.m_google_cloud_auth_json = this.orchestrator().preferences().valueOf("google_cloud_auth_json",this.m_suffix);
+        
+        // make sure we are configured
+        if (this.m_google_cloud_auth_json != null && this.m_google_cloud_auth_json.contains("Goes_Here") == false) {
+            // get the Project ID
+            this.m_google_cloud_project_id = this.getProjectID(this.m_google_cloud_auth_json);
 
-        // get the Project ID
-        this.m_google_cloud_project_id = this.getProjectID(this.m_google_cloud_auth_json);
-        
-        // Google CloudIot Application Name
-        this.m_google_cloud_application_name = this.getApplicationName(this.m_google_cloud_auth_json);
-        
-        // get the Region
-        this.m_google_cloud_region = this.orchestrator().preferences().valueOf("google_cloud_region",this.m_suffix);
-        
-        // get the MQTT Host
-        this.m_google_cloud_mqtt_host = this.orchestrator().preferences().valueOf("google_cloud_mqtt_host",this.m_suffix);
-        
-        // get the MQTT Port
-        this.m_google_cloud_mqtt_port = this.orchestrator().preferences().intValueOf("google_cloud_mqtt_port",this.m_suffix);
-        
-        // get the MQTT Version
-        this.m_google_cloud_mqtt_version = this.orchestrator().preferences().valueOf("google_cloud_mqtt_version",this.m_suffix);
-        
-        // Google CloudIot Registry Name
-        this.m_google_cloud_registry_name = this.orchestrator().preferences().valueOf("google_cloud_registry_name",this.m_suffix);
-        
-        // Observation notification topic (PUBLISH)
-        this.m_google_cloud_observe_notification_topic = this.orchestrator().preferences().valueOf("google_cloud_observe_notification_topic",this.m_suffix);
-        
-        // We receive commands/results that go down to mbed Cloud via the CONFIG topic
-        this.m_google_cloud_coap_config_topic = this.orchestrator().preferences().valueOf("google_cloud_coap_config_topic", this.m_suffix);
-        
-        // we publish state changes that go up to Google Cloud IoT from mbed Cloud via the STATE topic
-        this.m_google_cloud_coap_state_topic = this.orchestrator().preferences().valueOf("google_cloud_coap_state_topic", this.m_suffix);
+            // Google CloudIot Application Name
+            this.m_google_cloud_application_name = this.getApplicationName(this.m_google_cloud_auth_json);
 
-        // Required Google Cloud format:  Event Tag redefinition
-        this.m_observation_key = GOOGLE_CLOUDIOT_EVENT_TAG;
-        
-        // Required Google Cloud format: State Tag redefinition
-        this.m_cmd_response_key = GOOGLE_CLOUDIOT_STATE_TAG;
-        
-        // WaitForLock
-        this.m_lock_wait_ms = this.orchestrator().preferences().intValueOf("google_wait_for_lock_ms",this.m_suffix);
-        if (this.m_lock_wait_ms <= 0) {
-            this.m_lock_wait_ms = 7500; // 7.5 seconds
+            // get the Region
+            this.m_google_cloud_region = this.orchestrator().preferences().valueOf("google_cloud_region",this.m_suffix);
+
+            // get the MQTT Host
+            this.m_google_cloud_mqtt_host = this.orchestrator().preferences().valueOf("google_cloud_mqtt_host",this.m_suffix);
+
+            // get the MQTT Port
+            this.m_google_cloud_mqtt_port = this.orchestrator().preferences().intValueOf("google_cloud_mqtt_port",this.m_suffix);
+
+            // get the MQTT Version
+            this.m_google_cloud_mqtt_version = this.orchestrator().preferences().valueOf("google_cloud_mqtt_version",this.m_suffix);
+
+            // Google CloudIot Registry Name
+            this.m_google_cloud_registry_name = this.orchestrator().preferences().valueOf("google_cloud_registry_name",this.m_suffix);
+
+            // Observation notification topic (PUBLISH)
+            this.m_google_cloud_observe_notification_topic = this.orchestrator().preferences().valueOf("google_cloud_observe_notification_topic",this.m_suffix);
+
+            // We receive commands/results that go down to mbed Cloud via the CONFIG topic
+            this.m_google_cloud_coap_config_topic = this.orchestrator().preferences().valueOf("google_cloud_coap_config_topic", this.m_suffix);
+
+            // we publish state changes that go up to Google Cloud IoT from mbed Cloud via the STATE topic
+            this.m_google_cloud_coap_state_topic = this.orchestrator().preferences().valueOf("google_cloud_coap_state_topic", this.m_suffix);
+
+            // Required Google Cloud format:  Event Tag redefinition
+            this.m_observation_key = GOOGLE_CLOUDIOT_EVENT_TAG;
+
+            // Required Google Cloud format: State Tag redefinition
+            this.m_cmd_response_key = GOOGLE_CLOUDIOT_STATE_TAG;
+
+            // WaitForLock
+            this.m_lock_wait_ms = this.orchestrator().preferences().intValueOf("google_wait_for_lock_ms",this.m_suffix);
+            if (this.m_lock_wait_ms <= 0) {
+                this.m_lock_wait_ms = 7500; // 7.5 seconds
+            }
+
+            // DEBUG
+            this.errorLogger().info("ProjectID: " + this.m_google_cloud_project_id + 
+                                    " Application Name: " + this.m_google_cloud_application_name + 
+                                    " Region: " + this.m_google_cloud_region);
+
+            // initialize the topic root
+            this.initTopicRoot("google_cloud_topic_root");
+
+            // create the CloudIoT instance
+            this.m_cloud_iot = this.createCloudIoTInstance();
+
+            // create the Pubsub instance
+            this.m_pub_sub = this.createPubSubInstance();
+
+            // GoogleCloud Device Manager - will initialize and upsert our GoogleCloud bindings/metadata
+            this.m_device_manager = new GoogleCloudDeviceManager(this.orchestrator().errorLogger(), this.orchestrator().preferences(), this.m_suffix, http, this.orchestrator(), this.m_google_cloud_project_id, this.m_google_cloud_region, this.m_cloud_iot,this.m_pub_sub,this.m_observation_key,this.m_cmd_response_key,this.subscriptionsManager());
+
+            // initialize our MQTT transport list
+            this.initMQTTTransportList();
+
+            // initialize the JwT refresher thread list
+            this.m_jwt_refesher_thread_list = new HashMap<>();
         }
-        
-        // DEBUG
-        this.errorLogger().info("ProjectID: " + this.m_google_cloud_project_id + 
-                                " Application Name: " + this.m_google_cloud_application_name + 
-                                " Region: " + this.m_google_cloud_region);
-
-        // initialize the topic root
-        this.initTopicRoot("google_cloud_topic_root");
-        
-        // create the CloudIoT instance
-        this.m_cloud_iot = this.createCloudIoTInstance();
-        
-        // create the Pubsub instance
-        this.m_pub_sub = this.createPubSubInstance();
-        
-        // GoogleCloud Device Manager - will initialize and upsert our GoogleCloud bindings/metadata
-        this.m_device_manager = new GoogleCloudDeviceManager(this.orchestrator().errorLogger(), this.orchestrator().preferences(), this.m_suffix, http, this.orchestrator(), this.m_google_cloud_project_id, this.m_google_cloud_region, this.m_cloud_iot,this.m_pub_sub,this.m_observation_key,this.m_cmd_response_key,this.subscriptionsManager());
-
-        // initialize our MQTT transport list
-        this.initMQTTTransportList();
-        
-        // initialize the JwT refresher thread list
-        this.m_jwt_refesher_thread_list = new HashMap<>();
+        else {
+            // unconfigured
+            this.errorLogger().warning("Google Cloud: AUTH JSON is UNCONFIGURED. Pausing bridge...");
+        }
     }
     
     // get the WaitForLock time
@@ -911,88 +918,94 @@ public class GoogleCloudMQTTProcessor extends GenericMQTTProcessor implements Re
     @Override
     public boolean createAndStartMQTTForEndpoint(String ep_name, String ep_type, Topic topics[]) {
         boolean connected = false;
-        try {
-            // we may already have a connection established for this endpoint... if so, we just ignore...
-            if (this.mqtt(ep_name) == null) {
-                // no connection exists already... so... go get our endpoint details
-                HashMap<String, Serializable> ep = this.m_device_manager.getEndpointDetails(ep_name);
-                if (ep != null) {
-                    // create a new MQTT Transport instance for our endpoint
-                    MQTTTransport mqtt = new MQTTTransport(this.errorLogger(), this.preferences(), this);
-                    if (mqtt != null) {
-                        // record the additional endpoint details
-                        mqtt.setEndpointDetails(ep_name, ep_type);
-                        
-                        // ClientID creation for Google Cloud MQTT
-                        String client_id = this.createGoogleCloudMQTTclientID(ep_name);
-                        
-                        // JWT creation for Google Cloud MQTT Authentication
-                        String jwt = this.createGoogleCloudJWT(ep_name);
+        if (this.m_google_cloud_auth_json != null && this.m_google_cloud_auth_json.contains("Goes_Here") == false) {
+            try {
+                // we may already have a connection established for this endpoint... if so, we just ignore...
+                if (this.mqtt(ep_name) == null) {
+                    // no connection exists already... so... go get our endpoint details
+                    HashMap<String, Serializable> ep = this.m_device_manager.getEndpointDetails(ep_name);
+                    if (ep != null) {
+                        // create a new MQTT Transport instance for our endpoint
+                        MQTTTransport mqtt = new MQTTTransport(this.errorLogger(), this.preferences(), this);
+                        if (mqtt != null) {
+                            // record the additional endpoint details
+                            mqtt.setEndpointDetails(ep_name, ep_type);
 
-                        // add it to the list indexed by the endpoint name... not the clientID...
-                        this.addMQTTTransport(ep_name, mqtt);
+                            // ClientID creation for Google Cloud MQTT
+                            String client_id = this.createGoogleCloudMQTTclientID(ep_name);
 
-                        // DEBUG
-                        this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): connecting to MQTT for endpoint: " + ep_name + " type: " + ep_type + "...");
+                            // JWT creation for Google Cloud MQTT Authentication
+                            String jwt = this.createGoogleCloudJWT(ep_name);
 
-                        // connect and start listening... 
-                        if (this.connect(ep_name, client_id, jwt) == true) {
+                            // add it to the list indexed by the endpoint name... not the clientID...
+                            this.addMQTTTransport(ep_name, mqtt);
+
                             // DEBUG
-                            this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): connected to MQTT...");
-                            
-                            // start a listener thread...
-                            this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): Creating and registering listener Thread for endpoint: " + ep_name + " type: " + ep_type);
-                            this.startListenerThread(ep_name, mqtt);
-                            
-                            // start the JwT  refresher thread
-                            this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): Starting JwT refresher thread");
-                            this.startJwTRefresherThread(ep_name);
-                            
-                            // if we have topics in our param list, lets go ahead and subscribe
-                            if (topics != null) {
+                            this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): connecting to MQTT for endpoint: " + ep_name + " type: " + ep_type + "...");
+
+                            // connect and start listening... 
+                            if (this.connect(ep_name, client_id, jwt) == true) {
                                 // DEBUG
-                                this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): re-subscribing to topics...");
-                                
-                                // re-subscribe
-                                this.mqtt(ep_name).subscribe(topics);
+                                this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): connected to MQTT...");
+
+                                // start a listener thread...
+                                this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): Creating and registering listener Thread for endpoint: " + ep_name + " type: " + ep_type);
+                                this.startListenerThread(ep_name, mqtt);
+
+                                // start the JwT  refresher thread
+                                this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): Starting JwT refresher thread");
+                                this.startJwTRefresherThread(ep_name);
+
+                                // if we have topics in our param list, lets go ahead and subscribe
+                                if (topics != null) {
+                                    // DEBUG
+                                    this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): re-subscribing to topics...");
+
+                                    // re-subscribe
+                                    this.mqtt(ep_name).subscribe(topics);
+                                }
+
+                                // we are connected
+                                connected = true;
                             }
-                            
-                            // we are connected
-                            connected = true;
+                            else {
+                                // unable to connect!
+                                this.errorLogger().critical("createAndStartMQTTForEndpoint(GoogleCloud): Unable to connect to MQTT for endpoint: " + ep_name + " type: " + ep_type);
+
+                                // remove the MQTT transport
+                                this.remove(ep_name);
+
+                                // Clear out any old JwT refreshers
+                                this.stopJwTRefresherThread(ep_name);
+
+                                // remove any listeners
+                                this.stopListenerThread(ep_name);
+                            }
                         }
                         else {
-                            // unable to connect!
-                            this.errorLogger().critical("createAndStartMQTTForEndpoint(GoogleCloud): Unable to connect to MQTT for endpoint: " + ep_name + " type: " + ep_type);
-                            
-                            // remove the MQTT transport
-                            this.remove(ep_name);
-                            
-                            // Clear out any old JwT refreshers
-                            this.stopJwTRefresherThread(ep_name);
-                            
-                            // remove any listeners
-                            this.stopListenerThread(ep_name);
+                            // unable to allocate MQTT connection for our endpoint
+                            this.errorLogger().critical("createAndStartMQTTForEndpoint(GoogleCloud): ERROR. Unable to allocate MQTT connection for: " + ep_name);
                         }
                     }
                     else {
-                        // unable to allocate MQTT connection for our endpoint
-                        this.errorLogger().critical("createAndStartMQTTForEndpoint(GoogleCloud): ERROR. Unable to allocate MQTT connection for: " + ep_name);
+                        // unable to find endpoint details
+                        this.errorLogger().warning("createAndStartMQTTForEndpoint(GoogleCloud): unable to find endpoint details for: " + ep_name + "... ignoring...");
                     }
                 }
                 else {
-                    // unable to find endpoint details
-                    this.errorLogger().warning("createAndStartMQTTForEndpoint(GoogleCloud): unable to find endpoint details for: " + ep_name + "... ignoring...");
+                    // already connected... just ignore
+                    this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): already have connection for " + ep_name + " (OK)");
+                    connected = true;
                 }
             }
-            else {
-                // already connected... just ignore
-                this.errorLogger().info("createAndStartMQTTForEndpoint(GoogleCloud): already have connection for " + ep_name + " (OK)");
-                connected = true;
+            catch (IOException ex) {
+                // exception caught... capture and note the stack trace
+                this.errorLogger().critical("createAndStartMQTTForEndpoint(GoogleCloud): EXCEPTION caught: " + ex.getMessage() + " endpoint: " + ep_name, ex);
             }
         }
-        catch (IOException ex) {
-            // exception caught... capture and note the stack trace
-            this.errorLogger().critical("createAndStartMQTTForEndpoint(GoogleCloud): EXCEPTION caught: " + ex.getMessage() + " endpoint: " + ep_name, ex);
+        else {
+            // unconfigured
+            this.errorLogger().warning("createAndStartMQTTForEndpoint(GoogleCloud): Google AUTH JSON is UNCONFIGURED. Pausing bridge...");
         }
         
         // return the connected status
