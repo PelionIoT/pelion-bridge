@@ -447,6 +447,12 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
             // Unable to create device
             this.errorLogger().warning("Google: registerNewDevice: ERROR: Unable to create device: " + ep_name + " Error: " + ex.getMessage());
         }
+        
+        // increment if created
+        if (created == true) {         
+            // increment the shadow count
+            this.m_orchestrator.incrementShadowCount();
+        }
 
         // return our status
         return created;

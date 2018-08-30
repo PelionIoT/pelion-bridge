@@ -27,15 +27,13 @@ import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.servlet.EventsProcessor;
 import com.arm.pelion.bridge.servlet.Manager;
 import java.io.IOException;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
+import java.util.Set;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
-import static sun.misc.ThreadGroupUtils.getRootThreadGroup;
 
 /**
  * BridgeMain: Main entry point for the pelion-bridge application
@@ -44,9 +42,12 @@ import static sun.misc.ThreadGroupUtils.getRootThreadGroup;
  */
 public class BridgeMain implements Runnable {
     // Defaults
-    private static int DEF_CORE_POOL_SIZE = 1000;
-    private static int DEF_MAX_POOL_SIZE = 1000000;
-    private static int DEF_KEEP_ALIVE = 60;
+    private static int DEF_THREAD_COUNT_CHECK_WAIT_MS = 60000;      // 1 minute between thread count checks
+    private static int DEF_CORE_POOL_SIZE = 10;                     // default size of pool of threads
+    private static int DEF_MAX_POOL_SIZE = 1000000;                 // max size of pool of threads
+    
+    // thread count wait time in ms
+    private int m_thread_count_check_wait_ms = DEF_THREAD_COUNT_CHECK_WAIT_MS;
     
     // Bridge Components
     private ErrorLogger m_logger = null;
@@ -89,8 +90,8 @@ public class BridgeMain implements Runnable {
             max_pool_size = DEF_MAX_POOL_SIZE;
         }
         
-        // DEBUG for the Threading Pool Config
-        System.out.println(Manager.LOG_TAG + ": Thread Executor Pool: corePool: " + core_pool_size + " maxPool: " + max_pool_size);
+        // Threading Pool Config
+        this.errorLogger().warning("Main: Jetty Thread Executor Pool: initial pool: " + core_pool_size + " max: " + max_pool_size);
         
         // initialize the server
         ExecutorThreadPool threadPool = new ExecutorThreadPool(max_pool_size, core_pool_size);
@@ -118,10 +119,10 @@ public class BridgeMain implements Runnable {
             new Thread() {
                 @Override
                 public void run() {
-                    System.out.println(Manager.LOG_TAG + ": Resetting notification handlers...");
+                    errorLogger().warning("Main:: Resetting notification handlers...");
                     m_manager.resetNotifications();
 
-                    System.out.println(Manager.LOG_TAG + ": Stopping Listeners...");
+                    errorLogger().warning("Main: Stopping Listeners...");
                     m_manager.stopListeners();
                 }
             }
@@ -205,9 +206,12 @@ public class BridgeMain implements Runnable {
     // update the active thread count
     private void updateActiveThreadCount() {
         try {
-            final ThreadGroup root = getRootThreadGroup();
-            final ThreadMXBean thbean = ManagementFactory.getThreadMXBean();
-            this.m_thread_count = thbean.getThreadCount();
+            int count = 0;
+            Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
+            for (Thread t : threadSet) {
+                ++count;
+            }
+            this.m_thread_count = count;
         }
         catch (Exception ex) {
             this.errorLogger().warning("Main: Exception caught while counting threads: " + ex.getMessage());
@@ -219,7 +223,7 @@ public class BridgeMain implements Runnable {
     private void updateActiveThreadCountLoop() {
         while(this.m_running == true) {
             // Wait a bit
-            Utils.waitForABit(this.errorLogger(),120000);    // 2 minute wait
+            Utils.waitForABit(this.errorLogger(),this.m_thread_count_check_wait_ms);  
             
             // Get the updated thread count
             this.updateActiveThreadCount();

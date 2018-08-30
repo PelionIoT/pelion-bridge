@@ -30,28 +30,21 @@ import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
  *
  * @author Doug Anson
  */
-public class ThreadCountStatistic extends BaseValidatorClass implements Runnable {
-    private int m_last_value = -1;
-    
+public class ThreadCountStatistic extends BaseValidatorClass implements Runnable {    
     // default constructor
     public ThreadCountStatistic(HealthCheckServiceInterface provider) {
         super(provider,"thread_count");
         this.m_value = (Integer)0;      // Integer value for this validator
-        this.m_last_value = -1;
     }   
     
     // validate
     @Override
     protected void validate() {
-        // DEBUG
-        this.errorLogger().info("ThreadCountStatistic: Checking active thread count...");
         this.m_value = (Integer)this.getActiveThreadCount();
+        this.updateStatisticAndNotify();
         
-        if (this.m_last_value != (Integer)this.m_value) {
-            this.m_last_value = (Integer)this.m_value;
-            this.errorLogger().info("ThreadCountStatistic: Updated active thread count: " + (Integer)this.m_value);
-            this.updateStatisticAndNotify();
-        }
+        // DEBUG
+        this.errorLogger().info("ThreadCountStatistic: Updated active thread count: " + (Integer)this.m_value);
     }
 
     // WORKER: query how many active threads we currently have

@@ -85,6 +85,9 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     
     // Health Check Services Provider Sleep time (in ms)
     private int m_health_check_service_provider_sleep_time_ms = DEF_HEALTH_CHECK_SERVICE_PROVIDER_SLEEP_TIME_MS;
+    
+    // Health Check Shadow Count
+    private int m_shadow_count = 0;
 
     // our HTTP transport interface
     private HttpTransport m_http = null;
@@ -598,6 +601,20 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         if (this.m_manager != null) {
             return this.m_manager.getActiveThreadCount();
         }
+        else {
+            // log... but not to worry... will get set later...
+            this.errorLogger().info("Orchestrator: Manager is NULL for getting active thread count (OK).");
+        }
         return 1;
+    }
+    
+    // increment the shadow count
+    public void incrementShadowCount() {
+        this.m_shadow_count += 1;
+    }
+    
+    // get the shadow count
+    public int getShadowCount() {
+        return this.m_shadow_count;
     }
 }

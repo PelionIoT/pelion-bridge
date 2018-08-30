@@ -31,12 +31,14 @@ import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
  * @author Doug Anson
  */
 public abstract class BaseValidatorClass extends BaseClass implements Runnable {
+    private static final int DEF_CHECK_INTERVAL_MS = 15000;     // 15 seconds
     protected HealthCheckServiceInterface m_provider = null;
     protected String m_key = null;
     protected Object m_value = false;
     protected String m_description = null;
     protected boolean m_running = false;
     protected int m_validator_interval_ms = 0;
+    private boolean m_override_check_interval = true;  // true: nail to default, false: from config file
     
     // main constructor
     public BaseValidatorClass(HealthCheckServiceInterface provider,String key) {
@@ -45,6 +47,9 @@ public abstract class BaseValidatorClass extends BaseClass implements Runnable {
         this.m_key = this.preferences().valueOf(key + "_validator_key");
         this.m_description = this.preferences().valueOf(key + "_validator_description");
         this.m_validator_interval_ms = this.preferences().intValueOf(key + "_validator_interval_ms");
+        if (this.m_validator_interval_ms <= 0 || this.m_override_check_interval == true) {
+            this.m_validator_interval_ms = DEF_CHECK_INTERVAL_MS;
+        }
         this.m_value = null;
         this.m_running = false; 
     }
@@ -70,11 +75,16 @@ public abstract class BaseValidatorClass extends BaseClass implements Runnable {
     // main validation loop
     private void validationLoop() {
         while (this.m_running == true) {
-            // validate the webhook
-            this.validate();
-            
-            // sleep for a bit...
-            Utils.waitForABit(this.errorLogger(),this.m_validator_interval_ms);
+            try {
+                // validate the statistic
+                this.validate();
+                
+                // sleep for a bit...
+                Utils.waitForABit(this.errorLogger(),this.m_validator_interval_ms);
+            }
+            catch (Exception ex) {
+                this.errorLogger().warning("BaseValidator: Exception caught: " + ex.getMessage(),ex);
+            }
         }
     }
     

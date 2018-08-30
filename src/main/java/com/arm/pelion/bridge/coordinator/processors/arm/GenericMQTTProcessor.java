@@ -558,6 +558,9 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                     this.m_endpoints.put(ep_name, topic_data);
                     this.setEndpointTypeFromEndpointName(ep_name, ep_type);
                     cc.subscribe_to_topics(ep_name, (Topic[]) topic_data.get("topic_list"));
+                    
+                    // increment the shadow count
+                    this.orchestrator().incrementShadowCount();
                 }
                 else {
                     // unable to register as topic data is NULL
@@ -808,10 +811,5 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
         }   
         
         return ok;
-    }
-    
-    // Health Stats: Get the number of endpoints being shadowed
-    public int getEndpointCount() {
-        return this.m_endpoints.map().size();
     }
 }

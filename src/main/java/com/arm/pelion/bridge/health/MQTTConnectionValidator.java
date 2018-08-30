@@ -34,13 +34,10 @@ import java.util.List;
  * @author Doug Anson
  */
 public class MQTTConnectionValidator extends BaseValidatorClass implements Runnable {
-    private boolean m_last_value = false;
-    
     // default constructor
     public MQTTConnectionValidator(HealthCheckServiceInterface provider) {
         super(provider,"mqtt");
         this.m_value = (Boolean)false;      // boolean value for this validator
-        this.m_last_value = false;
     }   
     
     // validate
@@ -62,10 +59,7 @@ public class MQTTConnectionValidator extends BaseValidatorClass implements Runna
         }
         
         // update our stats and notify if changed
-        if (this.m_last_value != (Boolean)this.m_value) {
-            this.m_last_value = (Boolean)this.m_value;
-            this.updateStatisticAndNotify();
-        }
+        this.updateStatisticAndNotify();
     }
 
     // WORKER: validate the MQTT Connections

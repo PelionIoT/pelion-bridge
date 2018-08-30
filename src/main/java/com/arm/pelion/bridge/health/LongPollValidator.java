@@ -31,13 +31,10 @@ import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
  * @author Doug Anson
  */
 public class LongPollValidator extends BaseValidatorClass implements Runnable {
-    private boolean m_last_value = false;
-    
     // default constructor
     public LongPollValidator(HealthCheckServiceInterface provider) {
         super(provider,"long_poll");
         this.m_value = (Boolean)false;      // boolean value for this validator
-        this.m_last_value = false;
     }   
     
     // validate
@@ -59,10 +56,7 @@ public class LongPollValidator extends BaseValidatorClass implements Runnable {
         }
         
         // update our stats and notify if changed
-        if (this.m_last_value != (Boolean)this.m_value) {
-            this.m_last_value = (Boolean)this.m_value;
-            this.updateStatisticAndNotify();
-        }
+        this.updateStatisticAndNotify();
     }
 
     // WORKER: validate the long poll health

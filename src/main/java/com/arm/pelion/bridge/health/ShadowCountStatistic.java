@@ -23,6 +23,7 @@
 package com.arm.pelion.bridge.health;
 
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.factories.BasePeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
@@ -33,42 +34,26 @@ import java.util.List;
  *
  * @author Doug Anson
  */
-public class ShadowCountStatistic extends BaseValidatorClass implements Runnable {
-    private int m_last_value = -1;
-    
+public class ShadowCountStatistic extends BaseValidatorClass implements Runnable {    
     // default constructor
     public ShadowCountStatistic(HealthCheckServiceInterface provider) {
         super(provider,"shadow_count");
         this.m_value = (Integer)0;      // Integer value for this validator
-        this.m_last_value = -1;
     }   
     
     // validate
     @Override
     protected void validate() {
-        // DEBUG
-        this.errorLogger().info("ShadowCountStatistic: Checking device shadow count...");
         this.m_value = (Integer)this.checkDeviceShadowCount();
+        this.updateStatisticAndNotify();
         
-        if (this.m_last_value != (Integer)this.m_value) {
-            this.m_last_value = (Integer)this.m_value;
-            this.errorLogger().info("ShadowCountStatistic: Updated device shadow count: " + (Integer)this.m_value);
-            this.updateStatisticAndNotify();
-        }
+        // DEBUG
+        this.errorLogger().info("ShadowCountStatistic: Updated device shadow count: " + (Integer)this.m_value);
     }
 
     // WORKER: query how many device shadows we currently have
     private int checkDeviceShadowCount() {
-        int count = 0;
-        List<PeerProcessorInterface> list = this.m_provider.getPeerProcessorList();
-        for(int i=0;list != null && i<list.size();++i) {
-            BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
-            GenericMQTTProcessor p = f.mqttProcessor();
-            if (p != null) {
-                // cumulative
-                count += p.getEndpointCount();
-            }
-        }
-        return count;
+        PelionProcessor p = (PelionProcessor)this.m_provider.getPelionProcessor();
+        return p.orchestrator().getShadowCount();
     }
 }

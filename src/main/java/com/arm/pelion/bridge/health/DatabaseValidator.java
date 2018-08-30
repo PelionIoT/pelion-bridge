@@ -30,13 +30,10 @@ import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
  * @author Doug Anson
  */
 public class DatabaseValidator extends BaseValidatorClass implements Runnable {
-    private boolean m_last_value = false;
-    
     // default constructor
     public DatabaseValidator(HealthCheckServiceInterface provider) {
         super(provider,"database");
         this.m_value = (Boolean)false;      // boolean value for this validator
-        this.m_last_value = false;
     }   
     
     // validate
@@ -58,10 +55,7 @@ public class DatabaseValidator extends BaseValidatorClass implements Runnable {
         }
         
         // update our stats and notify if changed
-        if (this.m_last_value != (Boolean)this.m_value) {
-            this.m_last_value = (Boolean)this.m_value;
-            this.updateStatisticAndNotify();
-        }
+        this.updateStatisticAndNotify();
     }
 
     // WORKER: validate the Database Connections
