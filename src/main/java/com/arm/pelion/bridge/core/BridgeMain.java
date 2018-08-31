@@ -119,7 +119,7 @@ public class BridgeMain implements Runnable {
         // logger websocket server
         this.m_logger_server = new Server();
         ServerConnector logger_server_connector = new ServerConnector(this.m_logger_server);
-        logger_server_connector.setPort(4444);
+        logger_server_connector.setPort(this.m_preferences.intValueOf("websocket_streaming_port"));
         this.m_logger_server.addConnector(logger_server_connector);
         
         ServletContextHandler logger_context = new ServletContextHandler(ServletContextHandler.SESSIONS);
