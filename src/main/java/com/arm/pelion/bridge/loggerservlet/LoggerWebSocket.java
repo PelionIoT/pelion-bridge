@@ -31,17 +31,6 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 @WebSocket
 public class LoggerWebSocket {
         public Session session;
-        
-        /*
-	@OnWebSocketMessage
-	public void onText(Session session, String message) throws IOException {
-		System.out.println("Message received:" + message);
-		if (session.isOpen()) {
-			String response = message.toUpperCase();
-			session.getRemote().sendString(response);
-		}
-	}
-        */
 
 	@OnWebSocketConnect
 	public void onConnect(Session session) throws IOException {
