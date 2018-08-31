@@ -42,6 +42,11 @@ public class DeviceManager extends BaseClass {
     protected SerializableHashMapOfHashMaps m_endpoint_details = null;
     protected SerializableHashMap m_device_types = null;
     
+    // optional constructor
+    public DeviceManager(Orchestrator orchestrator, HttpTransport http, String suffix) {
+        this(orchestrator.errorLogger(),orchestrator.preferences(),suffix,http,orchestrator);
+    }
+    
     // default constructor
     public DeviceManager(ErrorLogger error_logger, PreferenceManager preference_manager,String suffix, HttpTransport http, Orchestrator orchestrator) {
         super(error_logger, preference_manager);
