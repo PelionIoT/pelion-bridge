@@ -23,6 +23,7 @@
 
 package com.arm.pelion.bridge.core;
 
+import com.arm.pelion.bridge.loggerservlet.LoggerWebSocketServlet;
 import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.servlet.EventsProcessor;
 import com.arm.pelion.bridge.servlet.Manager;
@@ -61,6 +62,7 @@ public class BridgeMain implements Runnable {
     
     // Jetty Server
     private Server m_server = null;
+    private Server m_logger_server = null;
     
     // constructor
     public BridgeMain(String[] args) {
@@ -114,6 +116,20 @@ public class BridgeMain implements Runnable {
         // eventing process servlet bindings (wildcarded)
         context.addServlet(new ServletHolder(this.m_events_processor), this.m_preferences.valueOf("mds_gw_events_path") + "/*");
         
+        // logger websocket server
+        this.m_logger_server = new Server();
+        ServerConnector logger_server_connector = new ServerConnector(this.m_logger_server);
+        logger_server_connector.setPort(this.m_preferences.intValueOf("websocket_streaming_port"));
+        this.m_logger_server.addConnector(logger_server_connector);
+        
+        ServletContextHandler logger_context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        logger_context.setContextPath("/");
+        this.m_logger_server.setHandler(logger_context);
+        
+        // Add a websocket to a specific path spec
+        ServletHolder holderEvents = new ServletHolder("ws-logger", LoggerWebSocketServlet.class);
+        logger_context.addServlet(holderEvents, "/logger/*");
+        
         // add a shutdown hook for graceful shutdowns...
         Runtime.getRuntime().addShutdownHook(
             new Thread() {
@@ -148,6 +164,9 @@ public class BridgeMain implements Runnable {
             this.m_manager.initListeners();
 
             // start me!
+            System.out.println(Manager.LOG_TAG + ": Starting logger service");
+            this.m_logger_server.start();            
+             System.out.println(Manager.LOG_TAG + ": Starting bridge service");
             this.m_server.start();
 
             // Direct the manager to establish the webhooks to Connector/mDS/Cloud
@@ -158,6 +177,7 @@ public class BridgeMain implements Runnable {
 
             // Join me!
             this.m_server.join();
+            this.m_logger_server.join();
         }
         catch (Exception ex) {
             this.errorLogger().critical("Main: EXCEPTION during bridge start(): " + ex.getMessage(),ex);
@@ -170,6 +190,7 @@ public class BridgeMain implements Runnable {
             // stop the current service
             this.errorLogger().warning("Main: Stopping current bridge service...");
             this.m_server.stop();
+            this.m_logger_server.stop();
             
             // current bridge server stoped
             this.errorLogger().warning("Main: Bridge service has been stopped");
