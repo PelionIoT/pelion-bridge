@@ -1119,43 +1119,35 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // sanitize the endpoint type
         device.put("endpoint_type",this.sanitizeEndpointType((String)device.get("endpoint_type")));
 
-        // copy over the relevant portions
+        // duplicate relevant portions for compatibility...
         endpoint.put("ep", (String)device.get("id"));
         endpoint.put("ept",(String)device.get("endpoint_type"));
+        
+        // copy over the rest of the device record including the metadata
+        HashMap<String,Object> device_map = (HashMap<String,Object>)device;
+        for (Map.Entry<String, Object> entry : device_map.entrySet()) {
+            endpoint.put(entry.getKey(),entry.getValue());
+        }
 
         // DEBUG
         this.errorLogger().warning("PelionProcessor(Discovery): Discovered Pelion device with ID: " + (String)device.get("id") + " Type: " + (String)device.get("endpoint_type"));
-
+            
         // now, query mbed Cloud again for each device and get its resources
         List resources = this.discoverDeviceResources((String)device.get("id"));
-
-        // For now, we simply add to each resource JSON, a "path" that mimics the "uri" element... we need to use "uri" once done with Connector
-        for(int j=0;resources != null && j<resources.size();++j) {
-            Map resource = (Map)resources.get(j);
-            resource.put("path", (String)resource.get("uri"));
-
-            // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mbed Cloud and setup for it...
-            this.orchestrator().removeSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
-            this.orchestrator().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
-
-            // SYNC: save ept for ep in the peers...
-            this.orchestrator().setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
+        
+        // if we have resources, add them to the record
+        if (resources != null && resources.size() > 0) {
+            endpoint.put("resources",resources); 
         }
-
-        // put the resource list into our payload...
-        endpoint.put("resources",resources);
+        
+        // Save ept for ep in the peers...
+        this.orchestrator().setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
 
         // process as new device registration...
         this.orchestrator().completeNewDeviceRegistration(endpoint);
         
         // increment shadow counter
         this.orchestrator().incrementShadowCount();
-    }
-    
-    // get the observability of a given resource
-    protected boolean isObservableResource(Map resource) {
-        String obs_str = (String) resource.get("obs");
-        return (obs_str != null && obs_str.equalsIgnoreCase("true"));
     }
     
     // create the registered devices retrieval URL
@@ -1189,19 +1181,27 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
     // discover the device resources
     private List discoverDeviceResources(String device) {
-        return this.performDiscovery(this.createDeviceResourceDiscoveryURL(device),"root");
+        return this.performDiscovery(this.createDeviceResourceDiscoveryURL(device));
+    }
+    
+    // perform a discovery (JSON)
+    private List performDiscovery(String url) {
+        return this.performDiscovery(url,null);
     }
     
     // perform a discovery (JSON)
     private List performDiscovery(String url,String key) {
+        this.errorLogger().info("PelionProcessor(Discovery): URL: " + url + " Key: " + key);
         if (key != null) {
             String json = this.httpsGet(url);
             if (json != null && json.length() > 0) {
                 try {
-                    Map base = this.jsonParser().parseJson(json);
-                    if (base != null) {
-                        this.errorLogger().info("PelionProcessor(Discovery): Response: " + base);
-                        return (List)base.get(key);
+                    if (key != null) {
+                        Map base = this.jsonParser().parseJson(json);
+                        if (base != null) {
+                            this.errorLogger().info("PelionProcessor(Discovery): Key:" + key + " Response: " + base);
+                            return (List)base.get(key);
+                        }
                     }
                 }
                 catch (Exception ex) {
@@ -1209,11 +1209,19 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 }
             }
             else {
-                this.errorLogger().info("PelionProcessor(Discovery): No response given for URL: " + url);
+                this.errorLogger().warning("PelionProcessor(Discovery): No RESOURCE response given for URL: " + url);
             }
         }
         else {
-            this.errorLogger().warning("PelionProcessor(Discovery): ERROR: No kev provided for Discovery. URL: " + url);
+            String json = this.httpsGet(url);
+            if (json != null && json.length() > 0) {
+                List list = this.jsonParser().parseJsonToArray(json);
+                this.errorLogger().info("PelionProcessor(Discovery): Response: " + list);
+                return list;
+            }
+            else {
+                this.errorLogger().warning("PelionProcessor(Discovery): No RESOURCE info response given for URL: " + url);
+            }
         }
         return null;
     }

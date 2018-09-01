@@ -62,7 +62,7 @@ public class BridgeMain implements Runnable {
     
     // Jetty Server
     private Server m_server = null;
-    private Server m_logger_server = null;
+    private Server m_ws_service = null;
     
     // constructor
     public BridgeMain(String[] args) {
@@ -116,19 +116,24 @@ public class BridgeMain implements Runnable {
         // eventing process servlet bindings (wildcarded)
         context.addServlet(new ServletHolder(this.m_events_processor), this.m_preferences.valueOf("mds_gw_events_path") + "/*");
         
-        // logger websocket server
-        this.m_logger_server = new Server();
-        ServerConnector logger_server_connector = new ServerConnector(this.m_logger_server);
+        // setup our websocket server
+        this.m_ws_service = new Server();
+        ServerConnector logger_server_connector = new ServerConnector(this.m_ws_service);
         logger_server_connector.setPort(this.m_preferences.intValueOf("websocket_streaming_port"));
-        this.m_logger_server.addConnector(logger_server_connector);
+        this.m_ws_service.addConnector(logger_server_connector);
         
+        // default context handler for WS
         ServletContextHandler logger_context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         logger_context.setContextPath("/");
-        this.m_logger_server.setHandler(logger_context);
+        this.m_ws_service.setHandler(logger_context);
         
-        // Add a websocket to a specific path spec
-        ServletHolder holderEvents = new ServletHolder("ws-logger", LoggerWebSocketServlet.class);
-        logger_context.addServlet(holderEvents, "/logger/*");
+        // Logging Service context handler
+        ServletHolder logEvents = new ServletHolder("ws-logger", LoggerWebSocketServlet.class);
+        logger_context.addServlet(logEvents, "/logger/*");
+        
+        // Health Status Service context handler
+        ServletHolder healthEvents = new ServletHolder("health-status", LoggerWebSocketServlet.class);
+        logger_context.addServlet(healthEvents, "/health/*");
         
         // add a shutdown hook for graceful shutdowns...
         Runtime.getRuntime().addShutdownHook(
@@ -163,10 +168,12 @@ public class BridgeMain implements Runnable {
             // initialize the listeners
             this.m_manager.initListeners();
 
-            // start me!
-            System.out.println(Manager.LOG_TAG + ": Starting logger service");
-            this.m_logger_server.start();            
-             System.out.println(Manager.LOG_TAG + ": Starting bridge service");
+            // Start the Websocket Service
+            this.errorLogger().warning("Main: Starting logger service");
+            this.m_ws_service.start();   
+            
+            // Start the Bridge Service
+            this.errorLogger().warning("Main: Starting bridge service");
             this.m_server.start();
 
             // Direct the manager to establish the webhooks to Connector/mDS/Cloud
@@ -175,9 +182,9 @@ public class BridgeMain implements Runnable {
             // Start statistics generation
             this.m_manager.startStatisticsMonitoring();
 
-            // Join me!
+            // Join
             this.m_server.join();
-            this.m_logger_server.join();
+            this.m_ws_service.join();
         }
         catch (Exception ex) {
             this.errorLogger().critical("Main: EXCEPTION during bridge start(): " + ex.getMessage(),ex);
@@ -187,17 +194,20 @@ public class BridgeMain implements Runnable {
     // stop the bridge
     public void stop() {
         try {
-            // stop the current service
+            // stop the bridge service
             this.errorLogger().warning("Main: Stopping current bridge service...");
             this.m_server.stop();
-            this.m_logger_server.stop();
+            
+            // stop the WS service
+            this.errorLogger().warning("Main: Stopping websocket service...");
+            this.m_ws_service.stop();
             
             // current bridge server stoped
-            this.errorLogger().warning("Main: Bridge service has been stopped");
+            this.errorLogger().warning("Main: All services have been stopped");
         }
         catch (Exception ex) {
             // ERROR
-            this.errorLogger().critical("Main: EXCEPTION during bridge service stop: " + ex.getMessage());
+            this.errorLogger().critical("Main: EXCEPTION during service(s) stop: " + ex.getMessage());
         }
     }
     

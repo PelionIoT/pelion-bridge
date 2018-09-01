@@ -25,6 +25,7 @@ package com.arm.pelion.bridge.json;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -37,11 +38,24 @@ public class JSONParser {
     public JSONParser() {
     }
 
-    // parse JSON into Map/List 
+    // parse JSON into Map 
     public Map parseJson(String json) {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             Map<String, Object> jsonMap = objectMapper.readValue(json,new TypeReference<Map<String,Object>>(){});
+            return jsonMap;
+        }
+        catch(IOException ex) {
+            // silent
+        }
+        return null;
+    }
+    
+    // parse JSON into Array (List) 
+    public List parseJsonToArray(String json) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            List<Map<String, Object>> jsonMap = objectMapper.readValue(json,new TypeReference<List<Map<String, Object>>>(){});
             return jsonMap;
         }
         catch(IOException ex) {
