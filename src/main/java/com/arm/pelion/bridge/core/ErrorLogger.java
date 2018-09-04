@@ -312,13 +312,9 @@ public class ErrorLogger extends BaseClass {
     // log it
     private void logit(String message) {
         // Websocket logger integration... check if enabled...
-        if (this.m_enable_logger_tracker == true && this.m_logger_tracker_instance != null && this.m_logger_tracker_instance.connected() == true) {
+        if (this.m_enable_logger_tracker == true && this.m_logger_tracker_instance != null) {
             // write to the logger instance
             this.m_logger_tracker_instance.write(message);
-        }
-        else if (this.m_enable_logger_tracker == true && this.m_logger_tracker_instance != null) {
-            // unable to write to the logger - we are not connected
-            this.warning("Logger is disconnected. Unable to message to logger: " + message);
         }
         
         // SLF4J integration... check if enabled...

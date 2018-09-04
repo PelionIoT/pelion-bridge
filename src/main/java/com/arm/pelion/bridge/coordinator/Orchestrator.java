@@ -1,6 +1,6 @@
 /**
- * @file orchestrator.java
- * @brief orchestrator for the Pelion bridge
+ * @file Orchestrator.java
+ * @brief Orchestrator for the Pelion bridge
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -61,6 +61,9 @@ import com.arm.pelion.bridge.health.interfaces.HealthStatisticListenerInterface;
 public class Orchestrator implements PelionProcessorInterface, PeerProcessorInterface, HealthStatisticListenerInterface {
     // Default Health Check Service Provider Sleep time in MS
     private static final int DEF_HEALTH_CHECK_SERVICE_PROVIDER_SLEEP_TIME_MS = (60000 * 10);    // 10 minutes
+    
+    // Health Stats Key 
+    private static final String HEALTH_STATS_KEY = "[HEALTH_STATS]";        
     
     // database table delimiter
     private static String DEF_TABLENAME_DELIMITER = "_";
@@ -258,7 +261,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
 
     // use IBM peer processor?
     private Boolean ibmPeerEnabled() {
-        return (this.preferences().booleanValueOf("enable_iotf_addon") || this.preferences().booleanValueOf("enable_starterkit_addon"));
+        return (this.preferences().booleanValueOf("enable_iotf_addon"));
     }
 
     // use MS peer processor?
@@ -592,8 +595,11 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     // orchestrator processing the publication of statistics 
     @Override
     public void publish(String json) {
-       // dump to error logger
-       this.errorLogger().warning("HEALTH STATS: " + json);
+       // dump to error logger with a KEY that the properties-editor will detect
+       this.errorLogger().critical(HEALTH_STATS_KEY + json);
+       
+       // note in log so that log moves...
+       this.errorLogger().warning("Health Stats: Updated (OK).");
     }
     
     // get the active thread count

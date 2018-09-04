@@ -22,9 +22,6 @@
  */
 package com.arm.pelion.bridge.loggerservlet;
 
-import com.arm.pelion.bridge.core.BaseClass;
-import com.arm.pelion.bridge.core.ErrorLogger;
-import com.arm.pelion.bridge.preferences.PreferenceManager;
 import java.io.IOException;
 
 import org.eclipse.jetty.websocket.api.Session;
@@ -40,7 +37,7 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket;
  */
 @WebSocket
 public class LoggerWebSocket {
-        public Session session;
+        public Session session = null;
 
 	@OnWebSocketConnect
 	public void onConnect(Session session) throws IOException {

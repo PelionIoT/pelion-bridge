@@ -132,8 +132,8 @@ public class BridgeMain implements Runnable {
         logger_context.addServlet(logEvents, "/logger/*");
         
         // Health Status Service context handler
-        ServletHolder healthEvents = new ServletHolder("health-status", LoggerWebSocketServlet.class);
-        logger_context.addServlet(healthEvents, "/health/*");
+        //ServletHolder healthEvents = new ServletHolder("health-status", LoggerWebSocketServlet.class);
+        //logger_context.addServlet(healthEvents, "/health/*");
         
         // add a shutdown hook for graceful shutdowns...
         Runtime.getRuntime().addShutdownHook(

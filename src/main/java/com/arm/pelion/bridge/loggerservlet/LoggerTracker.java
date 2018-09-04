@@ -22,42 +22,90 @@
  */
 package com.arm.pelion.bridge.loggerservlet;
 
+import com.arm.pelion.bridge.core.Utils;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 
 /**
  * Logger Tracker implementation
  * 
  * @author Brian Daniels
  */
-public class LoggerTracker {
-    private static final LoggerTracker INSTANCE = new LoggerTracker();
-
+public class LoggerTracker implements Runnable {
+    private static final LoggerTracker me = new LoggerTracker();
+    private static Thread me_thread = new Thread(me);
+    private boolean is_running = true;
+    private Queue<String> m_log_queue = new LinkedList<String>();
+    private List<LoggerWebSocket> m_members = new ArrayList<>();
+    
     public static LoggerTracker getInstance() {
-        return INSTANCE;
+        if (me_thread.isAlive() == false) {
+            me_thread.start();
+        }
+        return me;
     }
     
-    private List<LoggerWebSocket> members = new ArrayList<>();
-
     public void join(LoggerWebSocket socket) {
-        members.add(socket);
+        m_members.add(socket);
     }
 
     public void leave(LoggerWebSocket socket) {
-        members.remove(socket);
+        m_members.remove(socket);
     }
 
     public void write(String message) {
-        for(LoggerWebSocket member: members) {
-            member.session.getRemote().sendStringByFuture(message);
-        }
+        this.putMessage(message);
     }
     
     public boolean connected() {
         boolean is_connected = true;
-        for(LoggerWebSocket member: members) {
-            is_connected = is_connected & member.session.isOpen();
+        if (this.m_members != null) {
+            for(LoggerWebSocket member: m_members) {
+                is_connected = is_connected & member.session.isOpen();
+            }
+        }
+        else {
+            is_connected = false;
         }
         return is_connected;
+    }
+    
+    private synchronized void putMessage(String message) {
+        this.m_log_queue.add(message);
+    }
+    
+    private synchronized String getNextMessage() {
+        return this.m_log_queue.poll();
+    }
+    
+    private synchronized int getMessageCount() {
+        return this.m_log_queue.size();
+    }
+    
+    private void writeLogCache() {
+        while(this.is_running == true) {
+            for(LoggerWebSocket member: m_members) {
+                while(this.getMessageCount() > 0) {
+                    if (member != null && member.session != null && member.session.isOpen() == true) {
+                        // dump the message and remove
+                        member.session.getRemote().sendStringByFuture(this.getNextMessage());
+                    }
+                }
+            }
+            
+            // if we have drained our queue... sleep
+            do {
+                // Sleep for 10 seconds and recheck
+                Utils.waitForABit(null, 10000);
+            }
+            while (this.getMessageCount() == 0);
+        }
+    }
+
+    @Override
+    public void run() {
+        this.writeLogCache();
     }
 }

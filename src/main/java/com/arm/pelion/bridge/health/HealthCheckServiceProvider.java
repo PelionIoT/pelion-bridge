@@ -155,6 +155,15 @@ public class HealthCheckServiceProvider extends BaseClass implements HealthCheck
         // add a timestamp
         stats.put("timestamp",(String)this.getCurrentFormattedTime());
         
+        // Create the descriptions Map
+        Map descriptions = this.createDescriptonJSON();
+        
+        // add a timestamp to the descriptions
+        descriptions.put("timestamp","Recorded Date/Time");
+        
+        // add the descriptions 
+        stats.put("descriptions",descriptions);
+        
         // return the status
         return (Map)stats;
     }
