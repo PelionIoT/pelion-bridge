@@ -41,6 +41,10 @@ public class ErrorLogger extends BaseClass {
     // SLF4J stdio logging instance
     private Logger m_slf4j_stdio_logging_instance = null;
     private boolean m_enable_slf4j_stdio_loggin_instance = true;   // true: enabled. false: use System.out/err
+    
+    // send logs over websocket service within bridge
+    private boolean m_enable_logger_tracker = true;                // true: enabled. false: disabled
+    private LoggerTracker m_logger_tracker_instance = null;      
 
     /**
      * default message
@@ -94,7 +98,6 @@ public class ErrorLogger extends BaseClass {
     private volatile ArrayList<String> m_log = null;    // error log
     private Object m_parent = null;                     // our parent object
     private String m_bridge_error_level = null;         // our preference
-    private LoggerTracker m_logger_tracker = null;      // send logs over websocket
 
     /**
      * constructor
@@ -108,10 +111,13 @@ public class ErrorLogger extends BaseClass {
         this.m_mask = ErrorLogger.SHOW_ALL;
         this.m_log = new ArrayList<>();
         this.m_bridge_error_level = null;
-        this.m_logger_tracker = LoggerTracker.getInstance();
         
         if (this.m_enable_slf4j_stdio_loggin_instance == true) {
             this.m_slf4j_stdio_logging_instance = LoggerFactory.getLogger(this.getClass().getName());
+        }
+        
+        if (this.m_enable_logger_tracker == true) {
+            this.m_logger_tracker_instance = LoggerTracker.getInstance();
         }
     }
     
@@ -305,11 +311,20 @@ public class ErrorLogger extends BaseClass {
     
     // log it
     private void logit(String message) {
+        // Websocket logger integration... check if enabled...
+        if (this.m_enable_logger_tracker == true && this.m_logger_tracker_instance != null && this.m_logger_tracker_instance.connected() == true) {
+            // write to the logger instance
+            this.m_logger_tracker_instance.write(message);
+        }
+        else if (this.m_enable_logger_tracker == true && this.m_logger_tracker_instance != null) {
+            // unable to write to the logger - we are not connected
+            this.warning("Logger is disconnected. Unable to message to logger: " + message);
+        }
+        
         // SLF4J integration... check if enabled...
         if (this.m_enable_slf4j_stdio_loggin_instance == true && this.m_slf4j_stdio_logging_instance != null) {        
             // Dump to SLF4J instance
             this.m_slf4j_stdio_logging_instance.info(message);
-            this.m_logger_tracker.write(message);
         }
         else {
             // Dump to stdout

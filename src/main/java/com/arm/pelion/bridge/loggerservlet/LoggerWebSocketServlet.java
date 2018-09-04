@@ -1,17 +1,24 @@
-/*
- * Copyright 2018 bridan01.
+/**
+ * @file LoggerWebSocketServlet.java
+ * @brief pelion-bridge Logging WebSocket Servlet Generator
+ * @author Brian Daniels
+ * @version 1.0
+ * @see
+ *
+ * Copyright 2018. ARM Ltd. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 package com.arm.pelion.bridge.loggerservlet;
 
@@ -19,13 +26,14 @@ import org.eclipse.jetty.websocket.servlet.WebSocketServlet;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 
 /**
- *
- * @author bridan01
+ * Factory generator for the Logger WebSocket Servlet
+ * 
+ * @author Brian Daniels
  */
 
 public class LoggerWebSocketServlet extends WebSocketServlet {
     @Override
-	public void configure(WebSocketServletFactory factory) {
-	      factory.register(LoggerWebSocket.class);
-	}
+    public void configure(WebSocketServletFactory factory) {
+          factory.register(LoggerWebSocket.class);
+    }
 }
