@@ -161,7 +161,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         // Get the health check service provider sleep time
         if (this.m_enable_health_checks == true) {
             this.m_health_check_service_provider_sleep_time_ms = preferences().intValueOf("heath_check_sleep_time_ms");
-            if (this.m_health_check_service_provider_sleep_time_ms <- 0) {
+            if (this.m_health_check_service_provider_sleep_time_ms <= 0) {
                 this.m_health_check_service_provider_sleep_time_ms = DEF_HEALTH_CHECK_SERVICE_PROVIDER_SLEEP_TIME_MS;
             }
 
