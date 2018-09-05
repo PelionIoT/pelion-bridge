@@ -22,6 +22,7 @@
  */
 package com.arm.pelion.bridge.core;
 
+import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.loggerservlet.LoggerTracker;
 import java.io.PrintWriter;
@@ -311,20 +312,25 @@ public class ErrorLogger extends BaseClass {
     
     // log it
     private void logit(String message) {
-        // Websocket logger integration... check if enabled...
-        if (this.m_enable_logger_tracker == true && this.m_logger_tracker_instance != null) {
-            // write to the logger instance
-            this.m_logger_tracker_instance.write(message);
-        }
-        
-        // SLF4J integration... check if enabled...
-        if (this.m_enable_slf4j_stdio_loggin_instance == true && this.m_slf4j_stdio_logging_instance != null) {        
-            // Dump to SLF4J instance
-            this.m_slf4j_stdio_logging_instance.info(message);
-        }
-        else {
-            // Dump to stdout
-            System.out.println(message);
+        if (message != null) {
+            // Websocket logger integration... check if enabled...
+            if (this.m_enable_logger_tracker == true && this.m_logger_tracker_instance != null) {
+                // write to the logger instance
+                this.m_logger_tracker_instance.write(message);
+            }
+
+            // no need to emit the health stats as logging data... it will be consumed otherwise
+            if (message.contains(Orchestrator.HEALTH_STATS_KEY) == false) {
+                // SLF4J integration... check if enabled...
+                if (this.m_enable_slf4j_stdio_loggin_instance == true && this.m_slf4j_stdio_logging_instance != null) {        
+                    // Dump to SLF4J instance
+                    this.m_slf4j_stdio_logging_instance.info(message);
+                }
+                else {
+                    // Dump to stdout
+                    System.out.println(message);
+                }
+            }
         }
     }
 

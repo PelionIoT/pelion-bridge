@@ -63,7 +63,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     private static final int DEF_HEALTH_CHECK_SERVICE_PROVIDER_SLEEP_TIME_MS = (60000 * 10);    // 10 minutes
     
     // Health Stats Key 
-    private static final String HEALTH_STATS_KEY = "[HEALTH_STATS]";        
+    public static final String HEALTH_STATS_KEY = "[HEALTH_STATS]";        
     
     // database table delimiter
     private static String DEF_TABLENAME_DELIMITER = "_";
