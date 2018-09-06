@@ -287,12 +287,18 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         this.removeWebhook();
         
         // set the webhook
-        return setWebhook();
+        return setWebhook(false);
     }
-
+    
     // set our mbed Cloud Notification Callback URL
     @Override
     public boolean setWebhook() {
+        // external interface will invoke device discovery...
+        return this.setWebhook(true);
+    }
+
+    // set our mbed Cloud Notification Callback URL (with device discovery option)
+    private boolean setWebhook(boolean do_discovery) {
         boolean ok = false;
         boolean do_restart = true;
         
@@ -315,9 +321,15 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                         this.errorLogger().warning("PelionProcessor(WebhookSet): Webhook to mbed Cloud set. Enabling bulk subscriptions.");
                         ok = this.setupBulkSubscriptions();
                         if (ok) {
-                            // scan for devices now
-                            this.errorLogger().warning("PelionProcessor(WebhookSet): Initial scan for mbed devices...");
-                            this.startDeviceDiscovery();
+                            if (do_discovery == true) {
+                                // scan for devices now
+                                this.errorLogger().warning("PelionProcessor(WebhookSet): Initial scan for mbed devices...");
+                                this.startDeviceDiscovery();
+                            }
+                            else {
+                                // skip the device discovery
+                                this.errorLogger().warning("PelionProcessor(WebhookSet): Skipping initial scan for mbed devices (OK).");
+                            }
                         }
                         else {
                             // ERROR
@@ -1377,7 +1389,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         try {
             String url = createWebhookURL();
             String webhook = this.getWebhook();
-            return (url.equalsIgnoreCase(webhook) == true);
+            if (url.equalsIgnoreCase(webhook) == true) {
+                // webhook is OK
+                return true;
+            }
+            else {
+                // webhook is NOT OK... so reset it and retry...
+                return this.resetWebhook();
+            }
         }
         catch (Exception ex) {
             // silent
