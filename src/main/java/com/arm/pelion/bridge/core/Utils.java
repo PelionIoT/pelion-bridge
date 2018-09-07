@@ -1146,4 +1146,77 @@ public class Utils {
         }
         return hash;
     }
+    
+    // is a full URI (objectID/instanceID/resourceID)
+    public static boolean isCompleteURI(String uri) {
+        if (uri != null && uri.length() > 0) {
+            String[] elements = uri.split("/");
+            if (elements != null && elements.length > 0) {
+                // Format1:  /object_id/instance_id/resource_id == 4 
+                // Format2:   object_id/instance_id/resource_id == 3
+                if (uri.charAt(0) == '/') {
+                    if (elements.length >= 4) {
+                        return true;
+                    }
+                }
+                else {
+                    if (elements.length >= 3) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    // is the URI a reserved or otherwise handled URI
+    public static boolean isHandledURI(String uri) {
+        if (uri != null) {
+            String object_id = Utils.objectIDFromURI(uri);
+            try {
+                Integer oid = Integer.parseInt(object_id);
+                if (oid > 0) {
+                    if (oid == 1 || oid == 3 || oid == 5 || oid == 10255 || oid == 5000) {
+                        return true;
+                    }
+                }
+            }
+            catch (NumberFormatException ex) {
+                // silent
+            }
+        }
+        return false;
+    }
+    
+    // get the resource ID from the URI
+    public static String resourceIDFromURI(String uri) {
+        String resource_id = "";
+        if (uri != null && uri.length() > 0) {
+            String[] elements = uri.split("/");
+            if (elements.length > 0) {
+                // Format:  /object_id/instance_id/resource_id
+                resource_id = elements[elements.length-1];
+            }
+        }
+        return resource_id;
+    }
+    
+    // get the object ID from the URI
+    public static String objectIDFromURI(String uri) {
+        String object_id = "";
+        if (uri != null && uri.length() > 0) {
+            String[] elements = uri.split("/");
+            if (elements.length > 0) {
+                if (uri.charAt(0) == '/') {
+                    // Format:  /object_id/instance_id/resource_id
+                    object_id = elements[1];
+                }
+                else {
+                    // Format:  object_id/instance_id/resource_id
+                    object_id = elements[0];
+                }
+            }
+        }
+        return object_id;
+    }
 }
