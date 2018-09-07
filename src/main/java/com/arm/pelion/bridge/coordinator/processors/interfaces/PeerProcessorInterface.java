@@ -21,6 +21,7 @@
  *
  */
 package com.arm.pelion.bridge.coordinator.processors.interfaces;
+import com.arm.pelion.bridge.coordinator.processors.core.EndpointTypeManager;
 import java.util.Map;
 
 /**
@@ -54,8 +55,8 @@ public interface PeerProcessorInterface {
     // process an endpoint resource notification message from Pelion
     public void processNotification(Map message);
     
-    // acquire the subscriptions manager from the peer
-    public SubscriptionManager subscriptionsManager();
+    // acquire the endpoint type manager from the peer
+    public EndpointTypeManager getEndpointTypeManager();
     
     // process a new device registration (directly, Pelion)
     public void completeNewDeviceRegistration(Map endpoint);
@@ -68,7 +69,4 @@ public interface PeerProcessorInterface {
     
     // record async responses
     public void recordAsyncResponse(String response, String uri, Map ep, AsyncResponseProcessor processor);
-    
-    // save the endpoint type for a given endpoint name
-    public void setEndpointTypeFromEndpointName(String ep,String ept);
 }

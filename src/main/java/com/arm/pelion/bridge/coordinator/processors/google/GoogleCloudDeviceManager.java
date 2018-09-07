@@ -24,7 +24,6 @@ package com.arm.pelion.bridge.coordinator.processors.google;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.SubscriptionManager;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.data.SerializableHashMap;
@@ -75,15 +74,14 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
     private String m_google_cloud_key_convert_cmd_template = null;
     private String m_keystore_rootdir = null;
     private int m_num_days = 0;
-    private SubscriptionManager m_subscription_manager = null;
     
     // constructor
-    public GoogleCloudDeviceManager(ErrorLogger logger, PreferenceManager preferences, HttpTransport http, Orchestrator orchestrator,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key,SubscriptionManager subscription_manager) {
-        this(logger,preferences,null,http,orchestrator,project_id,region,cloud_iot,pub_sub,obs_key,cmd_key,subscription_manager);
+    public GoogleCloudDeviceManager(ErrorLogger logger, PreferenceManager preferences, HttpTransport http, Orchestrator orchestrator,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key) {
+        this(logger,preferences,null,http,orchestrator,project_id,region,cloud_iot,pub_sub,obs_key,cmd_key);
     }
 
     // defaulted constructor
-    public GoogleCloudDeviceManager(ErrorLogger logger, PreferenceManager preferences, String suffix, HttpTransport http, Orchestrator orchestrator,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key,SubscriptionManager subscription_manager) {
+    public GoogleCloudDeviceManager(ErrorLogger logger, PreferenceManager preferences, String suffix, HttpTransport http, Orchestrator orchestrator,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key) {
         super(logger,preferences,suffix,http,orchestrator);
         
         // create the registry ID
@@ -105,7 +103,6 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         this.m_google_cloud_key_convert_cmd_template = this.orchestrator().preferences().valueOf("google_cloud_key_convert_cmd_template",this.m_suffix);
         this.m_keystore_rootdir = this.orchestrator().preferences().valueOf("mqtt_keystore_basedir",this.m_suffix);
         this.m_num_days = this.orchestrator().preferences().intValueOf("google_cloud_cert_days_length",this.m_suffix);
-        this.m_subscription_manager = subscription_manager;
         
         // ensure that we have a device registry        
         if (this.initDeviceRegistry(this.m_registry_name,this.m_obs_key,this.m_cmd_key)) {
@@ -349,14 +346,14 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         for(int i=0;i<num_resources;++i) {
             Map resource = this.getResource(i,message);
             if (resource != null) {
+                // get the LWM2M Resource URI
                 String uri = (String)resource.get("path");
-                if (this.m_subscription_manager.isNotASpecialityResource(uri) == true) {
-                    // not a speciality resource... so lets put it into the metadata
-                    String obs = (String)resource.get("obs");
-                    if (obs != null && obs.length() > 0) {
-                        String key = this.lwm2mURIToGoogleKey(uri);
-                        metadata.put(key,obs);
-                    }
+                
+                // put observable resources into the metadata
+                String obs = (String)resource.get("obs");
+                if (obs != null && obs.length() > 0) {
+                    String key = this.lwm2mURIToGoogleKey(uri);
+                    metadata.put(key,obs);
                 }
             }
         }

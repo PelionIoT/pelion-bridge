@@ -159,24 +159,9 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
         List endpoints = (List) data.get(key);
         for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
             Map endpoint = (Map) endpoints.get(i);
-            List resources = (List) endpoint.get("resources");
-            for (int j = 0; resources != null && j < resources.size(); ++j) {
-                Map resource = (Map) resources.get(j);
-
-                // re-subscribe
-                if (this.subscriptionsManager().containsSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"))) {
-                    // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
-                    this.subscriptionsManager().removeSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
-                    this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
-                }
-
-                // auto-subscribe
-                else if (this.isObservableResource(resource) && this.m_auto_subscribe_to_obs_resources == true) {
-                    // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
-                    this.subscriptionsManager().removeSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
-                    this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
-                }
-            }
+            
+            // ensure we have the endpoint type
+            this.setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
 
             // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
             this.retrieveEndpointAttributes(endpoint,this);

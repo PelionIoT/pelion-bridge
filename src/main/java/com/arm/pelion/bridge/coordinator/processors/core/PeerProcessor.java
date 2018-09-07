@@ -23,13 +23,10 @@
 package com.arm.pelion.bridge.coordinator.processors.core;
 
 import com.arm.pelion.bridge.core.Processor;
-import com.arm.pelion.bridge.subscription.managers.BulkSubscriptionManager;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.SubscriptionManager;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.SubscriptionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.TopicParseInterface;
 import com.arm.pelion.bridge.core.TypeDecoder;
 import com.arm.pelion.bridge.core.Utils;
@@ -46,7 +43,7 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class PeerProcessor extends Processor implements GenericSender, TopicParseInterface {
     private AsyncResponseManager m_async_response_manager = null;
-    private SubscriptionManager m_subscriptions_manager = null;
+    private EndpointTypeManager m_endpoint_type_manager = null;
     private String m_mds_topic_root = null;
     private TypeDecoder m_type_decoder = null;
     private String m_mds_request_tag = null;
@@ -75,8 +72,8 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // allocate our AsyncResponse orchestrator
         this.m_async_response_manager = new AsyncResponseManager(orchestrator);
         
-        // Use the bulk subscription manager
-        this.m_subscriptions_manager = (SubscriptionManager)new BulkSubscriptionManager(orchestrator);
+        // Create an endpoint type manager
+        this.m_endpoint_type_manager = new EndpointTypeManager(orchestrator);
         
         // initial topic root
         this.m_mds_topic_root = "";
@@ -98,13 +95,6 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         this.m_observation_key = "notify";
     }
     
-    // add a subscriptions processor to the subscriptions manager
-    protected void addSubscriptionProcessor(SubscriptionProcessor subscription_processor) {
-        if (this.subscriptionsManager() != null) {
-            this.subscriptionsManager().addSubscriptionProcessor(subscription_processor);
-        }
-    }
-    
     // process a received new registration
     protected void processRegistration(Map data, String key) {
         List endpoints = (List) data.get(key);
@@ -113,22 +103,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
 
             // ensure we have the endpoint type
             this.setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
-
-            // re-subscribe if previously subscribed to observable resources
-            List resources = (List) endpoint.get("resources");
-            for (int j = 0; resources != null && j < resources.size(); ++j) {
-                Map resource = (Map) resources.get(j);
-                if (this.subscriptionsManager().containsSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"))) {
-                    // no re-processing of subscriptions
-                    this.errorLogger().info("processRegistration: not re-initializing subscription (OK)");
-                }
-                else if (this.isObservableResource(resource) && this.m_auto_subscribe_to_obs_resources == true && this.subscriptionsManager().isFullyQualifiedResource((String)resource.get("path")) && this.subscriptionsManager().isNotASpecialityResource((String) resource.get("path"))) {
-                    // SYNC: here we dont have to worry about Sync options - we simply dispatch the subscription to mDS and setup for it...
-                    this.subscriptionsManager().removeSubscription( (String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"));
-                    this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
-                }
-            }
-        }
+         }
     }
     
     // process a reregistration
@@ -137,18 +112,6 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         for (int i = 0; notifications != null && i < notifications.size(); ++i) {
             Map endpoint = (Map) notifications.get(i);
             this.setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
-            List resources = (List) endpoint.get("resources");
-            for (int j = 0; resources != null && j < resources.size(); ++j) {
-                Map resource = (Map) resources.get(j);
-                if (this.isObservableResource(resource) && this.subscriptionsManager().isFullyQualifiedResource((String)resource.get("path")) && this.subscriptionsManager().isNotASpecialityResource((String)resource.get("path"))) {
-                    this.errorLogger().info("processReRegistration(Peer) : CoAP re-registration: " + endpoint + " Resource: " + resource);
-                    if (this.subscriptionsManager().containsSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path")) == false) {
-                        this.errorLogger().info("processReRegistration(Peer) : CoAP re-registering OBS resources for: " + endpoint + " Resource: " + resource);
-                        this.processRegistration(data, "reg-updates");
-                        this.subscriptionsManager().addSubscription((String) endpoint.get("ep"), (String) endpoint.get("ept"), (String) resource.get("path"), this.isObservableResource(resource));
-                    }
-                }
-            }
         }
     }
     
@@ -156,9 +119,6 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     public String[] processDeviceDeletions(Map parsed) {
         String[] device_deletions = this.parseDeviceDeletionsBody(parsed);
         this.orchestrator().processDeviceDeletions(device_deletions);
-        for (int i = 0; i < device_deletions.length; ++i) {
-            this.subscriptionsManager().removeEndpointSubscriptions(device_deletions[i]);
-        }
         for (int i = 0; i < device_deletions.length; ++i) {
             this.m_endpoint_type_list.remove(device_deletions[i]);
         }
@@ -170,9 +130,6 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String[] deregistrations = this.parseDeRegistrationBody(parsed);
         this.orchestrator().processDeregistrations(deregistrations);
         for (int i = 0; i < deregistrations.length; ++i) {
-            this.subscriptionsManager().removeEndpointSubscriptions(deregistrations[i]);
-        }
-        for (int i = 0; i < deregistrations.length; ++i) {
             this.m_endpoint_type_list.remove(deregistrations[i]);
         }
         return deregistrations;
@@ -182,9 +139,6 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     public String[] processRegistrationsExpired(Map parsed) {
         String[] regs_expired = this.parseRegistrationsExpiredBody(parsed);
         this.orchestrator().processRegistrationsExpired(regs_expired);
-        for (int i = 0; i < regs_expired.length; ++i) {
-            this.subscriptionsManager().removeEndpointSubscriptions(regs_expired[i]);
-        }
         for (int i = 0; i < regs_expired.length; ++i) {
             this.m_endpoint_type_list.remove(regs_expired[i]);
         }
@@ -236,25 +190,18 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             // get the resource URI
             String uri = (String) notification.get("path");
 
-            // make sure we have an active subscription for this notification
-            if (this.subscriptionsManager().containsSubscription( ep_name, ep_type, uri) == true) {
-                // send it as JSON over the observation sub topic
-                String topic = this.createObservationTopic(ep_type, ep_name, uri);
+            // send it as JSON over the observation sub topic
+            String topic = this.createObservationTopic(ep_type, ep_name, uri);
 
-                // encapsulate into a coap/device packet...
-                String coap_json = coap_json_stripped;
+            // encapsulate into a coap/device packet...
+            String coap_json = coap_json_stripped;
 
-                // DEBUG
-                this.errorLogger().info("processNotification(Peer): Active subscription for ep_name: " + ep_name + " ep_type: " + ep_type + " uri: " + uri);
-                this.errorLogger().info("processNotification(Peer): Publishing notification: payload: " + coap_json + " topic: " + topic);
+            // DEBUG
+            this.errorLogger().info("processNotification(Peer): Active subscription for ep_name: " + ep_name + " ep_type: " + ep_type + " uri: " + uri);
+            this.errorLogger().info("processNotification(Peer): Publishing notification: payload: " + coap_json + " topic: " + topic);
 
-                // publish to Peer...
-                this.sendMessage(topic, coap_json);
-            }
-            else {
-                // no active subscription present - so note but do not send
-                this.errorLogger().info("processNotification(Peer): no active subscription for ep_name: " + ep_name + " ep_type: " + ep_type + " uri: " + uri + "... dropping notification...");
-            }
+            // publish to Peer...
+            this.sendMessage(topic, coap_json);
         }
     }
     
@@ -343,7 +290,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // get the endpoint type from the endpoint name
     protected String getEndpointTypeFromEndpointName(String ep_name) {
-        String recorded = this.subscriptionsManager().endpointTypeFromEndpointName(ep_name);
+        String recorded = this.getEndpointTypeManager().endpointTypeFromEndpointName(ep_name);
         if (recorded != null) {
             // return what the subscription manager has for the endpoint
             return recorded;
@@ -412,9 +359,9 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         return this.m_mds_topic_root;
     }
     
-    // get the subscriptions manager
-    public SubscriptionManager subscriptionsManager() {
-        return this.m_subscriptions_manager;
+    // get the get the endpoint type  manager
+    public EndpointTypeManager getEndpointTypeManager() {
+        return this.m_endpoint_type_manager;
     }
 
     // get the AsyncResponseManager

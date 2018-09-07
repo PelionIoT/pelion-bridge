@@ -33,7 +33,6 @@ import com.arm.pelion.bridge.coordinator.processors.factories.GoogleCloudPeerPro
 
 // Core
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.SubscriptionManager;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.json.JSONGenerator;
 import com.arm.pelion.bridge.json.JSONParser;
@@ -49,6 +48,7 @@ import com.arm.pelion.bridge.data.DatabaseConnector;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.servlet.Manager;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
+import com.arm.pelion.bridge.coordinator.processors.core.EndpointTypeManager;
 import com.arm.pelion.bridge.health.HealthCheckServiceProvider;
 import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
 import com.arm.pelion.bridge.health.interfaces.HealthStatisticListenerInterface;
@@ -529,13 +529,6 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
             this.peerProcessor(i).processAsyncResponses(message);
         }
     }
-    
-    @Override
-    public void setEndpointTypeFromEndpointName(String ep,String ept) {
-        for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
-            this.peerProcessor(i).setEndpointTypeFromEndpointName(ep,ept);
-        }
-    }
 
     @Override
     public void processNotification(Map message) {
@@ -544,18 +537,6 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         }
     }
     
-    public void removeSubscription(String endpoint, String ep_type, String uri) {
-        for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
-            this.peerProcessor(i).subscriptionsManager().removeSubscription(endpoint,ep_type,uri);
-        }
-    }
-    
-    public void addSubscription(String endpoint, String ep_type, String uri, boolean is_observable) {
-        for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
-            this.peerProcessor(i).subscriptionsManager().addSubscription(endpoint,ep_type,uri,is_observable);
-        }
-    }
-
     @Override
     public void initListener() {
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
@@ -578,12 +559,6 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         
         // default is false
         return false;
-    }
-
-    @Override
-    public SubscriptionManager subscriptionsManager() {
-        // unused
-        return null;
     }
     
     // init any device discovery
@@ -622,5 +597,15 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     // get the shadow count
     public int getShadowCount() {
         return this.m_shadow_count;
+    }
+
+    // unused
+    @Override
+    public EndpointTypeManager getEndpointTypeManager() {
+        if (this.m_peer_processor_list.size() > 0) {
+            // return just the first one... they are all the same... 
+            return this.m_peer_processor_list.get(0).getEndpointTypeManager();
+        }
+        return null;
     }
 }

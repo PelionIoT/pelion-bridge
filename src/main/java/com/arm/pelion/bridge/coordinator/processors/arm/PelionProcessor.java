@@ -1153,7 +1153,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         
         // Save ept for ep in the peers...
-        this.orchestrator().setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
+        this.orchestrator().getEndpointTypeManager().setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
 
         // process as new device registration...
         this.orchestrator().completeNewDeviceRegistration(endpoint);
