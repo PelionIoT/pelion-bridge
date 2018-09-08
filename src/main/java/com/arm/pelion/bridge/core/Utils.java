@@ -66,6 +66,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -110,11 +111,15 @@ public class Utils {
     }
 
     // get the local time in seconds since Jan 1 1970
-    public static int getLocalTime() {
-        int utc = (int) (System.currentTimeMillis() / 1000);
-        int localtime = utc;
-
+    public static long getLocalTime() {
+        long utc = (long) (System.currentTimeMillis() / 1000);
+        long localtime = utc;
         return localtime;
+    }
+    
+    // get the local time as an RFC3339 format
+    public static String getLocalTimeAsString() {
+        return new SimpleDateFormat("yyyy-MM-dd'T'h:m:ssZZZZZ").format(new Date());
     }
 
     // get UTC time in seconds since Jan 1 1970
