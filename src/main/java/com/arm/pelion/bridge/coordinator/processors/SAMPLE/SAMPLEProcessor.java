@@ -66,19 +66,20 @@ public class SAMPLEProcessor extends GenericMQTTProcessor implements PeerProcess
         super(manager, mqtt, suffix, http);
         this.m_http = http;
         
-        // We can pass in a single MQTTTransport connection (See SAMPLEPeerProcessorFactory) or manage one MQTTTransport per device shadow as needed by SAMPLE
+        // XXX We can pass in a single MQTTTransport connection (Already in SAMPLEPeerProcessorFactory) or manage one 
+        //     MQTTTransport per device shadow as needed by SAMPLE
         
-        // init the added HTTP headers required
+        // init the added HTTP headers required (as needed by SAMPLE)
         http.addHeader("Cache-Control","no-cache");
         
         // create the device manager
         this.m_device_manager = new SAMPLEDeviceManager(this,http,suffix);
         
         // device type prefix default
-        this.m_device_type_prefix = "mbed";
+        this.m_device_type_prefix = manager.preferences().valueOf("SAMPLE_device_prefix",this.m_suffix);
         
         // HTTP content type for SAMPLE
-        this.m_content_type = "application/json";
+        this.m_content_type = manager.preferences().valueOf("SAMPLE_content_type",this.m_suffix);;
         
         // get the SAMPLE auth token 
         this.m_auth_token = this.prefValue("SAMPLE_auth_token");
