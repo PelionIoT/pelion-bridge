@@ -43,8 +43,8 @@ public class SAMPLEPeerProcessorFactory extends BasePeerProcessorFactory impleme
         SAMPLEPeerProcessorFactory me = new SAMPLEPeerProcessorFactory(manager, http);
 
         // initialize me
-        boolean osram_enabled = manager.preferences().booleanValueOf("SAMPLE_enable_addon");
-        if (osram_enabled == true) {
+        boolean SAMPLE_enabled = manager.preferences().booleanValueOf("SAMPLE_enable_addon");
+        if (SAMPLE_enabled == true) {
             // XXX if SAMPLE cloud can make use of a single MQTT connection for all shadows... create and pass it here.
             MQTTTransport mqtt = new MQTTTransport(manager.errorLogger(),manager.preferences(),null);
             manager.errorLogger().info("Registering SAMPLE processor...");
