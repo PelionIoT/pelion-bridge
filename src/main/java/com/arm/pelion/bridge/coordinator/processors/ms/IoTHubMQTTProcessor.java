@@ -736,6 +736,7 @@ public class IoTHubMQTTProcessor extends GenericMQTTProcessor implements Reconne
         if (this.m_device_manager != null) {
             // create the device in IoTHub
             Boolean success = this.m_device_manager.registerNewDevice(message);
+            this.setEndpointTypeFromEndpointName((String) message.get("ep"), (String) message.get("ept"));
 
             // IOTHUB DeviceID Prefix
             String iothub_ep_name = this.addDeviceIDPrefix((String) message.get("ep"));

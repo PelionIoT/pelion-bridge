@@ -1022,7 +1022,7 @@ public class GoogleCloudMQTTProcessor extends GenericMQTTProcessor implements Re
     // we have to override the creation of the authentication hash.. it has to be dependent on a given endpoint name
     @Override
     public String createAuthenticationHash() {
-        return Utils.createHash(this.prefValue("google_cloud_gw_sas_token", this.m_suffix));
+        return Utils.createHash(this.prefValue("google_cloud_auth_json", this.m_suffix));
     }
     
     // mbed endpoint ID to google device ID

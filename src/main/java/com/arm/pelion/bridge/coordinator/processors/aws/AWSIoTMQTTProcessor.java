@@ -677,7 +677,7 @@ public class AWSIoTMQTTProcessor extends GenericMQTTProcessor implements Reconne
     // we have to override the creation of the authentication hash.. it has to be dependent on a given endpoint name
     @Override
     public String createAuthenticationHash() {
-        return Utils.createHash(this.prefValue("aws_iot_gw_sas_token", this.m_suffix));
+        return Utils.createHash(this.prefValue("aws_iot_secret_access_key", this.m_suffix) + this.prefValue("aws_iot_access_key_id", this.m_suffix));
     }
     
     // OVERRIDE: initListener() needs to accomodate a MQTT connection for each endpoint

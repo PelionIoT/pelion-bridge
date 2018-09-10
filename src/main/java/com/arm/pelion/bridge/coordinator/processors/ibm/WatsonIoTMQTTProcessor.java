@@ -594,7 +594,11 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
     @Override
     protected Boolean registerNewDevice(Map message) {
         if (this.m_device_manager != null) {
-            return this.m_device_manager.registerNewDevice(message);
+            boolean ok = this.m_device_manager.registerNewDevice(message);
+            if (ok) {
+                this.setEndpointTypeFromEndpointName((String) message.get("ep"), (String) message.get("ept"));
+            }
+            return ok;
         }
         return false;
     }
