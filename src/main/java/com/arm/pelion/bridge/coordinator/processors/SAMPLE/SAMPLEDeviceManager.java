@@ -20,7 +20,7 @@
  * limitations under the License.
  *
  */
-package com.arm.pelion.bridge.coordinator.processors.sample;
+package com.arm.pelion.bridge.coordinator.processors.SAMPLE;
 
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
 import com.arm.pelion.bridge.transport.HttpTransport;

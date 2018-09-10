@@ -22,14 +22,12 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.factories;
 
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.ReconnectionInterface;
-import com.arm.pelion.bridge.coordinator.processors.sample.SAMPLEProcessor;
+import com.arm.pelion.bridge.coordinator.processors.SAMPLE.SAMPLEProcessor;
 import com.arm.pelion.bridge.transport.MQTTTransport;
 
 /**
