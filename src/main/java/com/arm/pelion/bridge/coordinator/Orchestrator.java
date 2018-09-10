@@ -49,6 +49,7 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInte
 import com.arm.pelion.bridge.servlet.Manager;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
 import com.arm.pelion.bridge.coordinator.processors.core.EndpointTypeManager;
+import com.arm.pelion.bridge.coordinator.processors.factories.SAMPLEPeerProcessorFactory;
 import com.arm.pelion.bridge.health.HealthCheckServiceProvider;
 import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
 import com.arm.pelion.bridge.health.interfaces.HealthStatisticListenerInterface;
@@ -257,6 +258,18 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
             this.errorLogger().info("Orchestrator: Adding Generic MQTT Processor");
             this.m_peer_processor_list.add(GenericMQTTPeerProcessorFactory.createPeerProcessor(this, this.m_http));
         }
+        
+        // TEMPLATE FOR SAMPLE Peer
+        if (this.SAMPLEPeerEnabled()) {
+            // SAMPLE
+            this.errorLogger().info("Orchestrator: Adding SAMPLE Processor");
+            this.m_peer_processor_list.add(SAMPLEPeerProcessorFactory.createPeerProcessor(this, this.m_http));
+        }
+    }
+    
+    // use SAMPLE peer processor?
+    private Boolean SAMPLEPeerEnabled() {
+        return (this.preferences().booleanValueOf("SAMPLE_enable_addon"));
     }
 
     // use IBM peer processor?
