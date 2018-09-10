@@ -287,7 +287,7 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
             this.errorLogger().info("Watson IoT: CoAP notification: " + iotf_coap_json);
 
             // send to WatsonIoT...
-            if (this.mqtt() != null) {
+            if (this.mqtt() != null && this.m_device_manager.registeredDeviceWithWatson(ep_name) == true) {
                 boolean status = this.mqtt().sendMessage(this.customizeTopic(this.m_watson_iot_observe_notification_topic, ep_name, this.m_device_manager.getDeviceType(ep_name)), iotf_coap_json, QoS.AT_MOST_ONCE);
                 if (status == true) {
                     // not connected
@@ -297,6 +297,10 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
                     // send failed
                     this.errorLogger().warning("Watson IoT: CoAP notification not sent. SEND FAILED");
                 }
+            }
+            else if (this.mqtt() != null) {
+                // shadow device not yet created
+                this.errorLogger().warning("Watson IoT: Shadow device not yet created... Skipping (OK)");
             }
             else {
                 // not connected
@@ -595,9 +599,7 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
     protected Boolean registerNewDevice(Map message) {
         if (this.m_device_manager != null) {
             boolean ok = this.m_device_manager.registerNewDevice(message);
-            if (ok) {
-                this.setEndpointTypeFromEndpointName((String) message.get("ep"), (String) message.get("ept"));
-            }
+            this.setEndpointTypeFromEndpointName((String) message.get("ep"), (String) message.get("ept"));
             return ok;
         }
         return false;

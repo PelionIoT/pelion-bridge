@@ -159,20 +159,28 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         String result = this.get(this.createGatewayURL());
         return (result != null && result.contains(this.m_watson_iot_gw_type_id) == true);
     }
+    
+    // have we registered this device yet?
+    public boolean registeredDeviceWithWatson(String device) {
+        String type = (String)this.m_device_types.get(device);
+        if (type == null || type.length() == 0) {
+            return false;
+        }
+        return true;
+    }
 
     // get the associated device type from the device name
     public String getDeviceType(String device) {
-        String type = (String)this.m_device_types.get(device);
-        if (type == null || type.length() == 0) {
+        if (this.registeredDeviceWithWatson(device) == false) {
             // DEBUG
             this.errorLogger().info("Watson IoT: WARNING Defaulting Device Type to: " + this.m_watson_iot_def_type + " for Device: " + device);
 
             // default the type
-            type = this.m_watson_iot_def_type;
+            return this.m_watson_iot_def_type;
         }
 
         // return the type
-        return type;
+        return (String)this.m_device_types.get(device);
     }
 
     // ensure we have a gateway device type
@@ -392,7 +400,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         bridge.put("meta_description", this.prefValueWithDefault("mds_bridge_description", "unknown"));
         bridge.put("meta_firmware", this.prefValueWithDefault("mds_bridge_firmware_info", "unknown"));
         bridge.put("meta_hardware", this.prefValueWithDefault("mds_bridge_hardware_info", "unknown"));
-        bridge.put("meta_location", this.prefValueWithDefault("mds_bridge_descriptive_location", "Bluemix Container Environment"));
+        bridge.put("meta_location", this.prefValueWithDefault("mds_bridge_descriptive_location", "Docker Container Instance"));
 
         // return the deviceInfo JSON
         return this.createMetadataDeviceInfoJSON(bridge);
@@ -483,7 +491,8 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         String device = (String) message.get("ep");
         
         // DEBUG
-        this.errorLogger().info("registerNewDevice(WatsonIoT): creating gateway device type: EP: " + device + " EPT: " + device_type + " MSG: " + message);
+        this.errorLogger().warning("registerNewDevice(WatsonIoT): creating gateway device type: EP: " + device + " EPT: " + device_type );
+        this.errorLogger().info("registerNewDevice(WatsonIoT): creating gateway device type: MSG: " + message);
        
         // now create the gateway device type
         this.createGatewayDeviceType(device_type);
@@ -498,11 +507,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         String payload = this.createAddDeviceJSON(message);
 
         // aggressively save the endpoint type - this keeps from creating devices of type "mbed-generic" in Watson
-        if (this.m_device_types.get(device) == null) {
-            // save off our device if never seen before
-            this.errorLogger().info("Watson IoT: registerNewDevice: Adding device type: " + device_type + " for endpoint: " + device);
-            this.m_device_types.put(device, device_type);
-        }
+        this.m_device_types.put(device, device_type);
             
         // DEBUG
         this.errorLogger().info("Watson IoT: registerNewDevice: URL: " + url + " DATA: " + payload + " USER: " + this.m_watson_iot_gw_key + " PW: " + this.m_watson_iot_gw_auth_token);

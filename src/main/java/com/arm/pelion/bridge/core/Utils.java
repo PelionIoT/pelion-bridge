@@ -984,7 +984,7 @@ public class Utils {
     // where am I?
     public static void whereAmI(ErrorLogger logger) {
         Exception ex = new Exception();
-        logger.info("whereAmI: StackTrace",ex);
+        logger.critical("WHERE_AM_I: StackTrace",ex);
     }
     
     // TLV Decode to LWM2M Resource list (ARM SDK)
