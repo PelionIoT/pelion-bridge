@@ -172,7 +172,7 @@ public class SAMPLEProcessor extends GenericMQTTProcessor implements PeerProcess
         return super.processDeviceDeletions(parsed);
     }
     
-    // process a deregistration
+    // OVERRIDE: process a deregistration
     @Override
     public String[] processDeregistrations(Map parsed) {
         String[] devices = this.parseDeRegistrationBody(parsed);
@@ -184,7 +184,19 @@ public class SAMPLEProcessor extends GenericMQTTProcessor implements PeerProcess
         return super.processDeregistrations(parsed);
     }
 
-    // complete new registration
+    // OVERRIDE: process a received new registration
+    @Override
+    public void processNewRegistration(Map data) {
+        super.processNewRegistration(data);
+    }
+    
+    // OVERRIDE:  process a reregistration
+    @Override
+    public void processReRegistration(Map data) {
+        super.processReRegistration(data);
+    }
+    
+    // OVERRIDE: complete new registration
     @Override
     public void completeNewDeviceRegistration(Map device) {
         if (this.m_configured) {
