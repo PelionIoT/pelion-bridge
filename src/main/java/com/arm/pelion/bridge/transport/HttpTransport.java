@@ -50,7 +50,7 @@ import org.apache.commons.codec.binary.Base64;
 public class HttpTransport extends BaseClass {
 
     private int m_last_response_code = 0;
-    private String m_auth_qualifier_default = "bearer";
+    private String m_auth_qualifier_default = "Bearer";
     private String m_auth_qualifier = this.m_auth_qualifier_default;
     private String m_basic_auth_qualifier = "Basic";
     private String m_etag_value = null;
@@ -467,6 +467,9 @@ public class HttpTransport extends BaseClass {
 
                 // DEBUG -  dump the headers
                 this.errorLogger().info("HttpTransport(" + verb + "): Headers: " + ((HttpsURLConnection)connection).getRequestProperties()); 
+                
+                // DEBUG - dump the URL, input and output
+                this.errorLogger().info("HttpTransport(" + verb + "):   URL: " + url + " DATA: " + data);
 
                 // specify data if requested - assumes it properly escaped if necessary
                 if (doOutput && data != null && data.length() > 0) {
