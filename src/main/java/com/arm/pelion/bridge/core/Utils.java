@@ -119,7 +119,7 @@ public class Utils {
     
     // get the local time as an RFC3339 format
     public static String getLocalTimeAsString() {
-        return new SimpleDateFormat("yyyy-MM-dd'T'h:m:ssZZZZZ").format(new Date());
+        return new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss").format(new Date()) + ".000Z";
     }
 
     // get UTC time in seconds since Jan 1 1970
@@ -984,7 +984,7 @@ public class Utils {
     // where am I?
     public static void whereAmI(ErrorLogger logger) {
         Exception ex = new Exception();
-        logger.critical("WHERE_AM_I: StackTrace",ex);
+        logger.info("whereAmI: StackTrace",ex);
     }
     
     // TLV Decode to LWM2M Resource list (ARM SDK)
