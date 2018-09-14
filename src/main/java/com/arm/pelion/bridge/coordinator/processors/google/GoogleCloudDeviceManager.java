@@ -461,7 +461,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                 created = true;
             }
         }
-        catch(IOException ex) {
+        catch(IOException | NullPointerException ex) {
             // Unable to create device
             this.errorLogger().warning("Google: registerNewDevice: ERROR: Unable to create device: " + ep_name + " Error: " + ex.getMessage());
         }
