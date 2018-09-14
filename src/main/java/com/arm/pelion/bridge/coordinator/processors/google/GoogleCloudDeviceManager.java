@@ -350,10 +350,31 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                 String uri = (String)resource.get("path");
                 
                 // put observable resources into the metadata
-                String obs = (String)resource.get("obs");
-                if (obs != null && obs.length() > 0) {
+                Object obs = resource.get("obs");
+                if (obs instanceof Boolean) {
+                    // newer format: Boolean
+                    Boolean obs_b = (Boolean)obs;
+                    String obs_s = "false";
+                    if (obs_b == true) {
+                        obs_s = "true";
+                    }
                     String key = this.lwm2mURIToGoogleKey(uri);
-                    metadata.put(key,obs);
+                    metadata.put(key,obs_s);
+                }
+                else if (obs instanceof String) {
+                    // older format: String
+                    String obs_s = (String)obs;
+                    if (obs_s != null && obs_s.length() > 0) {
+                        String key = this.lwm2mURIToGoogleKey(uri);
+                        metadata.put(key,obs_s);
+                    }
+                }
+                else {
+                    // if its present but neither String nor Boolean...
+                    if (obs != null) {
+                        String key = this.lwm2mURIToGoogleKey(uri);
+                        metadata.put(key,"true");
+                    }
                 }
             }
         }
