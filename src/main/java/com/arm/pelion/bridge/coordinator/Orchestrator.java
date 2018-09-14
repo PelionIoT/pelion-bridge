@@ -324,23 +324,14 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         }
     }
 
-    // initialize the mbed Device Server webhook
+    // initialize the Pelion webhook
     public void initializeDeviceServerWebhook() {
         if (this.m_pelion_processor != null) {
-            // set the webhook
             this.m_pelion_processor.setWebhook();
         }
     }
 
-    // reset mbed Device Server webhook
-    public void resetDeviceServerWebhook() {
-        // REST (mbed Cloud)
-        if (this.m_pelion_processor != null) {
-            this.m_pelion_processor.resetWebhook();
-        }
-    }
-
-    // process the mbed Device Server inbound message
+    // process the Pelion inbound message
     public void processIncomingDeviceServerMessage(HttpServletRequest request, HttpServletResponse response) {
         // process the received REST message
         //this.errorLogger().info("events (REST-" + request.getMethod() + "): " + request.getRequestURI());
@@ -393,56 +384,80 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     // Message: API Request
     @Override
     public ApiResponse processApiRequestOperation(String uri,String data,String options,String verb,int request_id,String api_key,String caller_id, String content_type) {
-        return this.pelion_processor().processApiRequestOperation(uri, data, options, verb, request_id, api_key, caller_id, content_type);
+        if (this.m_pelion_processor != null) {
+            return this.pelion_processor().processApiRequestOperation(uri, data, options, verb, request_id, api_key, caller_id, content_type);
+        }
+        return null;
     }
     
     // Message: notifications
     @Override
     public void processNotificationMessage(HttpServletRequest request, HttpServletResponse response) {
-        this.pelion_processor().processNotificationMessage(request, response);
+        if (this.m_pelion_processor != null) {
+            this.pelion_processor().processNotificationMessage(request, response);
+        }
     }
     
     // Message: device-deletions (mbed Cloud)
     @Override
     public void processDeviceDeletions(String[] endpoints) {
-        this.pelion_processor().processDeviceDeletions(endpoints);
+        if (this.m_pelion_processor != null) {
+            this.pelion_processor().processDeviceDeletions(endpoints);
+        }
     }
 
     // Message: de-registrations
     @Override
     public void processDeregistrations(String[] endpoints) {
-        this.pelion_processor().processDeregistrations(endpoints);
+        if (this.m_pelion_processor != null) {
+            this.pelion_processor().processDeregistrations(endpoints);
+        }
     }
     
     // Message: registrations-expired
     @Override
     public void processRegistrationsExpired(String[] endpoints) {
-        this.pelion_processor().processRegistrationsExpired(endpoints);
+        if (this.m_pelion_processor != null) {
+            this.pelion_processor().processRegistrationsExpired(endpoints);
+        }
     }
 
     @Override
     public String processEndpointResourceOperation(String verb, String ep_name, String uri, String value, String options) {
-        return this.pelion_processor().processEndpointResourceOperation(verb, ep_name, uri, value, options);
+        if (this.m_pelion_processor != null) {
+            return this.pelion_processor().processEndpointResourceOperation(verb, ep_name, uri, value, options);
+        }
+        return null;
     }
 
     @Override
     public boolean setWebhook() {
-        return this.pelion_processor().setWebhook();
+        if (this.m_pelion_processor != null) {
+            return this.pelion_processor().setWebhook();
+        }
+        return false;
     }
 
     @Override
     public boolean resetWebhook() {
-        return this.pelion_processor().resetWebhook();
+        if (this.m_pelion_processor != null) {
+            return this.pelion_processor().resetWebhook();
+        }
+        return false;
     }
     
     @Override
     public void removeWebhook() {
-        this.pelion_processor().removeWebhook();
+        if (this.m_pelion_processor != null) {
+            this.pelion_processor().removeWebhook();
+        }
     }
 
     @Override
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {
-        this.pelion_processor().pullDeviceMetadata(endpoint, processor);
+        if (this.m_pelion_processor != null) {
+            this.pelion_processor().pullDeviceMetadata(endpoint, processor);
+        }
     }
 
     // PeerProcessorInterface Orchestration

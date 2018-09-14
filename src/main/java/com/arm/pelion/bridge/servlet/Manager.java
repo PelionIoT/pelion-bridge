@@ -122,8 +122,8 @@ public final class Manager {
         this.m_orchestrator.initializeDeviceServerWebhook();
     }
 
-    public void resetNotifications() {
-        this.m_orchestrator.resetDeviceServerWebhook();
+    public void removeWebhook() {
+        this.m_orchestrator.removeWebhook();
     }
     
     public int getActiveThreadCount() {

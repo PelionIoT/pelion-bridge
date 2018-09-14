@@ -131,17 +131,13 @@ public class BridgeMain implements Runnable {
         ServletHolder logEvents = new ServletHolder("ws-logger", LoggerWebSocketServlet.class);
         logger_context.addServlet(logEvents, "/logger/*");
         
-        // Health Status Service context handler
-        //ServletHolder healthEvents = new ServletHolder("health-status", LoggerWebSocketServlet.class);
-        //logger_context.addServlet(healthEvents, "/health/*");
-        
         // add a shutdown hook for graceful shutdowns...
         Runtime.getRuntime().addShutdownHook(
             new Thread() {
                 @Override
                 public void run() {
-                    errorLogger().warning("Main:: Resetting notification handlers...");
-                    m_manager.resetNotifications();
+                    errorLogger().warning("Main: Removing webhook...");
+                    m_manager.removeWebhook();
 
                     errorLogger().warning("Main: Stopping Listeners...");
                     m_manager.stopListeners();
