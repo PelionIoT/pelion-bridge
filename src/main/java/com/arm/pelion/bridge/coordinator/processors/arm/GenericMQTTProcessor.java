@@ -73,6 +73,9 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
     private HashMap<String, MQTTTransport> m_mqtt = null;
     protected SerializableHashMap m_endpoints = null;
     protected HashMap<String, TransportReceiveThread> m_mqtt_thread_list = null;
+    
+    // switch to ignore MQTT connection status
+    private boolean m_ignore_mqtt_status = false;  // default is FALSE 
 
     // Factory method for initializing the Sample 3rd Party peer
     public static GenericMQTTProcessor createPeerProcessor(Orchestrator manager, HttpTransport http) {
@@ -142,6 +145,11 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
 
         // setup our defaulted MQTT transport if given one
         this.setupDefaultMQTTTransport(mqtt);
+    }
+    
+    // ignore our MQTT status - always report "true"
+    protected void ignoreMQTTConnectionStatus(boolean ignore) {
+        this.m_ignore_mqtt_status = ignore;
     }
     
     // process the REST api request
@@ -806,12 +814,16 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
     public boolean mqttConnectionsOK() {
         boolean ok = true; 
         
-        for (Map.Entry<String, MQTTTransport> entry : m_mqtt.entrySet()) {
-            MQTTTransport t = entry.getValue();
-            if (t != null) {
-                ok = (ok & t.isConnected());
-            }
-        }   
+        // in some instances, we are not using MQTT... so we can ignore our status
+        if (this.m_ignore_mqtt_status == false) {
+            // we are using MQTT - so check our real status...
+            for (Map.Entry<String, MQTTTransport> entry : m_mqtt.entrySet()) {
+                MQTTTransport t = entry.getValue();
+                if (t != null) {
+                    ok = (ok & t.isConnected());
+                }
+            }   
+        }
         
         return ok;
     }
