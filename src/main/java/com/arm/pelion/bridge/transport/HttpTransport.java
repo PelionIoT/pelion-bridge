@@ -381,7 +381,9 @@ public class HttpTransport extends BaseClass {
             }
             catch (NoSuchAlgorithmException | KeyManagementException e) {
                 // ERROR - unable to setup/config TLS
-                this.errorLogger().critical("HttpTransport(): doHTTP() exception during TLS config: " + e.getMessage(),e);
+                this.errorLogger().critical("HttpTransport(" + verb + "): doHTTP() exception during TLS config: " + e.getMessage(),e);
+                this.saveResponseCode(599);
+                return null;
             }
 
             // check if we have TLS setup/configured thus far...
@@ -401,28 +403,51 @@ public class HttpTransport extends BaseClass {
                     connection.setDoOutput(false);
                 }
 
-                // enable basic auth if requested
+                // make sure at least one type of authorization is used
+                boolean auth_set = false;
+                
+                // enable Basic auth if requested
                 if (use_api_token == false && username != null && username.length() > 0 && password != null && password.length() > 0) {
-                    String encoding = Base64.encodeBase64String((username + ":" + password).getBytes());
-                    connection.setRequestProperty("Authorization", this.m_basic_auth_qualifier + " " + encoding);
-                    this.errorLogger().info("HttpTransport(): Basic Authorization: " + username + ":" + password + ": " + encoding);
+                    // Base64 encode the username:password value...
+                    String encoded_user_pass = Base64.encodeBase64String((username + ":" + password).getBytes());
+                    
+                    // Basic Authorization
+                    connection.setRequestProperty("Authorization", this.m_basic_auth_qualifier + " " + encoded_user_pass);
+                    
+                    // DEBUG
+                    this.errorLogger().info("HttpTransport(" + verb + "): Auth Header:  Authorization: Basic " + encoded_user_pass + "  ENCODED: " + username + ":" + password);
+                    
+                    // set
+                    auth_set = true;
                 }
 
-                // enable ApiTokenAuth auth if requested
+                // enable Token auth if requested
                 if (use_api_token == true && api_token != null && api_token.length() > 0) {
-                    // use qualification for the authorization header...
+                    // Bearer Authorization
                     connection.setRequestProperty("Authorization", this.m_auth_qualifier + " " + api_token);
-                    this.errorLogger().info("HttpTransport(): ApiTokenAuth Authorization: " + this.m_auth_qualifier + " " + api_token);
+                    
+                    // DEBUG
+                    this.errorLogger().info("HttpTransport(" + verb + "): Auth Header:  Authorization: " + this.m_auth_qualifier + " " + api_token);
 
-                    // Always reset to the established default
+                    // Always reset the qualifier to the established default -it can be changed as needed
                     this.resetAuthorizationQualifier();
+                    
+                    // set
+                    auth_set = true;
+                }
+                
+                // complain if no auth has been set
+                if (auth_set == false) {
+                    this.errorLogger().info("HttpTransport(" + verb + "): WARNING - no authorization type/value has been set. HTTP command will likely FAIL");
                 }
 
                 // ETag support if requested
                 if (this.m_etag_value != null && this.m_etag_value.length() > 0) {
                     // set the ETag header value
                     connection.setRequestProperty("ETag", this.m_etag_value);
-                    //this.errorLogger().info("ETag Value: " + this.m_etag_value);
+                    
+                    // DEBUG
+                    this.errorLogger().info("HttpTransport(" + verb + "): ETag Value: " + this.m_etag_value);
 
                     // Always reset to the established default
                     this.resetETagValue();
@@ -432,7 +457,9 @@ public class HttpTransport extends BaseClass {
                 if (this.m_if_match_header_value != null && this.m_if_match_header_value.length() > 0) {
                     // set the If-Match header value
                     connection.setRequestProperty("If-Match", this.m_if_match_header_value);
-                    //this.errorLogger().info("If-Match Value: " + this.m_if_match_header_value);
+                    
+                    // DEBUG
+                    this.errorLogger().info("HttpTransport(" + verb + "): If-Match Value: " + this.m_if_match_header_value);
 
                     // Always reset to the established default
                     this.resetIfMatchValue();
@@ -444,7 +471,7 @@ public class HttpTransport extends BaseClass {
                     connection.setRequestProperty("Accept", "*/*");
 
                     // DEBUG
-                    this.errorLogger().info("ContentType: " + content_type);
+                    this.errorLogger().info("HttpTransport(" + verb + "): Content-Type: " + content_type);
                 }
 
                 // special headers for HTTPS DELETE
@@ -454,7 +481,10 @@ public class HttpTransport extends BaseClass {
 
                 // specify a persistent connection or not
                 if (persistent == true) {
-                    connection.setRequestProperty("Connection", "keep-alive");
+                    connection.setRequestProperty("Connection","keep-alive");
+                    
+                    // DEBUG
+                    this.errorLogger().info("HttpTransport(" + verb + "): Connection: keep-alive");
                 }
 
                 // add any additional headers
@@ -466,10 +496,10 @@ public class HttpTransport extends BaseClass {
                 }
 
                 // DEBUG -  dump the headers
-                this.errorLogger().info("HttpTransport(" + verb + "): Headers: " + ((HttpsURLConnection)connection).getRequestProperties()); 
+                this.errorLogger().info("HttpTransport(" + verb + "): Headers: " + connection.getRequestProperties()); 
                 
                 // DEBUG - dump the URL, input and output
-                this.errorLogger().info("HttpTransport(" + verb + "):   URL: " + url + " DATA: " + data);
+                this.errorLogger().info("HttpTransport(" + verb + "): URL: " + url + " DATA: " + data);
 
                 // specify data if requested - assumes it properly escaped if necessary
                 if (doOutput && data != null && data.length() > 0) {
@@ -506,16 +536,18 @@ public class HttpTransport extends BaseClass {
                 this.saveResponseCode(((HttpsURLConnection) connection).getResponseCode());
 
                 // DEBUG
-                //this.errorLogger().info("HTTP(" + verb +") URL: " + url_str + " Data: " + data + " Response code: " + ((HttpsURLConnection)connection).getResponseCode());
+                this.errorLogger().info("HttpTransport(" + verb +"):  URL: " + url_str + " CODE: " + this.getLastResponseCode() + " DATA: " + data + " RESULT: " + result);
             }
             else {
                 // non-SSL not supported
-                this.errorLogger().critical("ERROR! HttpTransport(): HTTP now unsupported in doHTTP(" + verb + "): URL: " + url_str);
+                this.errorLogger().critical("HttpTransport(" + verb + "): ERROR! HTTP UNSUPPORTED in HttpTransport: URL: " + url_str);
+                this.saveResponseCode(598);
+                return null;
             }
         }    
         catch (IOException ex) {
             // exception note (DEBUG)
-            this.errorLogger().info("HttpTransport(): Exception in doHTTP(" + verb + "): URL: " + url_str +  " ERROR: " + ex.getMessage());
+            this.errorLogger().info("HttpTransport(" + verb + "): Exception in doHTTP(" + verb + "): URL: " + url_str +  " ERROR: " + ex.getMessage());
             result = null;
 
             try {
@@ -525,11 +557,11 @@ public class HttpTransport extends BaseClass {
                     this.saveResponseCode(((HttpsURLConnection) connection).getResponseCode());
                 }
                 else {
-                    this.errorLogger().warning("HttpTransport(): ERROR in doHTTP(" + verb + "): Connection is NULL");
+                    this.errorLogger().warning("HttpTransport(" + verb + "): ERROR in doHTTP(" + verb + "): Connection is NULL");
                 }
             }
             catch (IOException ex2) {
-                this.errorLogger().warning("HttpTransport(): Exception in doHTTP(" + verb + "): Unable to save last response code: " + ex2.getMessage());
+                this.errorLogger().warning("HttpTransport(" + verb + "): Exception in doHTTP(" + verb + "): Unable to save last response code: " + ex2.getMessage());
             }
         }
 
