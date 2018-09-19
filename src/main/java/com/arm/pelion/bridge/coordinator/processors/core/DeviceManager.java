@@ -40,9 +40,8 @@ public class DeviceManager extends BaseClass {
     protected String m_suffix = null;
     
     protected SerializableHashMapOfHashMaps m_endpoint_details = null;
-    protected SerializableHashMap m_device_types = null;
     
-    // optional constructor
+    // new constructor
     public DeviceManager(Orchestrator orchestrator, HttpTransport http, String suffix) {
         this(orchestrator.errorLogger(),orchestrator.preferences(),suffix,http,orchestrator);
     }
@@ -58,9 +57,5 @@ public class DeviceManager extends BaseClass {
         
         // initialize the endpoint keys map
         this.m_endpoint_details = new SerializableHashMapOfHashMaps(orchestrator,"ENDPOINT_DETAILS");
-        
-        
-        // create the device type map
-        this.m_device_types = new SerializableHashMap(orchestrator,"DEVICE_TYPES");
     }
 }

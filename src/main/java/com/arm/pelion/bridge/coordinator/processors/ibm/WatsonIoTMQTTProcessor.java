@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
+import static com.arm.pelion.bridge.core.Processor.NUM_COAP_VERBS;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 
@@ -64,6 +65,9 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
 
     // WatsonIoT Device Manager
     private WatsonIoTDeviceManager m_device_manager = null;
+    
+    // Endpoint Name/Type map
+    private HashMap<String,String> m_endpoint_type_map = null;
 
     // constructor (singleton)
     public WatsonIoTMQTTProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
@@ -82,6 +86,9 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
         this.m_watson_iot_org_key = this.orchestrator().preferences().valueOf("iotf_org_key", this.m_suffix);
         this.m_mqtt_ip_address = this.orchestrator().preferences().valueOf("iotf_mqtt_ip_address", this.m_suffix);
         this.m_mqtt_port = this.orchestrator().preferences().intValueOf("iotf_mqtt_port", this.m_suffix);
+        
+        // initialize the Name/Type map
+        this.m_endpoint_type_map = new HashMap<>();
         
         // set defaults for keys
         this.m_observation_key = "notify";
@@ -111,7 +118,7 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
             this.m_client_id = this.createWatsonIoTClientID();
 
             // Watson IoT Device Manager - will initialize and upsert our WatsonIoT bindings/metadata
-            this.m_device_manager = new WatsonIoTDeviceManager(this.orchestrator().errorLogger(),this.orchestrator().preferences(),this.m_suffix,http,this.orchestrator(),this.m_watson_iot_org_id, this.m_watson_iot_org_key);
+            this.m_device_manager = new WatsonIoTDeviceManager(this.orchestrator().errorLogger(),this.orchestrator().preferences(),this.m_suffix,http,this.orchestrator(),this.m_watson_iot_org_id, this.m_watson_iot_org_key,this);
             this.m_watson_iot_api_key = this.m_device_manager.updateUsernameBinding(this.m_watson_iot_api_key);
             this.m_watson_iot_auth_token = this.m_device_manager.updatePasswordBinding(this.m_watson_iot_auth_token);
             this.m_client_id = this.m_device_manager.updateClientIDBinding(this.m_client_id);
@@ -287,7 +294,7 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
             this.errorLogger().info("Watson IoT: CoAP notification: " + iotf_coap_json);
 
             // send to WatsonIoT...
-            if (this.mqtt() != null && this.m_device_manager.registeredDeviceWithWatson(ep_name) == true) {
+            if (this.mqtt() != null) {
                 boolean status = this.mqtt().sendMessage(this.customizeTopic(this.m_watson_iot_observe_notification_topic, ep_name, this.m_device_manager.getDeviceType(ep_name)), iotf_coap_json, QoS.AT_MOST_ONCE);
                 if (status == true) {
                     // not connected
@@ -297,10 +304,6 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
                     // send failed
                     this.errorLogger().warning("Watson IoT: CoAP notification not sent. SEND FAILED");
                 }
-            }
-            else if (this.mqtt() != null) {
-                // shadow device not yet created
-                this.errorLogger().warning("Watson IoT: Shadow device not yet created... Skipping (OK)");
             }
             else {
                 // not connected
@@ -598,9 +601,7 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
     @Override
     protected Boolean registerNewDevice(Map message) {
         if (this.m_device_manager != null) {
-            boolean ok = this.m_device_manager.registerNewDevice(message);
-            this.setEndpointTypeFromEndpointName((String) message.get("ep"), (String) message.get("ept"));
-            return ok;
+            return this.m_device_manager.registerNewDevice(message);
         }
         return false;
     }
@@ -687,5 +688,20 @@ public class WatsonIoTMQTTProcessor extends GenericMQTTProcessor implements Reco
     public String getCoAPVerbFromTopic(String topic) {
         // format: iot-2/type/mbed/id/mbed-eth-observe/cmd/put/fmt/json
         return this.getTopicElement(topic, 6);
+    }
+    
+    // get the endpoint type from the endpoint name
+    public String endpointTypeFromEndpointName(String ep) {
+        return this.m_endpoint_type_map.get(ep);
+    }
+    
+    // clear the endpoint type from the endpoint name
+    public void removeEndpointFromMap(String ep) {
+        this.m_endpoint_type_map.remove(ep);
+    }
+    
+    // add the endpoint type to the endpoint name
+    public void setEndpointTypeForEndpointName(String ep,String ept) {
+        this.m_endpoint_type_map.put(ep,ept);
     }
 }

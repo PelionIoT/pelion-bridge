@@ -33,6 +33,7 @@ import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.MQTTTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.fusesource.mqtt.client.Topic;
@@ -56,6 +57,9 @@ public class SAMPLEProcessor extends GenericMQTTProcessor implements PeerProcess
     // Defaulted content type
     private String m_content_type = null;
     
+    // Endpoint Name/Type map
+    private HashMap<String,String> m_endpoint_type_map = null;
+    
     // constructor
     public SAMPLEProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
         this(manager, mqtt, http, null);
@@ -65,6 +69,9 @@ public class SAMPLEProcessor extends GenericMQTTProcessor implements PeerProcess
     public SAMPLEProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http, String suffix) {
         super(manager, mqtt, suffix, http);
         this.m_http = http;
+        
+        // initialize the Name/Type map
+        this.m_endpoint_type_map = new HashMap<>();
         
         // XXX We can pass in a single MQTTTransport connection (Already in SAMPLEPeerProcessorFactory) or manage one 
         //     MQTTTransport per device shadow as needed by SAMPLE
@@ -187,12 +194,22 @@ public class SAMPLEProcessor extends GenericMQTTProcessor implements PeerProcess
     // OVERRIDE: process a received new registration
     @Override
     public void processNewRegistration(Map data) {
+        List registrations = (List)data.get("registrations");
+        for(int i=0;registrations != null && i<registrations.size();++i) {
+            Map device = (Map)registrations.get(i);
+            this.completeNewDeviceRegistration(device);
+        }
         super.processNewRegistration(data);
     }
     
     // OVERRIDE:  process a reregistration
     @Override
     public void processReRegistration(Map data) {
+        List registrations = (List)data.get("reg-updates");
+        for(int i=0;registrations != null && i<registrations.size();++i) {
+            Map device = (Map)registrations.get(i);
+            this.completeNewDeviceRegistration(device);
+        }
         super.processReRegistration(data);
     }
     
@@ -235,6 +252,21 @@ public class SAMPLEProcessor extends GenericMQTTProcessor implements PeerProcess
         // process Async Responses 
         this.errorLogger().warning("SAMPLE(processAsyncResponse): AsyncResponse: " + response);
         return true;
+    }
+    
+    // get the endpoint type from the endpoint name
+    public String endpointTypeFromEndpointName(String ep) {
+        return this.m_endpoint_type_map.get(ep);
+    }
+    
+    // clear the endpoint type from the endpoint name
+    public void removeEndpointFromMap(String ep) {
+        this.m_endpoint_type_map.remove(ep);
+    }
+    
+    // add the endpoint type to the endpoint name
+    public void setEndpointTypeForEndpointName(String ep,String ept) {
+        this.m_endpoint_type_map.put(ep,ept);
     }
     
     // XXX create device URL
