@@ -1,6 +1,6 @@
 /**
- * @file EventsProcessor.java
- * @brief Events Servlet Handler
+ * @file CommandsProcessor.java
+ * @brief Peer Commands Servlet Handler
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -33,7 +33,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * Events Servlet Handler
+ * Peer Commands Servlet Handler
  *
  * @author Doug Anson
  */
