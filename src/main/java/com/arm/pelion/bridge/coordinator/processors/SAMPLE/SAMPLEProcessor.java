@@ -23,7 +23,7 @@
 package com.arm.pelion.bridge.coordinator.processors.SAMPLE;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
@@ -39,11 +39,11 @@ import java.util.Map;
 import org.fusesource.mqtt.client.Topic;
 
 /**
- * SAMPLE Processor: This can be a MQTT-based processor or a HTTP-based processor... its derived from GenericMQTTProcessor.
+ * SAMPLE Processor: This can be a MQTT-based processor or a HTTP-based processor... its derived from GenericConnectablePeerProcessor.
  *
  * @author Doug Anson
  */
-public class SAMPLEProcessor extends GenericMQTTProcessor implements PeerProcessorInterface, GenericSender,Transport.ReceiveListener, ReconnectionInterface, AsyncResponseProcessor {
+public class SAMPLEProcessor extends GenericConnectablePeerProcessor implements PeerProcessorInterface, GenericSender,Transport.ReceiveListener, ReconnectionInterface, AsyncResponseProcessor {
     private boolean m_configured = false;
     private HttpTransport m_http = null;
     private SAMPLEDeviceManager m_device_manager = null;

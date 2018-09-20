@@ -22,7 +22,7 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.factories;
 
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.aws.AWSIoTMQTTProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -46,7 +46,7 @@ public class AWSIoTPeerProcessorFactory extends BasePeerProcessorFactory impleme
         boolean aws_iot_gw_enabled = manager.preferences().booleanValueOf("enable_aws_iot_gw_addon");
         if (aws_iot_gw_enabled == true) {
             manager.errorLogger().info("Registering AWS IoT MQTT processor...");
-            GenericMQTTProcessor p = new AWSIoTMQTTProcessor(manager, null, http);
+            GenericConnectablePeerProcessor p = new AWSIoTMQTTProcessor(manager, null, http);
             me.addProcessor(p);
         }
 
@@ -58,6 +58,6 @@ public class AWSIoTPeerProcessorFactory extends BasePeerProcessorFactory impleme
     public AWSIoTPeerProcessorFactory(Orchestrator manager, HttpTransport http) {
         super(manager, null);
         this.m_http = http;
-        this.m_mqtt_processor_list = new ArrayList<>();
+        this.m_peer_processor_list = new ArrayList<>();
     }
 }

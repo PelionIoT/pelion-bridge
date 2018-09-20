@@ -22,7 +22,7 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.factories;
 
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.ms.IoTHubMQTTProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -46,7 +46,7 @@ public class MSIoTHubPeerProcessorFactory extends BasePeerProcessorFactory imple
         boolean iot_event_hub_enabled = manager.preferences().booleanValueOf("enable_iot_event_hub_addon");
         if (iot_event_hub_enabled == true) {
             manager.errorLogger().info("Registering MS IoTHub MQTT processor...");
-            GenericMQTTProcessor p = new IoTHubMQTTProcessor(manager, null, http);
+            GenericConnectablePeerProcessor p = new IoTHubMQTTProcessor(manager, null, http);
             me.addProcessor(p);
         }
 
@@ -58,6 +58,6 @@ public class MSIoTHubPeerProcessorFactory extends BasePeerProcessorFactory imple
     public MSIoTHubPeerProcessorFactory(Orchestrator manager, HttpTransport http) {
         super(manager, null);
         this.m_http = http;
-        this.m_mqtt_processor_list = new ArrayList<>();
+        this.m_peer_processor_list = new ArrayList<>();
     }
 }

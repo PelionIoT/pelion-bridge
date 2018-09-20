@@ -61,6 +61,6 @@ public class SAMPLEPeerProcessorFactory extends BasePeerProcessorFactory impleme
     public SAMPLEPeerProcessorFactory(Orchestrator manager, HttpTransport http) {
         super(manager, null);
         this.m_http = http;
-        this.m_mqtt_processor_list = new ArrayList<>();
+        this.m_peer_processor_list = new ArrayList<>();
     }
 }

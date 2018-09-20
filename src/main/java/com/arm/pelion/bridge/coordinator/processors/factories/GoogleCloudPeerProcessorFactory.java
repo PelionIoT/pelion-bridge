@@ -22,7 +22,7 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.factories;
 
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.google.GoogleCloudMQTTProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -46,7 +46,7 @@ public class GoogleCloudPeerProcessorFactory extends BasePeerProcessorFactory im
         boolean google_cloud_gw_enabled = manager.preferences().booleanValueOf("enable_google_cloud_addon");
         if (google_cloud_gw_enabled == true) {
             manager.errorLogger().info("Registering Google Cloud MQTT processor...");
-            GenericMQTTProcessor p = new GoogleCloudMQTTProcessor(manager, null, http);
+            GenericConnectablePeerProcessor p = new GoogleCloudMQTTProcessor(manager, null, http);
             me.addProcessor(p);
         }
 
@@ -58,6 +58,6 @@ public class GoogleCloudPeerProcessorFactory extends BasePeerProcessorFactory im
     public GoogleCloudPeerProcessorFactory(Orchestrator manager, HttpTransport http) {
         super(manager, null);
         this.m_http = http;
-        this.m_mqtt_processor_list = new ArrayList<>();
+        this.m_peer_processor_list = new ArrayList<>();
     }
 }

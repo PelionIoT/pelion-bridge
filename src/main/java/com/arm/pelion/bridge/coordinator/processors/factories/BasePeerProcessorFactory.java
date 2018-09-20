@@ -23,7 +23,7 @@
 package com.arm.pelion.bridge.coordinator.processors.factories;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.PeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -41,7 +41,7 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class BasePeerProcessorFactory extends PeerProcessor implements Transport.ReceiveListener, PeerProcessorInterface {
 
-    protected ArrayList<GenericMQTTProcessor> m_mqtt_processor_list = null;
+    protected ArrayList<GenericConnectablePeerProcessor> m_peer_processor_list = null;
     protected HttpTransport m_http = null;
     protected int m_default_processor = 0;
     
@@ -49,7 +49,7 @@ public class BasePeerProcessorFactory extends PeerProcessor implements Transport
     public BasePeerProcessorFactory(Orchestrator manager, HttpTransport http) {
         super(manager, null);
         this.m_http = http;
-        this.m_mqtt_processor_list = new ArrayList<>();
+        this.m_peer_processor_list = new ArrayList<>();
     }
 
     // query the default processor for the authentication hash
@@ -60,8 +60,8 @@ public class BasePeerProcessorFactory extends PeerProcessor implements Transport
 
     // create an authentication hash for a specific MQTT broker
     public String createAuthenticationHash(int index) {
-        if (this.m_mqtt_processor_list.size() > 0 && index < this.m_mqtt_processor_list.size()) {
-            return this.m_mqtt_processor_list.get(index).createAuthenticationHash();
+        if (this.m_peer_processor_list.size() > 0 && index < this.m_peer_processor_list.size()) {
+            return this.m_peer_processor_list.get(index).createAuthenticationHash();
         }
         return null;
     }
@@ -69,41 +69,41 @@ public class BasePeerProcessorFactory extends PeerProcessor implements Transport
     // init listeners for each MQTT broker connection
     @Override
     public void initListener() {
-        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
-            this.m_mqtt_processor_list.get(i).initListener();
+        for (int i = 0; i < this.m_peer_processor_list.size(); ++i) {
+            this.m_peer_processor_list.get(i).initListener();
         }
     }
 
     // stop listeners for each MQTT broker connection
     @Override
     public void stopListener() {
-        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
-            this.m_mqtt_processor_list.get(i).stopListener();
+        for (int i = 0; i < this.m_peer_processor_list.size(); ++i) {
+            this.m_peer_processor_list.get(i).stopListener();
         }
     }
 
-    // add a GenericMQTTProcessor
-    public void addProcessor(GenericMQTTProcessor mqtt_processor) {
+    // add a GenericConnectablePeerProcessor
+    public void addProcessor(GenericConnectablePeerProcessor mqtt_processor) {
         this.addProcessor(mqtt_processor, false);
     }
 
-    // add a GenericMQTTProcessor
-    public void addProcessor(GenericMQTTProcessor mqtt_processor, boolean is_default) {
+    // add a GenericConnectablePeerProcessor
+    public void addProcessor(GenericConnectablePeerProcessor mqtt_processor, boolean is_default) {
         if (is_default == true) {
-            this.m_default_processor = this.m_mqtt_processor_list.size();
+            this.m_default_processor = this.m_peer_processor_list.size();
         }
-        this.m_mqtt_processor_list.add(mqtt_processor);
+        this.m_peer_processor_list.add(mqtt_processor);
     }
 
     // get the number of processors
     public int numProcessors() {
-        return this.m_mqtt_processor_list.size();
+        return this.m_peer_processor_list.size();
     }
 
     // get the default processor
-    public GenericMQTTProcessor mqttProcessor() {
-        if (this.m_mqtt_processor_list.size() > 0) {
-            return this.m_mqtt_processor_list.get(this.m_default_processor);
+    public GenericConnectablePeerProcessor mqttProcessor() {
+        if (this.m_peer_processor_list.size() > 0) {
+            return this.m_peer_processor_list.get(this.m_default_processor);
         }
         return null;
     }
@@ -111,37 +111,37 @@ public class BasePeerProcessorFactory extends PeerProcessor implements Transport
     // message processor for inbound messages
     @Override
     public void onMessageReceive(String topic, String message) {
-        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
-            this.m_mqtt_processor_list.get(i).onMessageReceive(topic, message);
+        for (int i = 0; i < this.m_peer_processor_list.size(); ++i) {
+            this.m_peer_processor_list.get(i).onMessageReceive(topic, message);
         }
     }
 
     @Override
     public void processNewRegistration(Map message) {
-        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
-            this.m_mqtt_processor_list.get(i).processNewRegistration(message);
+        for (int i = 0; i < this.m_peer_processor_list.size(); ++i) {
+            this.m_peer_processor_list.get(i).processNewRegistration(message);
         }
     }
     
     @Override
     public void completeNewDeviceRegistration(Map endpoint) {
-        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
-            this.m_mqtt_processor_list.get(i).completeNewDeviceRegistration(endpoint);
+        for (int i = 0; i < this.m_peer_processor_list.size(); ++i) {
+            this.m_peer_processor_list.get(i).completeNewDeviceRegistration(endpoint);
         }
     }
 
     @Override
     public void processReRegistration(Map message) {
-        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
-            this.m_mqtt_processor_list.get(i).processReRegistration(message);
+        for (int i = 0; i < this.m_peer_processor_list.size(); ++i) {
+            this.m_peer_processor_list.get(i).processReRegistration(message);
         }
     }
 
     @Override
     public String[] processDeregistrations(Map message) {
         ArrayList<String> list = new ArrayList<>();
-        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
-            String[] tmp = this.m_mqtt_processor_list.get(i).processDeregistrations(message);
+        for (int i = 0; i < this.m_peer_processor_list.size(); ++i) {
+            String[] tmp = this.m_peer_processor_list.get(i).processDeregistrations(message);
             for (int j = 0; j < tmp.length; ++j) {
                 list.add(tmp[j]);
             }
@@ -157,29 +157,29 @@ public class BasePeerProcessorFactory extends PeerProcessor implements Transport
 
     @Override
     public void processAsyncResponses(Map message) {
-        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
-            this.m_mqtt_processor_list.get(i).processAsyncResponses(message);
+        for (int i = 0; i < this.m_peer_processor_list.size(); ++i) {
+            this.m_peer_processor_list.get(i).processAsyncResponses(message);
         }
     }
 
     @Override
     public void processNotification(Map message) {
-        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
-            this.m_mqtt_processor_list.get(i).processNotification(message);
+        for (int i = 0; i < this.m_peer_processor_list.size(); ++i) {
+            this.m_peer_processor_list.get(i).processNotification(message);
         }
     }
 
     @Override
     public void recordAsyncResponse(String response, String uri, Map ep, AsyncResponseProcessor processor) {
-        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
-            this.m_mqtt_processor_list.get(i).recordAsyncResponse(response, uri, ep, processor);
+        for (int i = 0; i < this.m_peer_processor_list.size(); ++i) {
+            this.m_peer_processor_list.get(i).recordAsyncResponse(response, uri, ep, processor);
         }
     }
 
     @Override
     public void processCommandMessage(HttpServletRequest request, HttpServletResponse response) {
-        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
-            this.m_mqtt_processor_list.get(i).processCommandMessage(request, response);
+        for (int i = 0; i < this.m_peer_processor_list.size(); ++i) {
+            this.m_peer_processor_list.get(i).processCommandMessage(request, response);
         }    
     }
 }

@@ -23,7 +23,7 @@
 package com.arm.pelion.bridge.coordinator.processors.factories;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
@@ -47,7 +47,7 @@ public class GenericMQTTPeerProcessorFactory extends BasePeerProcessorFactory im
         if (generic_mqtt_processor_enabled == true) {
             manager.errorLogger().info("Registering Generic MQTT processor...");
             MQTTTransport mqtt = new MQTTTransport(manager.errorLogger(), manager.preferences(), null);
-            GenericMQTTProcessor p = new GenericMQTTProcessor(manager, mqtt, http);
+            GenericConnectablePeerProcessor p = new GenericConnectablePeerProcessor(manager, mqtt, http);
             me.addProcessor(p);
         }
 
@@ -59,6 +59,6 @@ public class GenericMQTTPeerProcessorFactory extends BasePeerProcessorFactory im
     public GenericMQTTPeerProcessorFactory(Orchestrator manager, HttpTransport http) {
         super(manager, null);
         this.m_http = http;
-        this.m_mqtt_processor_list = new ArrayList<>();
+        this.m_peer_processor_list = new ArrayList<>();
     }
 }

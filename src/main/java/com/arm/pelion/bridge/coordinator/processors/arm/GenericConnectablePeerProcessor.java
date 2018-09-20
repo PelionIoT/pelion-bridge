@@ -1,6 +1,6 @@
 /**
- * @file GenericMQTTProcessor.java
- * @brief Generic MQTT peer processor for connector bridge
+ * @file GenericConnectablePeerProcessor.java
+ * @brief Generic Connectable peer processor for pelion bridge
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -44,11 +44,11 @@ import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 
 /**
- * Generic MQTT peer processor
+ * Generic Connectable Peer Processor for pelion bridge. This processor provide basic MQTT and HTTP support for Peers
  *
  * @author Doug Anson
  */
-public class GenericMQTTProcessor extends PeerProcessor implements Transport.ReceiveListener, PeerProcessorInterface {
+public class GenericConnectablePeerProcessor extends PeerProcessor implements Transport.ReceiveListener, PeerProcessorInterface {
     // default generic MQTT thread key
     private static String DEFAULT_GENERIC_RT_KEY = "__generic__";
     
@@ -80,19 +80,19 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
     private boolean m_ignore_mqtt_status = false;  // default is FALSE 
 
     // Factory method for initializing the Sample 3rd Party peer
-    public static GenericMQTTProcessor createPeerProcessor(Orchestrator manager, HttpTransport http) {
+    public static GenericConnectablePeerProcessor createPeerProcessor(Orchestrator manager, HttpTransport http) {
         MQTTTransport mqtt = new MQTTTransport(manager.errorLogger(), manager.preferences(), null);
-        GenericMQTTProcessor proc = new GenericMQTTProcessor(manager, mqtt, http);
+        GenericConnectablePeerProcessor proc = new GenericConnectablePeerProcessor(manager, mqtt, http);
         return proc;
     }
     
     // constructor (singleton)
-    public GenericMQTTProcessor(Orchestrator orchestrator, MQTTTransport mqtt, HttpTransport http) {
+    public GenericConnectablePeerProcessor(Orchestrator orchestrator, MQTTTransport mqtt, HttpTransport http) {
         this(orchestrator, mqtt, null, http);
     }
 
     // constructor (suffix for preferences)
-    public GenericMQTTProcessor(Orchestrator orchestrator, MQTTTransport mqtt, String suffix, HttpTransport http) {
+    public GenericConnectablePeerProcessor(Orchestrator orchestrator, MQTTTransport mqtt, String suffix, HttpTransport http) {
         super(orchestrator, suffix);
 
         // HTTP support if we need it
@@ -118,7 +118,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
         if (this.m_reconnect_sleep_time_ms <= 0) {
             this.m_reconnect_sleep_time_ms = DEFAULT_RECONNNECT_SLEEP_TIME_MS;
         }
-        this.errorLogger().info("MQTT: Reconnect sleep time: " + this.m_reconnect_sleep_time_ms + "ms...");
+        this.errorLogger().info("GenericConnectablePeerProcessor: Reconnect sleep time: " + this.m_reconnect_sleep_time_ms + "ms...");
         
         // get the default generic thread key 
         this.m_default_tr_key = orchestrator.preferences().valueOf("mqtt_default_rt_key",this.m_suffix);
@@ -220,7 +220,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
             try {
                 // if empty.. return NULL
                 if (parsed.get(key) == null) {
-                    this.errorLogger().info("MQTTProcessor(Generic): EMPTY. Key: " + key);
+                    this.errorLogger().info("GenericConnectablePeerProcessor: EMPTY. Key: " + key);
                     return null;
                 }
                 
@@ -235,7 +235,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                     }
                     
                     // DEBUG
-                    this.errorLogger().info("MQTTProcessor(Generic): STRING. Key: " + key + " DATA: " + s_val);
+                    this.errorLogger().info("GenericConnectablePeerProcessor: STRING. Key: " + key + " DATA: " + s_val);
                     
                     // return the string
                     return s_val;
@@ -247,7 +247,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                     Integer i_val = (Integer)parsed.get(key);
                     
                     // DEBUG
-                    this.errorLogger().info("MQTTProcessor(Generic): INTEGER. Key: " + key + " DATA: " + i_val);
+                    this.errorLogger().info("GenericConnectablePeerProcessor: INTEGER. Key: " + key + " DATA: " + i_val);
                     
                     // convert to String
                     return "" + i_val;
@@ -259,7 +259,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                     Float f_val = (Float)parsed.get(key);
 
                     // DEBUG
-                    this.errorLogger().info("MQTTProcessor(Generic): FLOAT. Key: " + key + " DATA: " + f_val);
+                    this.errorLogger().info("GenericConnectablePeerProcessor: FLOAT. Key: " + key + " DATA: " + f_val);
 
                     // convert to String
                     return "" + f_val;
@@ -271,7 +271,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                     Map map = (Map)parsed.get(key);
                    
                     // DEBUG
-                    this.errorLogger().info("MQTTProcessor(Generic): MAP. Key: " + key + " DATA: " + map);
+                    this.errorLogger().info("GenericConnectablePeerProcessor: MAP. Key: " + key + " DATA: " + map);
                     
                     // create String with JSON generator
                     return this.jsonGenerator().generateJson(map);
@@ -283,7 +283,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                     List list = (List)parsed.get(key);
                     
                     // DEBUG
-                    this.errorLogger().info("MQTTProcessor(Generic): LIST. Key: " + key + " DATA: " + list);
+                    this.errorLogger().info("GenericConnectablePeerProcessor: LIST. Key: " + key + " DATA: " + list);
                     
                     // create String with JSON generator
                     return this.jsonGenerator().generateJson(list);
@@ -297,7 +297,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                 error.put("type", error_type);
                 
                 // DEBUG
-                this.errorLogger().warning("MQTTProcessor(Generic): UNEXPECTED TYPE. Key: " + key + " TYPE: " + error_type + " Location: ",new Exception());
+                this.errorLogger().warning("GenericConnectablePeerProcessor: UNEXPECTED TYPE. Key: " + key + " TYPE: " + error_type + " Location: ",new Exception());
                 
                 // create String with JSON generator
                 return this.jsonGenerator().generateJson(error);
@@ -305,7 +305,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
             }
             catch(Exception ex) {
                 // exception caught
-                this.errorLogger().critical("MQTTProcessor(Generic): ERROR Exception: " + ex.getMessage() + " Key: " + key, ex);
+                this.errorLogger().critical("GenericConnectablePeerProcessor: ERROR Exception: " + ex.getMessage() + " Key: " + key, ex);
             }
         }
         return null;
@@ -393,7 +393,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
 
 
         // DEBUG
-        this.errorLogger().info("CoAP notification(" + verb + " REPLY): " + observation_json);
+        this.errorLogger().info("GenericConnectablePeerProcessor: CoAP notification(" + verb + " REPLY): " + observation_json);
 
         // return observation JSON
         return observation_json;
@@ -408,7 +408,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
         if (verb != null && verb.equalsIgnoreCase("GET") == true) {
             try {
                 // DEBUG
-                this.errorLogger().info("MQTT: CoAP AsyncResponse for GET: " + async_response);
+                this.errorLogger().info("GenericConnectablePeerProcessor: CoAP AsyncResponse for GET: " + async_response);
 
                 // get the payload from the ith entry
                 String payload = (String) async_response.get("payload");
@@ -429,7 +429,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                         String message = this.createObservation(verb, ep_name, uri, value);
 
                         // DEBUG
-                        this.errorLogger().info("MQTT: Created(" + verb + ") GET observation: " + message);
+                        this.errorLogger().info("GenericConnectablePeerProcessor: Created(" + verb + ") GET observation: " + message);
 
                         // return the message
                         return message;
@@ -438,7 +438,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
             }
             catch (Exception ex) {
                 // Error in creating the observation message from the AsyncResponse GET reply... 
-                this.errorLogger().warning("MQTT(GET): Exception in formatAsyncResponseAsReply(): ", ex);
+                this.errorLogger().warning("GenericConnectablePeerProcessor: Exception in formatAsyncResponseAsReply(): ", ex);
             }
         }
 
@@ -464,7 +464,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                         String message = this.createObservation(verb, ep_name, uri, value);
 
                         // DEBUG
-                        this.errorLogger().info("MQTT: Created(" + verb + ") PUT Observation: " + message);
+                        this.errorLogger().info("GenericConnectablePeerProcessor: Created(" + verb + ") PUT Observation: " + message);
 
                         // return the message
                         return message;
@@ -482,7 +482,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                     String message = this.createObservation(verb, ep_name, uri, value);
 
                     // DEBUG
-                    this.errorLogger().info("MQTT: Created(" + verb + ") PUT Observation: " + message);
+                    this.errorLogger().info("GenericConnectablePeerProcessor: Created(" + verb + ") PUT Observation: " + message);
 
                     // return message
                     return message;
@@ -490,7 +490,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
             }
             catch (Exception ex) {
                 // Error in creating the observation message from the AsyncResponse PUT reply... 
-                this.errorLogger().warning("MQTT(PUT): Exception in formatAsyncResponseAsReply(): ", ex);
+                this.errorLogger().warning("GenericConnectablePeerProcessor: Exception in formatAsyncResponseAsReply(): ", ex);
             }
         }
 
@@ -525,11 +525,11 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
     protected void subscribe_to_topics(String ep_name, Topic topics[]) {
         if (this.mqtt(ep_name) != null) {
             // subscribe to endpoint specific topics
-            this.errorLogger().info("subscribe_to_topics(MQTT): subscribing to topics...");
+            this.errorLogger().info("GenericConnectablePeerProcessor(subscribe_to_topics): subscribing to topics...");
             this.mqtt(ep_name).subscribe(topics);
             
             // subscribe to the API Request topic
-            this.errorLogger().info("subscribe_to_topics(MQTT): subscribing to API request topic...");
+            this.errorLogger().info("GenericConnectablePeerProcessor(subscribe_to_topics): subscribing to API request topic...");
             this.subscribe_to_api_request_topic(ep_name);
         }
     }
@@ -560,7 +560,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
     protected void subscribe(String ep_name, String ep_type,HashMap<String, Object> topic_data,ConnectionCreator cc) {
         if (ep_name != null && this.validateMQTTConnection(cc, ep_name, ep_type, null)) {
             // DEBUG
-            this.orchestrator().errorLogger().info("MQTT: Subscribing to CoAP command topics for endpoint: " + ep_name + " type: " + ep_type);
+            this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: Subscribing to CoAP command topics for endpoint: " + ep_name + " type: " + ep_type);
             try {
                 if (topic_data != null) {
                     // get,put,post,delete enablement
@@ -574,20 +574,20 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                 }
                 else {
                     // unable to register as topic data is NULL
-                    this.orchestrator().errorLogger().warning("MQTT: GET/PUT/POST/DELETE topic data NULL. Unable to subscribe(): ep_name: " + ep_name + " ept: " + ep_type);
+                    this.orchestrator().errorLogger().warning("GenericConnectablePeerProcessor: GET/PUT/POST/DELETE topic data NULL. Unable to subscribe(): ep_name: " + ep_name + " ept: " + ep_type);
                 }
             }
             catch (Exception ex) {
-                this.orchestrator().errorLogger().warning("MQTT: Exception in subscribe for " + ep_name + " : " + ex.getMessage(),ex);
+                this.orchestrator().errorLogger().warning("GenericConnectablePeerProcessor: Exception in subscribe for " + ep_name + " : " + ex.getMessage(),ex);
             }
         }
         else if (ep_name != null) {
             // unable to validate the MQTT connection
-            this.orchestrator().errorLogger().warning("MQTT: Unable to validate MQTT connection. Unable to subscribe(): ep_name: " + ep_name + " ept: " + ep_type);
+            this.orchestrator().errorLogger().warning("GenericConnectablePeerProcessor: Unable to validate MQTT connection. Unable to subscribe(): ep_name: " + ep_name + " ept: " + ep_type);
         }
         else {
             // NULL endpoint name
-            this.orchestrator().errorLogger().warning("MQTT: NULL Endpoint name in subscribe()... ignoring...");
+            this.orchestrator().errorLogger().warning("GenericConnectablePeerProcessor: NULL Endpoint name in subscribe()... ignoring...");
         }
     }
     
@@ -599,7 +599,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
         }
         else {
             // invalid params
-            this.errorLogger().critical("MQTT: validateMQTTConnection(). Unable to call createAndStartMQTTForEndpoint() as ConnectionCreator parameter is NULL");
+            this.errorLogger().critical("GenericConnectablePeerProcessor: validateMQTTConnection(). Unable to call createAndStartMQTTForEndpoint() as ConnectionCreator parameter is NULL");
         }
         return false;
     }
@@ -609,7 +609,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
         boolean unsubscribed = false;
         if (ep_name != null && this.mqtt(ep_name) != null) {
             // DEBUG
-            this.orchestrator().errorLogger().info("MQTT: Un-Subscribing to CoAP command topics for endpoint: " + ep_name);
+            this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: Un-Subscribing to CoAP command topics for endpoint: " + ep_name);
             try {
                 HashMap<String, Object> topic_data = (HashMap<String, Object>) this.m_endpoints.get(ep_name);
                 if (topic_data != null) {
@@ -618,20 +618,20 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
                 }
                 else {
                     // not in subscription list (OK)
-                    this.orchestrator().errorLogger().info("MQTT: Endpoint: " + ep_name + " not in subscription list (OK).");
+                    this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: Endpoint: " + ep_name + " not in subscription list (OK).");
                     unsubscribed = true;
                 }
             }
             catch (Exception ex) {
-                this.orchestrator().errorLogger().info("MQTT: Exception in unsubscribe for " + ep_name + " : " + ex.getMessage());
+                this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: Exception in unsubscribe for " + ep_name + " : " + ex.getMessage());
             }
         }
         else if (this.mqtt(ep_name) != null) {
-            this.orchestrator().errorLogger().info("v: NULL Endpoint name... ignoring unsubscribe()...");
+            this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: NULL Endpoint name... ignoring unsubscribe()...");
             unsubscribed = true;
         }
         else {
-            this.orchestrator().errorLogger().info("MQTT: No MQTT connection for " + ep_name + "... ignoring unsubscribe()...");
+            this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: No MQTT connection for " + ep_name + "... ignoring unsubscribe()...");
             unsubscribed = true;
         }
 
@@ -647,7 +647,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
     // discover the endpoint attributes
     protected void retrieveEndpointAttributes(Map endpoint,AsyncResponseProcessor arp) {
         // DEBUG
-        this.errorLogger().info("MQTT: Creating New Device: " + endpoint);
+        this.errorLogger().info("GenericConnectablePeerProcessor: Creating New Device: " + endpoint);
 
         // pre-populate the new endpoint with initial values for registration
         this.orchestrator().pullDeviceMetadata(endpoint, arp);
@@ -708,7 +708,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
     @Override
     public void sendMessage(String topic, String message) {
         // send a message over Google Cloud...
-        this.errorLogger().info("sendMessage(MQTT-STD): Sending Message to: " + topic + " message: " + message);
+        this.errorLogger().info("GenericConnectablePeerProcessor(sendMessage): Sending Message to: " + topic + " message: " + message);
         
         // send the message over MQTT
         this.mqtt().sendMessage(topic, message);
@@ -748,7 +748,7 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
     // OVERRIDE: Topics for stock MQTT...
     protected void subscribeToMQTTTopics() {
         String request_topic_str = this.getTopicRoot() + this.getRequestTag() + "/#";
-        this.errorLogger().info("subscribeToMQTTTopics(MQTT-STD): listening on REQUEST topic: " + request_topic_str);
+        this.errorLogger().info("GenericConnectablePeerProcessor(subscribeToMQTTTopics): listening on REQUEST topic: " + request_topic_str);
         Topic request_topic = new Topic(request_topic_str, QoS.AT_LEAST_ONCE);
         Topic[] topic_list = {request_topic};
         this.mqtt().subscribe(topic_list);

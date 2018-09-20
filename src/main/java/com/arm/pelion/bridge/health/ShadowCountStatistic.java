@@ -22,7 +22,7 @@
  */
 package com.arm.pelion.bridge.health;
 
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.factories.BasePeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
