@@ -31,9 +31,14 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.TopicParseInterfa
 import com.arm.pelion.bridge.core.TypeDecoder;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.data.SerializableHashMap;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.codec.binary.Base64;
 
 /**
@@ -1055,5 +1060,42 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     protected Boolean expireDeviceRegistration(String device) {
         // nothing to do in base class
         return false;
+    }
+    
+    // read the requested data from Command Requestor
+    protected String read(HttpServletRequest request) {
+        try {
+            BufferedReader reader = request.getReader();
+            String line = reader.readLine();
+            StringBuilder buf = new StringBuilder();
+            while (line != null) {
+                buf.append(line);
+                line = reader.readLine();
+            }
+            return buf.toString();
+        }
+        catch (IOException ex) {
+            // silent
+        }
+        return null;
+    }
+
+    // send the REST response back to the Command Requestor
+    protected void sendResponseToCommandRequestor(String content_type, HttpServletRequest request, HttpServletResponse response, String header, String body) {
+        try {
+            response.setContentType(content_type);
+            response.setHeader("Pragma", "no-cache");
+            try (PrintWriter out = response.getWriter()) {
+                if (header != null && header.length() > 0) {
+                    out.println(header);
+                }
+                if (body != null && body.length() > 0) {
+                    out.println(body);
+                }
+            }
+        }
+        catch (IOException ex) {
+            this.errorLogger().critical("PeerProcessor(sendResponseToCommandRequestor): Unable to send response back to command requestor...", ex);
+        }
     }
 }

@@ -110,6 +110,10 @@ public final class Manager {
         this.m_orchestrator.processIncomingDeviceServerMessage(request, response);
     }
     
+    public void processPeerCommand(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        this.m_orchestrator.processCommandMessage(request, response);
+    }
+    
     public void initListeners() {
         this.m_orchestrator.initPeerListener();
     }

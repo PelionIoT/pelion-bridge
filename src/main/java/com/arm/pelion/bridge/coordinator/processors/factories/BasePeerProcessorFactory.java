@@ -31,6 +31,8 @@ import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
 import java.util.Map;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * Base Peer PeerProcessor Manager: Manages a collection of MQTT-based processors
@@ -172,5 +174,12 @@ public class BasePeerProcessorFactory extends PeerProcessor implements Transport
         for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
             this.m_mqtt_processor_list.get(i).recordAsyncResponse(response, uri, ep, processor);
         }
+    }
+
+    @Override
+    public void processCommandMessage(HttpServletRequest request, HttpServletResponse response) {
+        for (int i = 0; i < this.m_mqtt_processor_list.size(); ++i) {
+            this.m_mqtt_processor_list.get(i).processCommandMessage(request, response);
+        }    
     }
 }

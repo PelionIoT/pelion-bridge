@@ -38,6 +38,8 @@ import org.apache.commons.codec.binary.Base64;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ConnectionCreator;
 import java.util.List;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 
@@ -710,6 +712,29 @@ public class GenericMQTTProcessor extends PeerProcessor implements Transport.Rec
         
         // send the message over MQTT
         this.mqtt().sendMessage(topic, message);
+    }
+    
+    // process an inbound command message to this peer
+    protected String processCommandMessage(String json,HttpServletRequest request) {
+        // unused in base class
+        return "{}";
+    }
+    
+    // process an inbound command message to this peer
+    @Override
+    public void processCommandMessage(HttpServletRequest request, HttpServletResponse response) {
+        String response_json = "{}";
+        String response_headers = "";
+        
+        // read the request...
+        String json = this.read(request);
+        if (json != null && json.length() > 0 && json.equalsIgnoreCase("{}") == false) {
+            // process and route the mbed Cloud message
+            response_json = this.processCommandMessage(json, request);
+        }
+        
+        // ALWAYS send the response back as an ACK to command requestor
+        this.sendResponseToCommandRequestor("application/json;charset=utf-8", request, response, response_headers, response_json);
     }
 
     // OVERRIDE: Connection stock MQTT...

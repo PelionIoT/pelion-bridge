@@ -23,6 +23,8 @@
 package com.arm.pelion.bridge.coordinator.processors.interfaces;
 import com.arm.pelion.bridge.coordinator.processors.core.EndpointTypeManager;
 import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * This interface defines the exposed methods of a peer processor
@@ -60,6 +62,9 @@ public interface PeerProcessorInterface {
     
     // process a new device registration (directly, Pelion)
     public void completeNewDeviceRegistration(Map endpoint);
+    
+    // process a command message for a peer
+    public void processCommandMessage(HttpServletRequest request, HttpServletResponse response);
 
     // init/start peer listeners
     public void initListener();

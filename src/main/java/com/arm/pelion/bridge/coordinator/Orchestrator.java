@@ -331,13 +331,6 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         }
     }
 
-    // process the Pelion inbound message
-    public void processIncomingDeviceServerMessage(HttpServletRequest request, HttpServletResponse response) {
-        // process the received REST message
-        //this.errorLogger().info("events (REST-" + request.getMethod() + "): " + request.getRequestURI());
-        this.pelion_processor().processNotificationMessage(request, response);
-    }
-
     // get the HttpServlet
     public HttpServlet getServlet() {
         return this.m_servlet;
@@ -635,5 +628,22 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
             return this.m_peer_processor_list.get(0).getEndpointTypeManager();
         }
         return null;
+    }
+    
+    // process the mbed Device Server inbound message
+    public void processIncomingDeviceServerMessage(HttpServletRequest request, HttpServletResponse response) {
+        // process the received REST message
+        this.errorLogger().info("Orchestrator: EVENT (REST-" + request.getMethod() + "): " + request.getRequestURI());
+        this.pelion_processor().processNotificationMessage(request, response);
+    }
+    
+    // process the inbound command messsage for a peer
+    @Override
+    public void processCommandMessage(HttpServletRequest request, HttpServletResponse response) {
+        // process the received Peer Command message
+        this.errorLogger().info("Orchestrator: COMMAND (REST-" + request.getMethod() + "): " + request.getRequestURI());
+        for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
+            this.peerProcessor(i).processCommandMessage(request, response);
+        }
     }
 }
