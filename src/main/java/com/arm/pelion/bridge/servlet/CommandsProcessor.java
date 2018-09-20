@@ -86,7 +86,7 @@ public class CommandsProcessor extends HttpServlet {
                 out.println("{}");
             }
             catch (IOException ex) {
-                this.m_error_logger.critical("CommandsProcessor: Unable to send response back to mDS...", ex);
+                this.m_error_logger.critical("CommandsProcessor: Unable to send response back to requestor", ex);
             }
         }
     }
@@ -104,7 +104,16 @@ public class CommandsProcessor extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+        // GET not used - just send a response
+        try {
+            response.setContentType("application/json;charset=utf-8");
+            response.setHeader("Pragma", "no-cache");
+            PrintWriter out = response.getWriter();
+            out.println("{}");
+        }
+        catch (IOException ex) {
+            this.m_error_logger.critical("CommandsProcessor(GET): returning empty result", ex);
+        }
     }
 
     /**
@@ -119,7 +128,16 @@ public class CommandsProcessor extends HttpServlet {
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+        // PUT not used - just send a response
+        try {
+            response.setContentType("application/json;charset=utf-8");
+            response.setHeader("Pragma", "no-cache");
+            PrintWriter out = response.getWriter();
+            out.println("{}");
+        }
+        catch (IOException ex) {
+            this.m_error_logger.critical("CommandsProcessor(PUT): returning empty result", ex);
+        }
     }
 
     /**
@@ -149,7 +167,16 @@ public class CommandsProcessor extends HttpServlet {
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+        // DELETE not used - just send a response
+        try {
+            response.setContentType("application/json;charset=utf-8");
+            response.setHeader("Pragma", "no-cache");
+            PrintWriter out = response.getWriter();
+            out.println("{}");
+        }
+        catch (IOException ex) {
+            this.m_error_logger.critical("CommandsProcessor(DELETE): returning empty result", ex);
+        }
     }
 
     /**
@@ -159,6 +186,6 @@ public class CommandsProcessor extends HttpServlet {
      */
     @Override
     public String getServletInfo() {
-        return "Connector/mbed Cloud Bridge v1.0";
+        return "Pelion Bridge 1.0";
     }// </editor-fold>
 }

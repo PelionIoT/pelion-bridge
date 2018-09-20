@@ -86,7 +86,7 @@ public class EventsProcessor extends HttpServlet {
                 out.println("{}");
             }
             catch (IOException ex) {
-                this.m_error_logger.critical("Unable to send response back to mDS...", ex);
+                this.m_error_logger.critical("EventsProcessor: Unable to send response back to Pelion...", ex);
             }
         }
     }
@@ -159,6 +159,6 @@ public class EventsProcessor extends HttpServlet {
      */
     @Override
     public String getServletInfo() {
-        return "Connector/mbed Cloud Bridge v1.0";
+        return "Pelion Bridge 1.0";
     }// </editor-fold>
 }
