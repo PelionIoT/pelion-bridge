@@ -352,7 +352,7 @@ public class IoTHubDeviceManager extends DeviceManager {
                     if (parsed != null) {
                         // Device Details
                         String d = this.orchestrator().getTablenameDelimiter();
-                        ep = new SerializableHashMap(this.orchestrator(),"AWS_DEVICE" + d + device + d + device_type);
+                        ep = new SerializableHashMap(this.orchestrator(),"IOTHUB_DEVICE" + d + device + d + device_type);
 
                         // Device Keys
                         Map authentication = (Map) parsed.get("authentication");
