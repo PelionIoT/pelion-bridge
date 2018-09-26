@@ -1069,9 +1069,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         List devices = this.discoverRegisteredDevices();
         
         // lets see how many devices we have to setup shadows with... 
-        if (devices != null && devices.size() < this.m_mds_max_shadow_create_threads) {
+        if (devices != null && devices.size() > 0 && devices.size() < this.m_mds_max_shadow_create_threads) {
             // DEBUG
-            this.errorLogger().warning("PelionProcessor(DeviceShadowSetup): Dispatching entire group of devices for shadow creation. Count: " + devices.size());
+            this.errorLogger().warning("PelionProcessor(DeviceShadowSetup): Dispatching group of devices for shadow creation. Count: " + devices.size());
   
             // small number of shadows... one dispatch only
             this.beginDispatchGroup(devices);
@@ -1086,15 +1086,15 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 List device_list_i = chopped_list.get(i);
                 
                 // DEBUG
-                this.errorLogger().warning("PelionProcessor(DeviceShadowSetup): Starting group " + (i+1) + " of devices for shadow creation...");
+                this.errorLogger().warning("PelionProcessor(DeviceShadowSetup): Dispatching group (" + (i+1) + " of " + chopped_list.size() +  ") of devices for shadow creation...");
                 
                 // now invoke the dispatch of the ith group of devices
                 this.beginDispatchGroup(device_list_i);
             }
         }
         else {
-            // no devices
-            this.errorLogger().warning("PelionProcessor(DeviceShadowSetup): No devices to shadow (OK)");
+            // no devices to shadow
+            this.errorLogger().warning("PelionProcessor(DeviceShadowSetup): No Pelion devices to shadow (OK)");
         }
     }
     
