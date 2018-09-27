@@ -23,7 +23,6 @@
 package com.arm.pelion.bridge.health;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
@@ -85,12 +84,6 @@ public class HealthCheckServiceProvider extends BaseClass implements HealthCheck
         return (PelionProcessorInterface)this.m_orchestrator.pelion_processor();
     }
 
-    // get the peer processor list
-    @Override
-    public List<PeerProcessorInterface> getPeerProcessorList() {
-        return this.m_orchestrator.peer_processor_list();
-    }
-
     // initialize our stats
     @Override
     public void initialize() {
@@ -105,16 +98,10 @@ public class HealthCheckServiceProvider extends BaseClass implements HealthCheck
             this.m_validator_list.add(new LongPollValidator(this));
         }
         
-        // Generic Peer connection validator
-        if (this.getPeerProcessorList() != null && this.getPeerProcessorList().size() > 0) {
-            // for now... we simply use the qualifier from the first peer processor.. correct for all the current deployments
-            GenericConnectablePeerProcessor gcp = (GenericConnectablePeerProcessor)this.getPeerProcessorList().get(0);
-            this.m_validator_list.add(new PeerConnectionValidator(this,gcp.hsQualifier()));
-            
-            // WARN if having more than 1 peer processor - they may have different qualifiers (more than likely though they are all the same)
-            if (this.getPeerProcessorList().size() > 1) {
-                this.errorLogger().warning("HealthCheckServiceProvider: WARNING: More than 1 peer processor attached. Using first HS qualifier: " + gcp.hsQualifier());
-            }
+        // Generic Peer connection validators
+        List<PeerProcessorInterface> list = this.m_orchestrator.peer_processor_list();
+        for(int i=0;list != null && i<list.size();++i) {
+            this.m_validator_list.add(new PeerConnectionValidator(this,list.get(i)));
         }
         
         // Database validator

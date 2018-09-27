@@ -23,10 +23,8 @@
 package com.arm.pelion.bridge.health.interfaces;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
 import com.arm.pelion.bridge.health.HealthStatistic;
-import java.util.List;
 
 /**
  * Health Check Service Interface
@@ -39,14 +37,11 @@ public interface HealthCheckServiceInterface {
     // initialize the stats
     public void initialize();
     
-    // get the Pelion Processor
-    public PelionProcessorInterface getPelionProcessor();
-    
     // get the Orchestrator
     public Orchestrator getOrchestrator();
     
-    // get the list of Peer Processors
-    public List<PeerProcessorInterface> getPeerProcessorList();
+    // get the Pelion Processor
+    public PelionProcessorInterface getPelionProcessor();
     
     // statistics JSON
     public String statisticsJSON();

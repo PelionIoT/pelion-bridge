@@ -23,10 +23,8 @@
 package com.arm.pelion.bridge.health;
 
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
-import com.arm.pelion.bridge.coordinator.processors.factories.BasePeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
-import java.util.List;
 
 /**
  * This class periodically checks all Peer Processor connections
@@ -34,9 +32,12 @@ import java.util.List;
  * @author Doug Anson
  */
 public class PeerConnectionValidator extends BaseValidatorClass implements Runnable {
+    private PeerProcessorInterface m_peer = null;
+    
     // default constructor
-    public PeerConnectionValidator(HealthCheckServiceInterface provider,String qualifier) {
-        super(provider,"peer",qualifier);
+    public PeerConnectionValidator(HealthCheckServiceInterface provider,PeerProcessorInterface peer) {
+        super(provider,"peer",((GenericConnectablePeerProcessor)peer).hsQualifier());
+        this.m_peer = peer;
         this.m_value = (Boolean)false;      // boolean value for this validator
     }   
     
@@ -67,32 +68,20 @@ public class PeerConnectionValidator extends BaseValidatorClass implements Runna
     
     // WORKER: is MQTT enabled in the generic Peer? (default)
     private boolean mqttInUse() {
-        boolean in_use = true;
-        List<PeerProcessorInterface> list = this.m_provider.getPeerProcessorList();
-        for(int i=0;list != null && i<list.size() && in_use;++i) {
-            BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
-            GenericConnectablePeerProcessor p = f.genericPeerProcessor();
-            if (p != null) {
-                // cumulative
-                in_use = (in_use & p.mqttInUse());
-            }
+        GenericConnectablePeerProcessor p = (GenericConnectablePeerProcessor)this.m_peer;
+        if (p != null) {
+            return p.mqttInUse();
         }
-        return in_use;
+        return false;
     }
     
     // WORKER: is HTTP enabled in the generic Peer? (non-std, optional)
     private boolean httpInUse() {
-        boolean in_use = true;
-        List<PeerProcessorInterface> list = this.m_provider.getPeerProcessorList();
-        for(int i=0;list != null && i<list.size() && in_use;++i) {
-            BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
-            GenericConnectablePeerProcessor p = f.genericPeerProcessor();
-            if (p != null) {
-                // cumulative
-                in_use = (in_use & p.httpInUse());
-            }
+        GenericConnectablePeerProcessor p = (GenericConnectablePeerProcessor)this.m_peer;
+        if (p != null) {
+            return p.httpInUse();
         }
-        return in_use;
+        return false;
     }
 
     // WORKER: validate the Peer Connections (typically MQTT...)
@@ -112,31 +101,19 @@ public class PeerConnectionValidator extends BaseValidatorClass implements Runna
     
     // WORKER: validate the MQTT Connections (default)
     private boolean validateMQTTConnections() {
-        boolean ok = true;
-        List<PeerProcessorInterface> list = this.m_provider.getPeerProcessorList();
-        for(int i=0;list != null && i<list.size() && ok;++i) {
-            BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
-            GenericConnectablePeerProcessor p = f.genericPeerProcessor();
-            if (p != null) {
-                // cumulative
-                ok = (ok & p.mqttConnectionsOK());
-            }
+        GenericConnectablePeerProcessor p = (GenericConnectablePeerProcessor)this.m_peer;
+        if (p != null) {
+            return p.mqttConnectionsOK();
         }
-        return ok;
+        return false;
     }
     
     // WORKER: validate the HTTP Connections (non-std)
     private boolean validateHTTPConnections() {
-        boolean ok = true;
-        List<PeerProcessorInterface> list = this.m_provider.getPeerProcessorList();
-        for(int i=0;list != null && i<list.size() && ok;++i) {
-            BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
-            GenericConnectablePeerProcessor p = f.genericPeerProcessor();
-            if (p != null) {
-                // cumulative
-                ok = (ok & p.httpStatusOK());
-            }
+        GenericConnectablePeerProcessor p = (GenericConnectablePeerProcessor)this.m_peer;
+        if (p != null) {
+            return p.httpStatusOK();
         }
-        return ok;
+        return false;
     }
 }
