@@ -45,7 +45,7 @@ public class PeerConnectionValidator extends BaseValidatorClass implements Runna
     @Override
     protected void validate() {
         // make sure we are actually using Peer in the peer...otherwise dont report it...
-        if (this.mqttInUse() == true) {
+        if (this.mqttInUse() == true || this.httpInUse()) {
             // DEBUG
             this.errorLogger().info("PeerConnctionValidator: Validating Peer Connections...");
 

@@ -44,7 +44,7 @@ public abstract class BaseValidatorClass extends BaseClass implements Runnable {
     public BaseValidatorClass(HealthCheckServiceInterface provider,String key,String qualifier) {
         this(provider,key);
         if (qualifier != null && qualifier.length() > 0) {
-            this.m_description += "(" + qualifier + ")";
+            this.m_description += " (" + qualifier + ")";
         }
     }
     

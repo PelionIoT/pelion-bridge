@@ -24,6 +24,7 @@ package com.arm.pelion.bridge.health;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
+import com.arm.pelion.bridge.coordinator.processors.factories.BasePeerProcessorFactory;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
 import com.arm.pelion.bridge.core.BaseClass;
@@ -101,7 +102,8 @@ public class HealthCheckServiceProvider extends BaseClass implements HealthCheck
         // Generic Peer connection validators
         List<PeerProcessorInterface> list = this.m_orchestrator.peer_processor_list();
         for(int i=0;list != null && i<list.size();++i) {
-            this.m_validator_list.add(new PeerConnectionValidator(this,list.get(i)));
+            BasePeerProcessorFactory bpf = (BasePeerProcessorFactory)list.get(i);
+            this.m_validator_list.add(new PeerConnectionValidator(this,bpf.genericPeerProcessor()));
         }
         
         // Database validator
