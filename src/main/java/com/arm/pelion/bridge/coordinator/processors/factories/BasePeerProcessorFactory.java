@@ -83,16 +83,16 @@ public class BasePeerProcessorFactory extends PeerProcessor implements Transport
     }
 
     // add a GenericConnectablePeerProcessor
-    public void addProcessor(GenericConnectablePeerProcessor mqtt_processor) {
-        this.addProcessor(mqtt_processor, false);
+    public void addProcessor(GenericConnectablePeerProcessor generic_peer_processor) {
+        this.addProcessor(generic_peer_processor, false);
     }
 
     // add a GenericConnectablePeerProcessor
-    public void addProcessor(GenericConnectablePeerProcessor mqtt_processor, boolean is_default) {
+    public void addProcessor(GenericConnectablePeerProcessor generic_peer_processor, boolean is_default) {
         if (is_default == true) {
             this.m_default_processor = this.m_peer_processor_list.size();
         }
-        this.m_peer_processor_list.add(mqtt_processor);
+        this.m_peer_processor_list.add(generic_peer_processor);
     }
 
     // get the number of processors
@@ -101,7 +101,7 @@ public class BasePeerProcessorFactory extends PeerProcessor implements Transport
     }
 
     // get the default processor
-    public GenericConnectablePeerProcessor mqttProcessor() {
+    public GenericConnectablePeerProcessor genericPeerProcessor() {
         if (this.m_peer_processor_list.size() > 0) {
             return this.m_peer_processor_list.get(this.m_default_processor);
         }

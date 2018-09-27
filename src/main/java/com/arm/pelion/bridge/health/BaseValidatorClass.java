@@ -40,6 +40,14 @@ public abstract class BaseValidatorClass extends BaseClass implements Runnable {
     protected int m_validator_interval_ms = 0;
     private boolean m_override_check_interval = true;  // true: nail to default, false: from config file
     
+    // constructor with  optional qualifier
+    public BaseValidatorClass(HealthCheckServiceInterface provider,String key,String qualifier) {
+        this(provider,key);
+        if (qualifier != null && qualifier.length() > 0) {
+            this.m_description += "(" + qualifier + ")";
+        }
+    }
+    
     // main constructor
     public BaseValidatorClass(HealthCheckServiceInterface provider,String key) {
         super(provider.getOrchestrator().errorLogger(),provider.getOrchestrator().preferences());

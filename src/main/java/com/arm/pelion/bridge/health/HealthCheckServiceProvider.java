@@ -23,6 +23,7 @@
 package com.arm.pelion.bridge.health;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
+import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
@@ -104,8 +105,17 @@ public class HealthCheckServiceProvider extends BaseClass implements HealthCheck
             this.m_validator_list.add(new LongPollValidator(this));
         }
         
-        // MQTT connection validator
-        this.m_validator_list.add(new MQTTConnectionValidator(this));
+        // Generic Peer connection validator
+        if (this.getPeerProcessorList() != null && this.getPeerProcessorList().size() > 0) {
+            // for now... we simply use the qualifier from the first peer processor.. correct for all the current deployments
+            GenericConnectablePeerProcessor gcp = (GenericConnectablePeerProcessor)this.getPeerProcessorList().get(0);
+            this.m_validator_list.add(new PeerConnectionValidator(this,gcp.hsQualifier()));
+            
+            // WARN if having more than 1 peer processor - they may have different qualifiers (more than likely though they are all the same)
+            if (this.getPeerProcessorList().size() > 1) {
+                this.errorLogger().warning("HealthCheckServiceProvider: WARNING: More than 1 peer processor attached. Using first HS qualifier: " + gcp.hsQualifier());
+            }
+        }
         
         // Database validator
         this.m_validator_list.add(new DatabaseValidator(this));

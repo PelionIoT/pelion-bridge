@@ -63,8 +63,12 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
     // API Request Topic
     private String m_api_request_topic = null;
     
+    // Health Statistic Qualifier
+    private String m_hs_qualifier = "MQTT";     // default is MQTT
+    
     // is MQTT in use in this processor?
     private boolean m_mqtt_utilized = true;     // default is TRUE
+    private boolean m_http_utilized = false;    // default is FALSE 
     
     protected String m_mqtt_host = null;
     protected int m_mqtt_port = 0;
@@ -106,6 +110,9 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
         
         // by default, this processor makes use of MQTT
         this.m_mqtt_utilized = true;
+        
+        // by default, this processor does NOT make use of HTTP webhooks
+        this.m_http_utilized = false;
         
         // create the API Request Topic
         this.m_api_request_topic = this.createApiRequestTopic();
@@ -160,6 +167,22 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
     // MQTT usage status
     public boolean mqttInUse() {
         return this.m_mqtt_utilized;
+    }
+    
+    // using HTTP in this peer
+    protected void isUsingHTTP() {
+        this.m_http_utilized = true;
+        this.m_hs_qualifier = "HTTP";   // adjust the qualifier for HTTP
+    }
+    
+    // HTTP usage status
+    public boolean httpInUse() {
+        return this.m_http_utilized;
+    }
+    
+    // Get the HS Qualifier
+    public String hsQualifier() {
+        return this.m_hs_qualifier;
     }
     
     // process the REST api request
@@ -856,6 +879,18 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
                     ok = (ok & t.isConnected());
                 }
             }   
+        }
+        
+        return ok;
+    }
+    
+    // validte the HTTP status if being used in this processor
+    public boolean httpStatusOK() {
+        boolean ok = true; 
+        
+        // in some instances, we are not using HTTP... so we can ignore our status
+        if (this.m_http_utilized == true) {
+            // XXX IMPLEMENT
         }
         
         return ok;
