@@ -63,6 +63,9 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
     // API Request Topic
     private String m_api_request_topic = null;
     
+    // is MQTT in use in this processor?
+    private boolean m_mqtt_utilized = true;     // default is TRUE
+    
     protected String m_mqtt_host = null;
     protected int m_mqtt_port = 0;
     protected String m_client_id = null;
@@ -75,9 +78,6 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
     private HashMap<String, MQTTTransport> m_mqtt = null;
     protected SerializableHashMap m_endpoints = null;
     protected HashMap<String, TransportReceiveThread> m_mqtt_thread_list = null;
-    
-    // switch to ignore MQTT connection status
-    private boolean m_ignore_mqtt_status = false;  // default is FALSE 
 
     // Factory method for initializing the Sample 3rd Party peer
     public static GenericConnectablePeerProcessor createPeerProcessor(Orchestrator manager, HttpTransport http) {
@@ -103,6 +103,9 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
         
         // init our API Request ID
         this.m_next_api_request_id = 0;
+        
+        // by default, this processor makes use of MQTT
+        this.m_mqtt_utilized = true;
         
         // create the API Request Topic
         this.m_api_request_topic = this.createApiRequestTopic();
@@ -149,9 +152,14 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
         this.setupDefaultMQTTTransport(mqtt);
     }
     
-    // ignore our MQTT status - always report "true"
-    protected void ignoreMQTTConnectionStatus(boolean ignore) {
-        this.m_ignore_mqtt_status = ignore;
+    // not using MQTT in this peer
+    protected void notUsingMQTT() {
+        this.m_mqtt_utilized = false;
+    }
+    
+    // MQTT usage status
+    public boolean mqttInUse() {
+        return this.m_mqtt_utilized;
     }
     
     // process the REST api request
@@ -840,7 +848,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
         boolean ok = true; 
         
         // in some instances, we are not using MQTT... so we can ignore our status
-        if (this.m_ignore_mqtt_status == false) {
+        if (this.m_mqtt_utilized == true) {
             // we are using MQTT - so check our real status...
             for (Map.Entry<String, MQTTTransport> entry : m_mqtt.entrySet()) {
                 MQTTTransport t = entry.getValue();

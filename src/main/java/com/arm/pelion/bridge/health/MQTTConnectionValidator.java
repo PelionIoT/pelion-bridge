@@ -43,23 +43,41 @@ public class MQTTConnectionValidator extends BaseValidatorClass implements Runna
     // validate
     @Override
     protected void validate() {
-        // DEBUG
-        this.errorLogger().info("MQTTConnctionValidator: Validating MQTT Connections...");
+        // make sure we are actually using MQTT in the peer...otherwise dont report it...
+        if (this.mqttInUse() == true) {
+            // DEBUG
+            this.errorLogger().info("MQTTConnctionValidator: Validating MQTT Connections...");
 
-        // validate the mqtt connections
-        if (this.validateMQTTConnections() == true) {
-            // DEBUG
-            this.errorLogger().info("MQTTConnctionValidator: MQTT Connections OK.");
-            this.m_value = (Boolean)true;
+            // validate the mqtt connections
+            if (this.validateMQTTConnections() == true) {
+                // DEBUG
+                this.errorLogger().info("MQTTConnctionValidator: MQTT Connections OK.");
+                this.m_value = (Boolean)true;
+            }
+            else {
+                // DEBUG
+                this.errorLogger().warning("MQTTConnctionValidator: One or more MQTT Connections is DOWN.");
+                this.m_value = (Boolean)false;
+            }
+
+            // update our stats and notify if changed
+            this.updateStatisticAndNotify();
         }
-        else {
-            // DEBUG
-            this.errorLogger().warning("MQTTConnctionValidator: One or more MQTT Connections is DOWN.");
-            this.m_value = (Boolean)false;
+    }
+    
+    // WORKER: is MQTT enabled in the generic Peer?
+    private boolean mqttInUse() {
+        boolean in_use = true;
+        List<PeerProcessorInterface> list = this.m_provider.getPeerProcessorList();
+        for(int i=0;list != null && i<list.size() && in_use;++i) {
+            BasePeerProcessorFactory f = (BasePeerProcessorFactory)list.get(i);
+            GenericConnectablePeerProcessor p = f.mqttProcessor();
+            if (p != null) {
+                // cumulative
+                in_use = (in_use & p.mqttInUse());
+            }
         }
-        
-        // update our stats and notify if changed
-        this.updateStatisticAndNotify();
+        return in_use;
     }
 
     // WORKER: validate the MQTT Connections
