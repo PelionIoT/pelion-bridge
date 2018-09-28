@@ -116,9 +116,10 @@ public class BridgeMain implements Runnable {
         // eventing process servlet bindings (wildcarded)
         context.addServlet(new ServletHolder(this.m_events_processor), this.m_preferences.valueOf("mds_gw_events_path") + "/*");
         
-        // setup our websocket server
+        // setup our websocket server (must support WSS)
         this.m_ws_service = new Server();
-        ServerConnector logger_server_connector = new ServerConnector(this.m_ws_service);
+        ServerConnector logger_server_connector = new ServerConnector(this.m_ws_service,sslContextFactory);
+        logger_server_connector.setHost("0.0.0.0");
         logger_server_connector.setPort(this.m_preferences.intValueOf("websocket_streaming_port"));
         this.m_ws_service.addConnector(logger_server_connector);
         
