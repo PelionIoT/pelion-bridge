@@ -47,17 +47,17 @@ public class PeerConnectionValidator extends BaseValidatorClass implements Runna
         // make sure we are actually using Peer in the peer...otherwise dont report it...
         if (this.mqttInUse() == true || this.httpInUse()) {
             // DEBUG
-            this.errorLogger().info("PeerConnctionValidator: Validating Peer Connections...");
+            this.errorLogger().info("PeerConnectionValidator: Validating Peer Connections...");
 
             // validate the mqtt connections
             if (this.validatePeerConnections() == true) {
                 // DEBUG
-                this.errorLogger().info("PeerConnctionValidator: Peer Connections OK.");
+                this.errorLogger().info("PeerConnectionValidator: Peer Connections OK.");
                 this.m_value = (Boolean)true;
             }
             else {
                 // DEBUG
-                this.errorLogger().warning("PeerConnctionValidator: One or more Peer Connections is DOWN.");
+                this.errorLogger().warning("PeerConnectionValidator: One or more Peer Connections is DOWN.");
                 this.m_value = (Boolean)false;
             }
 

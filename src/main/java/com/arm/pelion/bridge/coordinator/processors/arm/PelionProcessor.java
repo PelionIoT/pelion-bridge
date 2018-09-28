@@ -1357,7 +1357,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
                 // DEBUG
                 if (!validated) {
-                    this.errorLogger().warning("PelionProcessor(Validation): Notificatoin Validation FAILED: calc: " + calc_hash + " header: " + header_hash);
+                    this.errorLogger().warning("PelionProcessor(Validation): Notification Validation FAILED: calc: " + calc_hash + " header: " + header_hash);
                 }
 
                 // return validation status
