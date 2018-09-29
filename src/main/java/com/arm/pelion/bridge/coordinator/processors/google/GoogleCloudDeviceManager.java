@@ -23,6 +23,7 @@
 package com.arm.pelion.bridge.coordinator.processors.google;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
+import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
@@ -332,8 +333,10 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
     // create the device metadata
     private HashMap<String,String> createDeviceMetadata(Map message) {
         HashMap<String,String> metadata = new HashMap<>();
-        metadata.put("device_type",(String)message.get("ept"));
-        metadata.put("device_id",(String)message.get("ep"));
+        PelionProcessor p = (PelionProcessor)this.orchestrator().pelion_processor();
+        p.initDeviceWithDefaultAttributes(message);
+        metadata.put("device_type",Utils.valueFromValidKey(message, "ept", "endpoint_type"));
+        metadata.put("device_id",Utils.valueFromValidKey(message, "id", "ep"));
         metadata.put("serial_number",(String)message.get("meta_serial"));
         metadata.put("device_description",(String)message.get("meta_description"));
         metadata.put("hardware_version",(String)message.get("meta_hardware"));
@@ -347,33 +350,34 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
             Map resource = this.getResource(i,message);
             if (resource != null) {
                 // get the LWM2M Resource URI
-                String uri = (String)resource.get("path");
-                
-                // put observable resources into the metadata
-                Object obs = resource.get("obs");
-                if (obs instanceof Boolean) {
-                    // newer format: Boolean
-                    Boolean obs_b = (Boolean)obs;
-                    String obs_s = "false";
-                    if (obs_b == true) {
-                        obs_s = "true";
-                    }
-                    String key = this.lwm2mURIToGoogleKey(uri);
-                    metadata.put(key,obs_s);
-                }
-                else if (obs instanceof String) {
-                    // older format: String
-                    String obs_s = (String)obs;
-                    if (obs_s != null && obs_s.length() > 0) {
+                String uri = Utils.valueFromValidKey(resource, "uri", "path");
+                if (uri != null && Utils.isCompleteURI(uri) == true && Utils.isHandledURI(uri) == false) {
+                    // put observable resources into the metadata
+                    Object obs = resource.get("obs");
+                    if (obs instanceof Boolean) {
+                        // newer format: Boolean
+                        Boolean obs_b = (Boolean)obs;
+                        String obs_s = "false";
+                        if (obs_b == true) {
+                            obs_s = "true";
+                        }
                         String key = this.lwm2mURIToGoogleKey(uri);
                         metadata.put(key,obs_s);
                     }
-                }
-                else {
-                    // if its present but neither String nor Boolean...
-                    if (obs != null) {
-                        String key = this.lwm2mURIToGoogleKey(uri);
-                        metadata.put(key,"true");
+                    else if (obs instanceof String) {
+                        // older format: String
+                        String obs_s = (String)obs;
+                        if (obs_s != null && obs_s.length() > 0) {
+                            String key = this.lwm2mURIToGoogleKey(uri);
+                            metadata.put(key,obs_s);
+                        }
+                    }
+                    else {
+                        // if its present but neither String nor Boolean...
+                        if (obs != null) {
+                            String key = this.lwm2mURIToGoogleKey(uri);
+                            metadata.put(key,"true");
+                        }
                     }
                 }
             }
@@ -381,6 +385,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         
         // DEBUG
         this.errorLogger().info("METADATA(GoogleCloud): " + metadata);
+        this.errorLogger().info("METADATA(GoogleCloud): MESSAGE: " + message);
         
         return metadata;
     }

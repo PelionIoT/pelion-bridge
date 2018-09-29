@@ -1224,4 +1224,17 @@ public class Utils {
         }
         return object_id;
     }
+    
+    // get the the value from one of two keys
+    public static String valueFromValidKey(Map data, String key1, String key2) {
+        if (data != null) {
+            if (data.get(key1) != null) {
+                return (String)data.get(key1);
+            }
+            if (data.get(key2) != null) {
+                return (String)data.get(key2);
+            }
+        }
+        return null;
+    }
 }

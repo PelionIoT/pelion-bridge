@@ -806,7 +806,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
     
     // initialize the endpoint's default attributes 
-    private void initDeviceWithDefaultAttributes(Map endpoint) {
+    public void initDeviceWithDefaultAttributes(Map endpoint) {
         this.pullDeviceManufacturer(endpoint);
         this.pullDeviceSerialNumber(endpoint);
         this.pullDeviceModel(endpoint);
