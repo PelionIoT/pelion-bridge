@@ -49,6 +49,7 @@ public class MemoryStatistic extends BaseValidatorClass implements Runnable {
         String val = (String)this.gatherMemoryStatistic();
         if (val != null) {
             // update
+            this.m_value = (String)val;
             this.updateStatisticAndNotify();
 
             // DEBUG
