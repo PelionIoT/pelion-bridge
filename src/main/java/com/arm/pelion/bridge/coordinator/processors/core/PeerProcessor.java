@@ -116,7 +116,13 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         List notifications = (List) data.get("reg-updates");
         for (int i = 0; notifications != null && i < notifications.size(); ++i) {
             Map endpoint = (Map) notifications.get(i);
-            this.setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
+            
+            // get the device ID and device Type
+            String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+            String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+                   
+            // set the endpoint type for this endpoint name
+            this.setEndpointTypeFromEndpointName(device_id, device_type);
         }
     }
     
@@ -182,12 +188,10 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
 
             // strip off []...
             String coap_json_stripped = this.stripArrayChars(coap_raw_json);
-
-            // get our endpoint name
-            String ep_name = (String) notification.get("ep");
-
-            // get our endpoint type
-            String ep_type = (String) notification.get("ept");
+            
+            // get the device ID and device Type
+            String ep_type = Utils.valueFromValidKey(notification, "endpoint_type", "ept");
+            String ep_name = Utils.valueFromValidKey(notification, "id", "ep");
             if (ep_type == null) {
                 ep_type = this.getEndpointTypeFromEndpointName(ep_name);
             }
@@ -573,11 +577,6 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     // returns /mbed/<domain>/new_registration/<ep_type>/<endpoint>
     protected String createNewRegistrationTopic(String ep_type, String ep_name) {
         return this.createBaseTopic("new_registration") + "/" + ep_type + "/" + ep_name;
-    }
-
-    // returns /mbed/<domain>/discover
-    protected String createEndpointDiscoveryRequest() {
-        return this.createBaseTopic("discover");
     }
 
     // returns /mbed/<domain>/request/<ep_type>

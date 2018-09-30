@@ -24,10 +24,8 @@ package com.arm.pelion.bridge.coordinator.processors.aws;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
-import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.data.SerializableHashMap;
-import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -47,17 +45,20 @@ public class AWSIoTDeviceManager extends DeviceManager {
     private String m_policy_name = null;
     private String m_policy_document = null;
     
+    private AWSIoTMQTTProcessor m_processor = null;
+    
     // lock to reconnection serial
     private boolean m_in_progress = false;
     
     // constructor
-    public AWSIoTDeviceManager(ErrorLogger logger, PreferenceManager preferences, HttpTransport http, Orchestrator orchestrator) {
-        this(logger, preferences, null, http, orchestrator);
+    public AWSIoTDeviceManager(HttpTransport http, AWSIoTMQTTProcessor processor) {
+        this(null, http, processor);
     }
 
     // constructor
-    public AWSIoTDeviceManager(ErrorLogger logger, PreferenceManager preferences, String suffix, HttpTransport http, Orchestrator orchestrator) {
-        super(logger, preferences,suffix,http,orchestrator);
+    public AWSIoTDeviceManager(String suffix, HttpTransport http, AWSIoTMQTTProcessor processor) {
+        super(processor.errorLogger(), processor.preferences(),suffix,http,processor.orchestrator());
+        this.m_processor = processor;
 
         // initialize the keys/cert id cache
         this.m_keys_cert_ids = new ArrayList<>();
@@ -93,8 +94,8 @@ public class AWSIoTDeviceManager extends DeviceManager {
             this.m_in_progress = true;
 
             // get the device details
-            String device_type = (String)message.get("ept");
-            String device = (String) message.get("ep");
+            String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+            String device = Utils.valueFromValidKey(message, "id", "ep");
 
             // see if we already have a device...
             HashMap<String, Serializable> ep = this.getDeviceDetails(device);
@@ -138,14 +139,14 @@ public class AWSIoTDeviceManager extends DeviceManager {
     // create and register a new device
     private boolean createAndRegisterNewDevice(Map message) {
         // create the new device type
-        String device_type = (String) message.get("ept");
-        String device = (String) message.get("ep");
+        String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+        String device = Utils.valueFromValidKey(message, "id", "ep");
         
         // create the thing type first
         this.createThingType(message);
 
         // invoke AWS CLI to create a new device
-        String args = "iot create-thing --thing-name=" + device + " --thing-type-name=" + (String)message.get("ept");
+        String args = "iot create-thing --thing-name=" + device + " --thing-type-name=" + device_type;
         String result = Utils.awsCLI(this.errorLogger(), args);
 
         // DEBUG

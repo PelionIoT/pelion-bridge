@@ -118,7 +118,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
             this.m_client_id = this.createWatsonIoTClientID();
 
             // Watson IoT Device Manager - will initialize and upsert our WatsonIoT bindings/metadata
-            this.m_device_manager = new WatsonIoTDeviceManager(this.orchestrator().errorLogger(),this.orchestrator().preferences(),this.m_suffix,http,this.orchestrator(),this.m_watson_iot_org_id, this.m_watson_iot_org_key,this);
+            this.m_device_manager = new WatsonIoTDeviceManager(this.m_suffix,http,this,this.m_watson_iot_org_id, this.m_watson_iot_org_key);
             this.m_watson_iot_api_key = this.m_device_manager.updateUsernameBinding(this.m_watson_iot_api_key);
             this.m_watson_iot_auth_token = this.m_device_manager.updatePasswordBinding(this.m_watson_iot_auth_token);
             this.m_client_id = this.m_device_manager.updateClientIDBinding(this.m_client_id);
@@ -167,8 +167,12 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
         for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
             Map endpoint = (Map) endpoints.get(i);
             
+            // get the device ID and device Type
+            String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+            String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+                    
             // ensure we have the endpoint type
-            this.setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
+            this.setEndpointTypeFromEndpointName(device_id,device_type);
 
             // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
             this.retrieveEndpointAttributes(endpoint,this);
@@ -181,9 +185,13 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
         List notifications = (List) data.get("reg-updates");
         for (int i = 0; notifications != null && i < notifications.size(); ++i) {
             Map entry = (Map) notifications.get(i);
+            
+            // get the device ID and device Type
+            String device_id = Utils.valueFromValidKey(entry, "id", "ep");
+            
             // DEBUG
             // this.errorLogger().info("WatsonIoT: CoAP re-registration: " + entry);
-            if (this.hasSubscriptions((String) entry.get("ep")) == false) {
+            if (this.hasSubscriptions(device_id) == false) {
                 // no subscriptions - so process as a new registration
                 this.errorLogger().info("Watson IoT : CoAP re-registration: no subscriptions.. processing as new registration...");
                 this.processRegistration(data,"reg-updates");
@@ -270,13 +278,15 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
                 notification.put("value", this.fundamentalTypeDecoder().getFundamentalValue(decoded_coap_payload)); // its a Float, Integer, or String
             }
 
+            // get the device ID
+            String ep_name = Utils.valueFromValidKey(notification, "id", "ep");
+                    
             // get our endpoint name
-            String ep_name = (String) notification.get("ep");
             String path = (String) notification.get("path");
 
             // add compatibility with the production version of IBM's Connector Bridge
             notification.put("resourceId", path.substring(1));           // strip leading "/" off of the URI...
-            notification.put("deviceId", notification.get("ep"));        // ep
+            notification.put("deviceId", ep_name);                       // device ID
 
             // we will send the raw CoAP JSON... WatsonIoT can parse that... 
             String coap_raw_json = this.jsonGenerator().generateJson(notification);
@@ -664,9 +674,11 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
         }
 
         try {
+            // get the device ID and device Type
+            String ep_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+            String ep_name = Utils.valueFromValidKey(endpoint, "id", "ep");
+                    
             // subscribe for WatsonIoT as well..
-            String ep_name = (String) endpoint.get("ep");
-            String ep_type = (String) endpoint.get("ept");
             this.errorLogger().info("Watson IoT: completeNewDeviceRegistration: calling subscribe(): " + endpoint);
             this.subscribe(ep_name,ep_type,this.createEndpointTopicData(ep_name, ep_type),this);
             this.errorLogger().info("Watson IoT: completeNewDeviceRegistration: subscribe() completed");

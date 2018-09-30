@@ -119,7 +119,7 @@ public class SAMPLEProcessor extends GenericConnectablePeerProcessor implements 
         for(int i=0;resources != null && i<resources.size();++i) {
             Map entry = (Map)resources.get(i);
             if (entry != null) {
-                String uri = (String)entry.get("uri");
+                String uri = Utils.valueFromValidKey(entry, "uri", "path");
                 if (Utils.isCompleteURI(uri) == true && Utils.isHandledURI(uri) == false) {
                     uri_list.add(uri);
                 }
@@ -218,15 +218,19 @@ public class SAMPLEProcessor extends GenericConnectablePeerProcessor implements 
     public void completeNewDeviceRegistration(Map device) {
         if (this.m_configured) {
             if (this.m_device_manager != null) {
+                // get the device ID and device Type
+                String device_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
+                String device_id = Utils.valueFromValidKey(device, "id", "ep");
+                    
                 // create the device twin
                 boolean ok = this.m_device_manager.createDevice(device,this.m_device_type_prefix);
                 if (ok) {
                     // add our device type
-                    this.setEndpointTypeFromEndpointName((String)device.get("ep"),(String)device.get("ept"));
-                    this.errorLogger().warning("SAMPLE(completeNewDeviceRegistration): Device Shadow: " + device.get("ep") + " creation SUCCESS");
+                    this.setEndpointTypeFromEndpointName(device_id, device_type);
+                    this.errorLogger().warning("SAMPLE(completeNewDeviceRegistration): Device Shadow: " + device_id + " creation SUCCESS");
                 }
                 else {
-                    this.errorLogger().warning("SAMPLE(completeNewDeviceRegistration): Device Shadow: " + device.get("ep") + " creation FAILURE");
+                    this.errorLogger().warning("SAMPLE(completeNewDeviceRegistration): Device Shadow: " + device_id + " creation FAILURE");
                 }
             }
             else {
@@ -292,19 +296,6 @@ public class SAMPLEProcessor extends GenericConnectablePeerProcessor implements 
     // get the auth token
     private String getAuthToken() {
         return this.m_auth_token;
-    }
-    
-    // get the the value from one of two keys
-    private String valueFromValidKey(Map data, String key1, String key2) {
-        if (data != null) {
-            if (data.get(key1) != null) {
-                return (String)data.get(key1);
-            }
-            if (data.get(key2) != null) {
-                return (String)data.get(key2);
-            }
-        }
-        return null;
     }
     
     // create the device type ID

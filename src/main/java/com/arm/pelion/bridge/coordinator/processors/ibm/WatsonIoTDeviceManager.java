@@ -22,12 +22,9 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.ibm;
 
-import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
-import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
-import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import java.io.Serializable;
 import java.util.HashMap;
@@ -66,13 +63,13 @@ public class WatsonIoTDeviceManager extends DeviceManager {
     private WatsonIoTMQTTProcessor m_processor = null;
     
     // constructor
-    public WatsonIoTDeviceManager(ErrorLogger logger, PreferenceManager preferences, HttpTransport http, Orchestrator orchestrator,String org_id,String org_key,WatsonIoTMQTTProcessor processor) {
-        this(logger, preferences,null,http,orchestrator,org_id,org_key,processor);
+    public WatsonIoTDeviceManager(HttpTransport http, WatsonIoTMQTTProcessor processor,String org_id,String org_key) {
+        this(null,http,processor,org_id,org_key);
     }
 
     // constructor
-    public WatsonIoTDeviceManager(ErrorLogger logger, PreferenceManager preferences, String suffix, HttpTransport http, Orchestrator orchestrator,String org_id,String org_key,WatsonIoTMQTTProcessor processor) {
-        super(logger, preferences,suffix,http,orchestrator);
+    public WatsonIoTDeviceManager(String suffix, HttpTransport http, WatsonIoTMQTTProcessor processor,String org_id,String org_key) {
+        super(processor.errorLogger(),processor.preferences(),suffix,http,processor.orchestrator());
         this.m_processor = processor;
 
         // pull the needed configuration/preferences
@@ -481,12 +478,12 @@ public class WatsonIoTDeviceManager extends DeviceManager {
     public Boolean registerNewDevice(Map message) {
         Boolean status = false;
 
-        // create the new device type
-        String device_type = (String) message.get("ept");
-        String device = (String) message.get("ep");
+        // get the device ID and device Type
+        String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+        String device_id = Utils.valueFromValidKey(message, "id", "ep");
         
         // DEBUG
-        this.errorLogger().info("registerNewDevice(WatsonIoT): creating gateway device type: EP: " + device + " EPT: " + device_type + " MSG: " + message);
+        this.errorLogger().info("registerNewDevice(WatsonIoT): creating gateway device type: EP: " + device_id + " EPT: " + device_type + " MSG: " + message);
        
         // now create the gateway device type
         this.createGatewayDeviceType(device_type);
@@ -501,7 +498,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         String payload = this.createAddDeviceJSON(message);
 
         // aggressively save the endpoint type - this keeps from creating devices of type "mbed-generic" in Watson
-        this.m_processor.setEndpointTypeForEndpointName(device,device_type);
+        this.m_processor.setEndpointTypeForEndpointName(device_id,device_type);
             
         // DEBUG
         this.errorLogger().info("Watson IoT: registerNewDevice: URL: " + url + " DATA: " + payload + " USER: " + this.m_watson_iot_gw_key + " PW: " + this.m_watson_iot_gw_auth_token);
@@ -542,14 +539,14 @@ public class WatsonIoTDeviceManager extends DeviceManager {
     }
 
     // process device deletion
-    public Boolean deleteDevice(String device) {
-        String device_type = this.m_processor.endpointTypeFromEndpointName(device);
+    public Boolean deleteDevice(String device_id) {
+        String device_type = this.m_processor.endpointTypeFromEndpointName(device_id);
 
         // create the URL
         String url = this.createDevicesURL(device_type);
 
         // add the device ID to the end
-        url += "/devices/" + device;
+        url += "/devices/" + device_id;
 
         // DEBUG
         this.errorLogger().info("Watson IoT: deleteDevice: URL: " + url + " USER: " + this.m_watson_iot_api_key + " PW: " + this.m_watson_iot_auth_token);
@@ -573,7 +570,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         }
 
         // remove our device if successful
-        this.m_processor.removeEndpointFromMap(device);
+        this.m_processor.removeEndpointFromMap(device_id);
 
         // return our status
         return true;

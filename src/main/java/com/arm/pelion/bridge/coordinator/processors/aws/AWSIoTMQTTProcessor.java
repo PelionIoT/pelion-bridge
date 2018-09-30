@@ -86,7 +86,7 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         this.m_aws_iot_coap_cmd_topic_delete = this.orchestrator().preferences().valueOf("aws_iot_coap_cmd_topic", this.m_suffix).replace("__TOPIC_ROOT__", this.getTopicRoot()).replace("__COMMAND_TYPE__", "delete");
 
         // AWSIoT Device Manager - will initialize and upsert our AWSIoT bindings/metadata
-        this.m_device_manager = new AWSIoTDeviceManager(this.orchestrator().errorLogger(), this.orchestrator().preferences(), this.m_suffix, http, this.orchestrator());
+        this.m_device_manager = new AWSIoTDeviceManager(this.m_suffix, http, this);
     
         // initialize our MQTT transport list
         this.initMQTTTransportList();
@@ -99,8 +99,12 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
             Map endpoint = (Map) endpoints.get(i);
             
+            // get the device ID and device Type
+            String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+            String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+            
             // ensure we have the endpoint type
-            this.setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
+            this.setEndpointTypeFromEndpointName(device_id, device_type);
 
             // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
             this.retrieveEndpointAttributes(endpoint,this);
@@ -209,7 +213,7 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
             }
 
             // get the path
-            String path = (String) notification.get("path");
+            String path = Utils.valueFromValidKey(notification, "path", "uri");
 
             // we will send the raw CoAP JSON... AWSIoT can parse that... 
             String coap_raw_json = this.jsonGenerator().generateJson(notification);
@@ -218,7 +222,7 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
             String coap_json_stripped = this.stripArrayChars(coap_raw_json);
 
             // get our endpoint name
-            String ep_name = (String) notification.get("ep");
+            String ep_name = Utils.valueFromValidKey(notification, "id", "ep");
 
             // get our endpoint type
             String ep_type = this.getTypeFromEndpointName(ep_name);
@@ -409,15 +413,19 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
             // DEBUG
             this.errorLogger().info("AWSIoT: Registering new device: " + (String) message.get("ep") + " type: " + (String) message.get("ept"));
             
+            // get the device ID and device Type
+            String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+            String device_id = Utils.valueFromValidKey(message, "id", "ep");
+            
             // save off the endpoint type/ep name
-            this.setEndpointTypeFromEndpointName((String)message.get("ep"),(String)message.get("ept"));
+            this.setEndpointTypeFromEndpointName(device_id,device_type);
 
             // create the device in AWSIoT
             Boolean success = this.m_device_manager.registerNewDevice(message);
 
             // if successful, validate (i.e. add...) an MQTT Connection
             if (success == true) {
-                this.validateMQTTConnection(this,(String) message.get("ep"), (String) message.get("ept"), null);
+                this.validateMQTTConnection(this,device_id, device_type, null);
             }
 
             // return status
@@ -643,8 +651,8 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
         try {
             // subscribe for AWSIoT as well..
-            String ep_name = (String) endpoint.get("ep");
-            String ep_type = (String) endpoint.get("ept");
+            String ep_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+            String ep_name = Utils.valueFromValidKey(endpoint, "id", "ep");
             this.errorLogger().info("completeNewDeviceRegistration: calling subscribe(): " + endpoint);
             this.subscribe(ep_name,ep_type,this.createEndpointTopicData(ep_name, ep_type),this);
             this.errorLogger().info("completeNewDeviceRegistration: subscribe() completed");

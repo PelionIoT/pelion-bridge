@@ -1106,8 +1106,8 @@ public class Utils {
     }
     
     // Create the IoTHub SAS Token
-    public static String CreateIoTHubSASToken(ErrorLogger logger,String resourceUri, String keyName, String key) {
-        String expiry = Utils.CreateSASTokenExpirationTime(logger);
+    public static String CreateIoTHubSASToken(ErrorLogger logger,String resourceUri, String keyName, String key, long validity_time_ms) {
+        String expiry = Utils.CreateSASTokenExpirationTime(logger,validity_time_ms);
         String sasToken = null;
         
         try {
@@ -1127,13 +1127,9 @@ public class Utils {
     }
     
     // Calculate the IoTHub SAS Token Expiration Time
-    private static String CreateSASTokenExpirationTime(ErrorLogger logger) {
-        // Hard code to 2 years... 
+    private static String CreateSASTokenExpirationTime(ErrorLogger logger,long validity_time_ms) { 
         long now = System.currentTimeMillis()/1000L;
-        long day = 60*60*24;
-        long year = 365*day;  
-        long two_year = 2*year;
-        return Long.toString(now + two_year);
+        return Long.toString(now + validity_time_ms);
     }
 
     // SAS Token HMAC256 Generator

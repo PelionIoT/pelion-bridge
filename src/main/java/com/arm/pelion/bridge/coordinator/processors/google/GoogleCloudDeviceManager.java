@@ -25,10 +25,8 @@ package com.arm.pelion.bridge.coordinator.processors.google;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
-import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.data.SerializableHashMap;
-import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.google.api.services.cloudiot.v1.CloudIot;
 import com.google.api.services.cloudiot.v1.model.Device;
@@ -75,15 +73,17 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
     private String m_google_cloud_key_convert_cmd_template = null;
     private String m_keystore_rootdir = null;
     private int m_num_days = 0;
+    private GoogleCloudMQTTProcessor m_processor = null;
     
     // constructor
-    public GoogleCloudDeviceManager(ErrorLogger logger, PreferenceManager preferences, HttpTransport http, Orchestrator orchestrator,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key) {
-        this(logger,preferences,null,http,orchestrator,project_id,region,cloud_iot,pub_sub,obs_key,cmd_key);
+    public GoogleCloudDeviceManager(HttpTransport http,GoogleCloudMQTTProcessor processor,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key) {
+        this(null,http,processor,project_id,region,cloud_iot,pub_sub,obs_key,cmd_key);
     }
 
     // defaulted constructor
-    public GoogleCloudDeviceManager(ErrorLogger logger, PreferenceManager preferences, String suffix, HttpTransport http, Orchestrator orchestrator,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key) {
-        super(logger,preferences,suffix,http,orchestrator);
+    public GoogleCloudDeviceManager(String suffix, HttpTransport http,GoogleCloudMQTTProcessor processor,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key) {
+        super(processor.errorLogger(),processor.preferences(),suffix,http,processor.orchestrator());
+        this.m_processor = processor;
         
         // create the registry ID
         this.m_project_id = project_id;
@@ -223,8 +223,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         boolean status = false;
 
         // get the device details
-        //String ep_type = (String)message.get("ept");
-        String ep_name = (String) message.get("ep");
+        String ep_name = Utils.valueFromValidKey(message, "id", "ep");
 
         // see if we already have a device...
         HashMap<String, Serializable> ep = this.getDeviceDetails(ep_name);
@@ -408,8 +407,8 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         boolean created = false;
         
         // create the new device type
-        String ep_type = (String) message.get("ept");
-        String ep_name = (String) message.get("ep");
+        String ep_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+        String ep_name = Utils.valueFromValidKey(message, "id", "ep");
         
         // create the Google Device
         try {

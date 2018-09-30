@@ -24,10 +24,8 @@ package com.arm.pelion.bridge.coordinator.processors.ms;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
-import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.data.SerializableHashMap;
-import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import java.io.Serializable;
 import java.util.HashMap;
@@ -45,19 +43,21 @@ public class IoTHubDeviceManager extends DeviceManager {
     private String m_iot_event_hub_add_device_json = null;
     private String m_iot_event_hub_sas_token = null;
     private String m_iot_event_hub_auth_qualifier = "SharedAccessSignature";
+    private IoTHubMQTTProcessor m_processor = null;
 
     // IoTHub Device ID prefixing...
     private boolean m_iot_event_hub_enable_device_id_prefix = false;
     private String m_iot_event_hub_device_id_prefix = null;
 
     // constructor
-    public IoTHubDeviceManager(ErrorLogger logger, PreferenceManager preferences, HttpTransport http, Orchestrator orchestrator,String hub_name,String sas_token) {
-        this(logger, preferences, null, http, orchestrator, hub_name, sas_token);
+    public IoTHubDeviceManager(HttpTransport http, IoTHubMQTTProcessor processor, String hub_name, String sas_token) {
+        this(null, http, processor, hub_name, sas_token);
     }
 
     // constructor
-    public IoTHubDeviceManager(ErrorLogger logger, PreferenceManager preferences, String suffix, HttpTransport http, Orchestrator orchestrator, String hub_name,String sas_token) {
-        super(logger, preferences,suffix,http,orchestrator);
+    public IoTHubDeviceManager(String suffix, HttpTransport http, IoTHubMQTTProcessor processor, String hub_name,String sas_token) {
+        super(processor.errorLogger(), processor.preferences(),suffix,http,processor.orchestrator());
+        this.m_processor = processor;
 
         // IoTHub Name
         this.m_iot_event_hub_name = hub_name;
@@ -112,7 +112,7 @@ public class IoTHubDeviceManager extends DeviceManager {
 
         // get the device details
         //String device_type = (String)message.get("ept");
-        String ep_name = (String) message.get("ep");
+        String ep_name = Utils.valueFromValidKey(message, "id", "ep");
 
         // IOTHUB DeviceID Prefix
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
@@ -140,8 +140,8 @@ public class IoTHubDeviceManager extends DeviceManager {
         Boolean status = false;
 
         // create the new device type
-        String device_type = (String) message.get("ept");
-        String ep_name = (String) message.get("ep");
+        String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+        String ep_name = Utils.valueFromValidKey(message, "id", "ep");
 
         // IOTHUB DeviceID Prefix
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);

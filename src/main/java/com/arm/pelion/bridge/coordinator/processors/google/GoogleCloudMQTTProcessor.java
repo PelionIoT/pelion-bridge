@@ -227,7 +227,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             this.m_pub_sub = this.createPubSubInstance();
 
             // GoogleCloud Device Manager - will initialize and upsert our GoogleCloud bindings/metadata
-            this.m_device_manager = new GoogleCloudDeviceManager(this.orchestrator().errorLogger(), this.orchestrator().preferences(), this.m_suffix, http, this.orchestrator(), this.m_google_cloud_project_id, this.m_google_cloud_region, this.m_cloud_iot,this.m_pub_sub,this.m_observation_key,this.m_cmd_response_key);
+            this.m_device_manager = new GoogleCloudDeviceManager(this.m_suffix, http, this, this.m_google_cloud_project_id, this.m_google_cloud_region, this.m_cloud_iot,this.m_pub_sub,this.m_observation_key,this.m_cmd_response_key);
 
             // initialize our MQTT transport list
             this.initMQTTTransportList();
@@ -385,7 +385,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             }
 
             // get the path
-            String path = (String) notification.get("path");
+            String path = Utils.valueFromValidKey(notification, "path", "uri");
 
             // we will send the raw CoAP JSON... GoogleCloud can parse that... 
             String coap_raw_json = this.jsonGenerator().generateJson(notification);
@@ -394,7 +394,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             String coap_json_stripped = this.stripArrayChars(coap_raw_json);
 
             // get our endpoint name
-            String ep_name = (String) notification.get("ep");
+            String ep_name = Utils.valueFromValidKey(notification, "id", "ep");
 
             // get our endpoint type
             String ep_type = this.getTypeFromEndpointName(ep_name);
@@ -603,18 +603,22 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     @Override
     protected synchronized Boolean registerNewDevice(Map message) {
         if (this.m_device_manager != null) {
+            // get the device ID and device Type
+            String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+            String device_id = Utils.valueFromValidKey(message, "id", "ep");
+            
             // DEBUG
-            this.errorLogger().info("GoogleCloud: Registering new device: " + (String) message.get("ep") + " type: " + (String) message.get("ept"));
+            this.errorLogger().info("GoogleCloud: Registering new device: " + device_id + " type: " + device_type);
             
             // save off the endpoint type/ep name
-            this.setEndpointTypeFromEndpointName((String)message.get("ep"),(String)message.get("ept"));
+            this.setEndpointTypeFromEndpointName(device_id,device_type);
 
             // create the device in GoogleCloud
             Boolean success = this.m_device_manager.registerNewDevice(message);
 
             // if successful, validate (i.e. add...) an MQTT Connection
             if (success == true) {
-                this.validateMQTTConnection(this, (String) message.get("ep"), (String) message.get("ept"), null);
+                this.validateMQTTConnection(this, device_id, device_type, null);
             }
 
             // return status
@@ -1084,9 +1088,13 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         catch (Exception ex) {
             this.errorLogger().warning("completeNewDeviceRegistration: caught exception in registerNewDevice(): " + endpoint, ex);
         }
+        
+        // get the device ID and device Type
+        String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+        String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
 
         // subscribe for GoogleCloud's specific topics
-        this.subscribeToGoogleTopics((String)endpoint.get("ep"), (String)endpoint.get("ept"));
+        this.subscribeToGoogleTopics(device_id, device_type);
     }
     
     // subscribe to to the proper topics 

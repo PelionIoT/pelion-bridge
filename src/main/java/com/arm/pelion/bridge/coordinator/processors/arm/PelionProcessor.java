@@ -44,8 +44,11 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorIn
  * @author Doug Anson
  */
 public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
+    // Pelion API port
+    private static final int PELION_API_PORT = 443;                            // std TLS port used by pelion
+    
     // maximum number of device shadows to create at at time
-    private static final int DEFAULT_MAX_SHADOW_CREATE_THREADS = 100;    // 100 creates at a time...
+    private static final int DEFAULT_MAX_SHADOW_CREATE_THREADS = 100;          // 100 creates at a time...
     
     // defaulted number of webhook retries
     private static final int PELION_WEBHOOK_RETRIES = 20;                      // 20 retries
@@ -862,8 +865,11 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
     // retrieve the actual device attributes
     private void retrieveDeviceAttributes(Map endpoint, AsyncResponseProcessor processor) {
+        // get the device ID and device Type
+        String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+                    
         // Create the Device Attributes URL
-        String url = this.createCoAPURL((String) endpoint.get("ep"), this.m_device_attributes_path);
+        String url = this.createCoAPURL(device_id, this.m_device_attributes_path);
 
         // DEBUG
         //this.errorLogger().info("ATTRIBUTES: Calling GET to receive: " + url);
@@ -956,7 +962,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // pull the device manufacturer information
     private void pullDeviceManufacturer(Map endpoint) {
         //this.m_device_manufacturer_res
-        endpoint.put("meta_mfg", "ARM");
+        endpoint.put("meta_mfg", "arm");
     }
 
     // pull the device Serial Number information
@@ -968,19 +974,19 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // pull the device model information
     private void pullDeviceModel(Map endpoint) {
         //this.m_device_model_res
-        endpoint.put("meta_model", "mbed");
+        endpoint.put("meta_model", "pelion");
     }
 
     // pull the device manufacturer information
     private void pullDeviceClass(Map endpoint) {
         //this.m_device_class_res
-        endpoint.put("meta_class", "cortex-m");
+        endpoint.put("meta_class", "arm");
     }
 
     // pull the device manufacturer information
     private void pullDeviceDescription(Map endpoint) {
         //this.m_device_description_res
-        endpoint.put("meta_description", "mbed device");
+        endpoint.put("meta_description", "pelion device");
     }
 
     // pull the device hardware information
@@ -1004,7 +1010,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // pull the total device memory information for the device
     private void pullDeviceTotalMemoryInfo(Map endpoint) {
         //this.m_device_descriptive_location_res
-        endpoint.put("meta_total_mem", "128K");  // typical min: 128k
+        endpoint.put("meta_total_mem", "n/a");
     }
     
     // callback for device attribute processing... 
@@ -1131,9 +1137,13 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // sanitize the endpoint type
         device.put("endpoint_type",this.sanitizeEndpointType((String)device.get("endpoint_type")));
 
+        // get the device ID and device Type
+        String device_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
+        String device_id = Utils.valueFromValidKey(device, "id", "ep");
+                    
         // duplicate relevant portions for compatibility...
-        endpoint.put("ep", (String)device.get("id"));
-        endpoint.put("ept",(String)device.get("endpoint_type"));
+        endpoint.put("ep", device_id);
+        endpoint.put("ept",device_type);
         
         // copy over the rest of the device record including the metadata
         HashMap<String,Object> device_map = (HashMap<String,Object>)device;
@@ -1142,10 +1152,10 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
 
         // DEBUG
-        this.errorLogger().warning("PelionProcessor(Discovery): Discovered Pelion device with ID: " + (String)device.get("id") + " Type: " + (String)device.get("endpoint_type"));
+        this.errorLogger().warning("PelionProcessor(Discovery): Discovered Pelion device with ID: " + device_id + " Type: " + device_type);
             
         // now, query mbed Cloud again for each device and get its resources
-        List resources = this.discoverDeviceResources((String)device.get("id"));
+        List resources = this.discoverDeviceResources(device_id);
         
         // if we have resources, add them to the record
         if (resources != null && resources.size() > 0) {
@@ -1153,7 +1163,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         
         // Save ept for ep in the peers...
-        this.orchestrator().getEndpointTypeManager().setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
+        this.orchestrator().getEndpointTypeManager().setEndpointTypeFromEndpointName(device_id, device_type);
 
         // process as new device registration...
         this.orchestrator().completeNewDeviceRegistration(endpoint);
@@ -1343,7 +1353,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // setup the mbed device server default URI
     private void setupPelionCloudURI() {
         this.m_pelion_cloud_uri = "https://";
-        this.m_pelion_api_port = 443;
+        this.m_pelion_api_port = PELION_API_PORT;
     }
     
     // validate the notification

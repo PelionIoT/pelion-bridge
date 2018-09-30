@@ -46,18 +46,26 @@ import org.fusesource.mqtt.client.Topic;
  *
  * @author Doug Anson
  */
-public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {    
+public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor implements Runnable, ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {    
+    private static final long SAS_TOKEN_VALID_TIME_MS = 365 * 24 * 60 * 60 * 1000;          // SAS Token created for 1 year expiration
+    private static final long SAS_TOKEN_RECREATE_INTERVAL_MS = 180 * 24 *60 * 6 * 1000;     // number of days to wait before re-creating the SAS Token
+    
     private int m_num_coap_topics = 1;                                  // # of MQTT Topics for CoAP verbs in IoTHub implementation
     private String m_iot_hub_observe_notification_topic = null;
     private String m_iot_hub_coap_cmd_topic_base = null;
     private String m_iot_hub_name = null;
     private String m_iot_hub_sas_token = null;
+    private boolean m_iot_hub_sas_token_initialized = false;
     private String m_iot_hub_connect_string = null;
     private String m_iot_hub_password_template = null;
     private IoTHubDeviceManager m_device_manager = null;
     private boolean m_iot_event_hub_enable_device_id_prefix = false;
     private String m_iot_event_hub_device_id_prefix = null;
     private String m_iot_hub_version_tag = null;
+    private Thread m_iot_hub_sas_token_refresh_thread = null;
+    private boolean m_sas_token_run_refresh_thread = true;
+    private long m_iot_hub_sas_token_validity_time_ms = SAS_TOKEN_VALID_TIME_MS;
+    private long m_iot_hub_sas_token_recreate_interval_ms= SAS_TOKEN_RECREATE_INTERVAL_MS;
 
     // constructor (singleton)
     public IoTHubMQTTProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
@@ -77,18 +85,8 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         // Get the IoTHub Connect String
         this.m_iot_hub_connect_string = this.orchestrator().preferences().valueOf("iot_event_hub_connect_string",this.m_suffix);
         
-        // initialize the SAS Token and set the IoTHub name
-        Map test_parse = this.parseConnectionString(this.m_iot_hub_connect_string);
-        if (test_parse != null && test_parse.isEmpty() == false) {
-            // we can generate the SAS Token from the connection string...
-            this.m_iot_hub_sas_token = this.createSASToken(this.m_iot_hub_connect_string);
-            this.m_iot_hub_name = this.getIoTHubNameFromConnectionString(this.m_iot_hub_connect_string);
-        }
-        else {
-            // we must pull the SAS token and hub name from the configuration properties
-            this.m_iot_hub_sas_token = this.orchestrator().preferences().valueOf("iot_event_hub_sas_token", this.m_suffix);
-            this.m_iot_hub_name = this.orchestrator().preferences().valueOf("iot_event_hub_name", this.m_suffix);
-        }
+       // initialize the SAS Token and its refresher...
+       this.initSASToken(false);
         
         // initialize our MQTT transport list
         this.initMQTTTransportList();
@@ -105,7 +103,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             this.m_iot_hub_coap_cmd_topic_base = this.orchestrator().preferences().valueOf("iot_event_hub_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "#");
 
             // IoTHub Device Manager - will initialize and upsert our IoTHub bindings/metadata
-            this.m_device_manager = new IoTHubDeviceManager(this.orchestrator().errorLogger(), this.orchestrator().preferences(), this.m_suffix, http, this.orchestrator(), this.m_iot_hub_name, this.m_iot_hub_sas_token);
+            this.m_device_manager = new IoTHubDeviceManager(this.m_suffix, http, this, this.m_iot_hub_name, this.m_iot_hub_sas_token);
 
             // set the MQTT password template
             this.m_iot_hub_password_template = this.orchestrator().preferences().valueOf("iot_event_hub_mqtt_password", this.m_suffix).replace("__IOT_EVENT_HUB__", this.m_iot_hub_name);
@@ -128,13 +126,59 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         }
     }
     
+    // initialize the SAS Token
+    private void initSASToken(boolean enable_refresher) {
+         // initialize the SAS Token and set the IoTHub name
+        Map test_parse = this.parseConnectionString(this.m_iot_hub_connect_string);
+        if (test_parse != null && test_parse.isEmpty() == false) {
+            // we can generate the SAS Token from the connection string...
+            this.m_iot_hub_sas_token = this.createSASToken(this.m_iot_hub_connect_string,this.m_iot_hub_sas_token_validity_time_ms);
+            this.m_iot_hub_name = this.getIoTHubNameFromConnectionString(this.m_iot_hub_connect_string);
+            this.m_iot_hub_sas_token_initialized = true;
+            
+            // start a refresh thread
+            if (enable_refresher) {
+                if (this.m_iot_hub_sas_token_refresh_thread == null) {
+                    try {
+                        this.m_iot_hub_sas_token_refresh_thread = new Thread(this);
+                        this.m_iot_hub_sas_token_refresh_thread.start();
+                    }
+                    catch (Exception ex) {
+                        this.errorLogger().warning("IoTHub: Exception caught while starting SAS Token refresher: " + ex.getMessage());
+                        this.m_iot_hub_sas_token_refresh_thread = null;
+                    }
+                }
+            }
+        }
+        else {
+            // we must pull the SAS token and hub name from the configuration properties
+            this.m_iot_hub_sas_token = this.orchestrator().preferences().valueOf("iot_event_hub_sas_token", this.m_suffix);
+            this.m_iot_hub_name = this.orchestrator().preferences().valueOf("iot_event_hub_name", this.m_suffix);
+        }
+    }
+    
+    // XXX refresh our SAS Token
+    private void refreshSASToken() {
+        if (this.m_iot_hub_sas_token_initialized == true) {
+            // DEBUG
+            this.errorLogger().warning("IoTHub: Refreshing SAS Token...");
+            
+            // XXX disconnect
+            
+            // create the new SAS token
+            this.m_iot_hub_sas_token = this.createSASToken(this.m_iot_hub_connect_string,this.m_iot_hub_sas_token_validity_time_ms);
+            
+            // XXX reconnect
+        }
+    }
+    
     // create our SAS Token
-    private String createSASToken(String connection_string) {
+    private String createSASToken(String connection_string,long validity_time_ms) {
         String iot_hub_host = this.getHostNameFromConnectionString(connection_string);
         String key_value= this.getSharedAccessKeyFromConnectionString(connection_string);
         String key_name = this.getSharedAccessKeyNameFromConnectionString(connection_string);
         if (iot_hub_host != null && key_value != null && key_name != null) {
-            return Utils.CreateIoTHubSASToken(this.errorLogger(), iot_hub_host, key_name, key_value);
+            return Utils.CreateIoTHubSASToken(this.errorLogger(), iot_hub_host, key_name, key_value, validity_time_ms);
         }
         return null;
     }
@@ -210,8 +254,12 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
             Map endpoint = (Map) endpoints.get(i);
             
+            // get the device ID and device Type
+            String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+            String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+            
             // ensure we have the endpoint type
-            this.setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
+            this.setEndpointTypeFromEndpointName(device_id, device_type);
 
             // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
             this.retrieveEndpointAttributes(endpoint,this);
@@ -225,8 +273,11 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         for (int i = 0; notifications != null && i < notifications.size(); ++i) {
             Map entry = (Map) notifications.get(i);
 
+            // get the device ID
+            String device_id = Utils.valueFromValidKey(entry, "id", "ep");
+            
             // IOTHUB Prefix
-            String iothub_ep_name = this.addDeviceIDPrefix((String) entry.get("ep"));
+            String iothub_ep_name = this.addDeviceIDPrefix(device_id);
 
             // DEBUG
             // this.errorLogger().info("IoTHub : CoAP re-registration: " + entry);
@@ -736,14 +787,19 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         if (this.m_device_manager != null) {
             // create the device in IoTHub
             Boolean success = this.m_device_manager.registerNewDevice(message);
-            this.setEndpointTypeFromEndpointName((String) message.get("ep"), (String) message.get("ept"));
+            
+            // get the device ID and device Type
+            String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+            String device_id = Utils.valueFromValidKey(message, "id", "ep");
+            
+            this.setEndpointTypeFromEndpointName(device_id, device_type);
 
             // IOTHUB DeviceID Prefix
-            String iothub_ep_name = this.addDeviceIDPrefix((String) message.get("ep"));
+            String iothub_ep_name = this.addDeviceIDPrefix(device_id);
 
             // if successful, validate (i.e. add...) an MQTT Connection
             if (success == true) {
-                this.validateMQTTConnection(this,iothub_ep_name, (String) message.get("ept"), null);
+                this.validateMQTTConnection(this,iothub_ep_name, device_type, null);
             }
 
             // return status
@@ -837,6 +893,10 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     // IoTHub Specific: complete processing of adding the new device
     @Override
     public void completeNewDeviceRegistration(Map endpoint) {
+        // create the new device type
+        String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+        String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+        
         try {
             // create the device in IoTHub
             this.errorLogger().info("completeNewDeviceRegistration: calling registerNewDevice(): " + endpoint);
@@ -850,7 +910,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         try {
             // subscribe for IoTHub as well..
             this.errorLogger().info("completeNewDeviceRegistration: calling subscribe(): " + endpoint);
-            this.subscribe((String) endpoint.get("ep"), (String) endpoint.get("ept"));
+            this.subscribe(device_id, device_type);
             this.errorLogger().info("completeNewDeviceRegistration: subscribe() completed");
         }
         catch (Exception ex) {
@@ -1155,5 +1215,17 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     @SuppressWarnings("empty-statement")
     public void stopListener() {
         // unused
+    }
+
+    // Run the refresh thread to refresh the SAS Token periodically
+    @Override
+    public void run() {
+        while(this.m_sas_token_run_refresh_thread == true) {
+            Utils.waitForABit(this.errorLogger(), this.m_iot_hub_sas_token_recreate_interval_ms);
+            this.refreshSASToken();
+        }
+        
+        // WARN - refresh thread has halted
+        this.errorLogger().warning("IoTHuB: WARNING: SAS Token refresh thread has halted. SAS Token may expire within the year...");
     }
 }
