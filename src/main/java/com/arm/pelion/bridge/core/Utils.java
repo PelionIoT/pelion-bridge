@@ -1244,12 +1244,11 @@ public class Utils {
         map.put("max",(Long)zero);
         map.put("processors",(Integer)0);
         try {
-            System.gc();
             Runtime rt = Runtime.getRuntime();
-            map.put("total",(Long)rt.totalMemory());
-            map.put("free",(Long)rt.freeMemory());
-            map.put("used",(Long)rt.totalMemory() - rt.freeMemory());
-            map.put("max",(Long)rt.maxMemory());
+            map.put("total",(Long)rt.totalMemory()/1024/1024);
+            map.put("free",(Long)rt.freeMemory()/1024/1024);
+            map.put("used",(Long)(rt.totalMemory() - rt.freeMemory())/1024/1024);
+            map.put("max",(Long)rt.maxMemory()/1024/1024);
             map.put("processors",(Integer)rt.availableProcessors());
         }
         catch (Exception ex) {

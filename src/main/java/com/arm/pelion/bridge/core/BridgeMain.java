@@ -237,7 +237,9 @@ public class BridgeMain implements Runnable {
             int count = 0;
             Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
             for (Thread t : threadSet) {
-                ++count;
+                if (t.isAlive() || t.isDaemon()) {
+                    ++count;
+                }
             }
             this.m_thread_count = count;
         }
