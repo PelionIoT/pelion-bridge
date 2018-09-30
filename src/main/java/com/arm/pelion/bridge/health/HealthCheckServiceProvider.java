@@ -115,6 +115,13 @@ public class HealthCheckServiceProvider extends BaseClass implements HealthCheck
         // Thread Count Statistic
         this.m_validator_list.add(new ThreadCountStatistic(this));
         
+        // JVM Statistics
+        this.m_validator_list.add(new MemoryStatistic(this,"total","Bytes"));
+        this.m_validator_list.add(new MemoryStatistic(this,"free","Bytes"));
+        this.m_validator_list.add(new MemoryStatistic(this,"used","Bytes"));
+        this.m_validator_list.add(new MemoryStatistic(this,"max","Bytes"));
+        this.m_validator_list.add(new MemoryStatistic(this,"processors","Procs"));
+        
         // ADD other validators here...
         
         // Run all..

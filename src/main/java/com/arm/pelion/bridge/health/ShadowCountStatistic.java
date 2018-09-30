@@ -22,12 +22,8 @@
  */
 package com.arm.pelion.bridge.health;
 
-import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
-import com.arm.pelion.bridge.coordinator.processors.factories.BasePeerProcessorFactory;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
-import java.util.List;
 
 /**
  * This class periodically checks how many device shadows its established

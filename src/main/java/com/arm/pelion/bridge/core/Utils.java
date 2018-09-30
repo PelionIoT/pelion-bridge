@@ -1233,4 +1233,29 @@ public class Utils {
         }
         return null;
     }
+    
+    // Gather the JVM memory stats
+    public static Map gatherMemoryStatistics(ErrorLogger logger) {
+        HashMap<String,Object> map = new HashMap<>();
+        long zero = 0;
+        map.put("total",(Long)zero);
+        map.put("free",(Long)zero);
+        map.put("used",(Long)zero);
+        map.put("max",(Long)zero);
+        map.put("processors",(Integer)0);
+        try {
+            System.gc();
+            Runtime rt = Runtime.getRuntime();
+            map.put("total",(Long)rt.totalMemory());
+            map.put("free",(Long)rt.freeMemory());
+            map.put("used",(Long)rt.totalMemory() - rt.freeMemory());
+            map.put("max",(Long)rt.maxMemory());
+            map.put("processors",(Integer)rt.availableProcessors());
+        }
+        catch (Exception ex) {
+            logger.warning("gatherMemoryStatistics: Exception occured: " + ex.getMessage());
+            
+        }
+        return map;
+    }
 }
