@@ -53,7 +53,7 @@ public class MemoryStatistic extends BaseValidatorClass implements Runnable {
             this.updateStatisticAndNotify();
 
             // DEBUG
-            this.errorLogger().warning("MemoryStatistic: (" + this.m_mem_key + "): " + (String)this.m_value);
+            this.errorLogger().info("MemoryStatistic: (" + this.m_mem_key + "): " + (String)this.m_value);
         }
         else {
             // no update
