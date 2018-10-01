@@ -397,6 +397,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         if (this.m_pelion_processor != null) {
             this.pelion_processor().processDeviceDeletions(endpoints);
         }
+        this.decrementShadowCount();
         this.refreshHealthStats();
     }
 
@@ -406,6 +407,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         if (this.m_pelion_processor != null) {
             this.pelion_processor().processDeregistrations(endpoints);
         }
+        this.decrementShadowCount();
         this.refreshHealthStats();
     }
     
@@ -415,6 +417,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         if (this.m_pelion_processor != null) {
             this.pelion_processor().processRegistrationsExpired(endpoints);
         }
+        this.decrementShadowCount();
         this.refreshHealthStats();
     }
 
@@ -479,6 +482,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).processNewRegistration(message);
         }
+        this.incrementShadowCount();
         this.refreshHealthStats();
     }
 
@@ -618,6 +622,14 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     // increment the shadow count
     public void incrementShadowCount() {
         this.m_shadow_count += 1;
+    }
+    
+    // decrement the shadow count
+    public void decrementShadowCount() {
+        this.m_shadow_count -= 1;
+        if (this.m_shadow_count < 0) {
+            this.m_shadow_count = 0;
+        }
     }
     
     // get the shadow count
