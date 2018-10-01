@@ -637,7 +637,10 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     
     // set the shadow count
     public void setShadowCount(int shadow_count) {
-        this.m_shadow_count = shadow_count;
+        // only set with an increasing value... call decrementShadowCount() to decrease
+        if (shadow_count > this.m_shadow_count) {
+            this.m_shadow_count = shadow_count;
+        }
     }
     
     // get the shadow count
