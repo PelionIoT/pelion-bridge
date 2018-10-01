@@ -612,7 +612,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
        this.errorLogger().critical(HEALTH_STATS_KEY + json);
        
        // note in log so that log moves...
-       this.errorLogger().warning("Health Stats: Updated (OK).");
+       this.errorLogger().info("Health Stats: Updated (OK).");
     }
     
     // get the active thread count
