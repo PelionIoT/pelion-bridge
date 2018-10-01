@@ -397,6 +397,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         if (this.m_pelion_processor != null) {
             this.pelion_processor().processDeviceDeletions(endpoints);
         }
+        this.refreshHealthStats();
     }
 
     // Message: de-registrations
@@ -405,6 +406,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         if (this.m_pelion_processor != null) {
             this.pelion_processor().processDeregistrations(endpoints);
         }
+        this.refreshHealthStats();
     }
     
     // Message: registrations-expired
@@ -413,6 +415,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         if (this.m_pelion_processor != null) {
             this.pelion_processor().processRegistrationsExpired(endpoints);
         }
+        this.refreshHealthStats();
     }
 
     @Override
@@ -476,6 +479,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).processNewRegistration(message);
         }
+        this.refreshHealthStats();
     }
 
     // Message: reg-updates
@@ -484,6 +488,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).processReRegistration(message);
         }
+        this.refreshHealthStats();
     }
     
     // Message: device-deletions (mbed Cloud)
@@ -644,6 +649,13 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         this.errorLogger().info("Orchestrator: COMMAND (REST-" + request.getMethod() + "): " + request.getRequestURI());
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).processCommandMessage(request, response);
+        }
+    }
+    
+    // manual refresh the health stats
+    private void refreshHealthStats() {
+        if (this.m_health_check_service_provider != null) {
+            this.m_health_check_service_provider.refreshHealthStats();
         }
     }
 }

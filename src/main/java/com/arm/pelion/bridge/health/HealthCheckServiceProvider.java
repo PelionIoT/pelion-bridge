@@ -185,6 +185,11 @@ public class HealthCheckServiceProvider extends BaseClass implements HealthCheck
         return (Map)descriptions;
     }
     
+    // manually update the health stats
+    public void refreshHealthStats() {
+        this.checkAndPublish();
+    }
+    
     // check and publish changes to listeners
     private void checkAndPublish() {
         String json = this.statisticsJSON();
