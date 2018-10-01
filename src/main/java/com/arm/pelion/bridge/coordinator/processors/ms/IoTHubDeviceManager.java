@@ -184,12 +184,6 @@ public class IoTHubDeviceManager extends DeviceManager {
             this.errorLogger().warning("IoTHub: registerNewDevice: FAILURE: " + this.m_http.getLastResponseCode() + " RESULT: " + result);
         }
         
-        // increment shadow counter if created...
-        if (status == true) {              
-            // increment the shadow count
-            this.m_orchestrator.incrementShadowCount();
-        }
-
         // return our status
         return status;
     }

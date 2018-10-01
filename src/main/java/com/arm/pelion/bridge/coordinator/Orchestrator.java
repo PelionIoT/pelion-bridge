@@ -49,6 +49,7 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInte
 import com.arm.pelion.bridge.servlet.Manager;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
 import com.arm.pelion.bridge.coordinator.processors.core.EndpointTypeManager;
+import com.arm.pelion.bridge.coordinator.processors.core.PeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.factories.SAMPLEPeerProcessorFactory;
 import com.arm.pelion.bridge.health.HealthCheckServiceProvider;
 import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
@@ -395,9 +396,9 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     @Override
     public void processDeviceDeletions(String[] endpoints) {
         if (this.m_pelion_processor != null) {
-            this.pelion_processor().processDeviceDeletions(endpoints);
+            this.pelion_processor().processDeviceDeletions(endpoints); 
         }
-        this.decrementShadowCount();
+        this.decrementShadowCount(endpoints.length);
         this.refreshHealthStats();
     }
 
@@ -407,7 +408,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         if (this.m_pelion_processor != null) {
             this.pelion_processor().processDeregistrations(endpoints);
         }
-        this.decrementShadowCount();
+        this.decrementShadowCount(endpoints.length);
         this.refreshHealthStats();
     }
     
@@ -417,7 +418,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         if (this.m_pelion_processor != null) {
             this.pelion_processor().processRegistrationsExpired(endpoints);
         }
-        this.decrementShadowCount();
+        this.decrementShadowCount(endpoints.length);
         this.refreshHealthStats();
     }
 
@@ -479,19 +480,26 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     // Message: registration
     @Override
     public void processNewRegistration(Map message) {
+        int shadow_count = 0;
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).processNewRegistration(message);
+            PeerProcessor p = (PeerProcessor)this.peerProcessor(i);
+            shadow_count += p.getCurrentEndpointCount();
         }
-        this.incrementShadowCount();
+        this.setShadowCount(shadow_count);
         this.refreshHealthStats();
     }
 
     // Message: reg-updates
     @Override
     public void processReRegistration(Map message) {
+        int shadow_count = 0;
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).processReRegistration(message);
+            PeerProcessor p = (PeerProcessor)this.peerProcessor(i);
+            shadow_count += p.getCurrentEndpointCount();
         }
+        this.setShadowCount(shadow_count);
         this.refreshHealthStats();
     }
     
@@ -619,17 +627,17 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         return 1;
     }
     
-    // increment the shadow count
-    public void incrementShadowCount() {
-        this.m_shadow_count += 1;
-    }
-    
     // decrement the shadow count
-    public void decrementShadowCount() {
-        this.m_shadow_count -= 1;
+    public void decrementShadowCount(int num_decrements) {
+        this.m_shadow_count -= num_decrements;
         if (this.m_shadow_count < 0) {
             this.m_shadow_count = 0;
         }
+    }
+    
+    // set the shadow count
+    public void setShadowCount(int shadow_count) {
+        this.m_shadow_count = shadow_count;
     }
     
     // get the shadow count

@@ -315,6 +315,15 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // return the cached/default value
         return def;
     }
+    
+    // get the current endpoint count
+    public int getCurrentEndpointCount() {
+        if (this.m_endpoint_type_list != null) {
+            // just return the name/type map size... it will have one type for each device shadowed...
+            return this.m_endpoint_type_list.map().size();
+        }
+        return 0;
+    }
 
     // set the endpoint type from the endpoint name
     public void setEndpointTypeFromEndpointName(String ep_name, String ep_type) {

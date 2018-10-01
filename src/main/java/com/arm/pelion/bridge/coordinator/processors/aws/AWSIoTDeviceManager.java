@@ -164,9 +164,6 @@ public class AWSIoTDeviceManager extends DeviceManager {
             // save off device details...
             this.saveAddDeviceDetails(device, device_type, result);
         }
-        
-        // increment the shadow count
-        this.m_orchestrator.incrementShadowCount();
 
         // return our status
         return status;

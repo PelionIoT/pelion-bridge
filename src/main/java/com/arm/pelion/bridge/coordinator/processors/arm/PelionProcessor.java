@@ -1167,9 +1167,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
         // process as new device registration...
         this.orchestrator().completeNewDeviceRegistration(endpoint);
-        
-        // increment shadow counter
-        this.orchestrator().incrementShadowCount();
     }
     
     // create the registered devices retrieval URL
