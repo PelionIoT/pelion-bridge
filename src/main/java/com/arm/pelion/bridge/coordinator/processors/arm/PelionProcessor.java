@@ -698,6 +698,10 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             if (json != null && json.length() > 0 && json.equalsIgnoreCase("{}") == false) {
                 Map parsed = (Map) this.parseJson(json);
                 if (parsed != null) {
+                    // DEBUG
+                    this.errorLogger().info("PelionProcessor(ProcessMessage) Parsed: " + parsed);
+
+                    // notifications processing
                     if (parsed.containsKey("notifications")) {
                         if (this.validateNotification(request)) {
                             // DEBUG
@@ -710,24 +714,29 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                             // validation FAILED. Note but do not process...
                             this.errorLogger().warning("PelionProcessor(ProcessMessage): Notification validation FAILED. Not processed (OK)");
                         }
-                    }
-
-                    // DEBUG
-                    this.errorLogger().info("PelionProcessor(ProcessMessage) Parsed: " + parsed);
+                    }  
                     
-                    // act on the request...
+                    // registrations processing
                     if (parsed.containsKey("registrations")) {
                         this.orchestrator().processNewRegistration(parsed);
                     }
+                    
+                    // registration updates processing
                     if (parsed.containsKey("reg-updates")) {
                         this.orchestrator().processReRegistration(parsed);
                     }
+                    
+                    // de-registrations processing
                     if (parsed.containsKey("de-registrations")) {
                         this.orchestrator().processDeregistrations(parsed);
                     }
+                    
+                    // registrations expired processing
                     if (parsed.containsKey("registrations-expired")) {
                         this.orchestrator().processRegistrationsExpired(parsed);
                     }
+                    
+                    // async-response processing
                     if (parsed.containsKey("async-responses")) {
                         this.orchestrator().processAsyncResponses(parsed);
                     }
