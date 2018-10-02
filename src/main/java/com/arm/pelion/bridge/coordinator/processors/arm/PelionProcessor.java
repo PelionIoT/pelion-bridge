@@ -1083,11 +1083,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // query mbed Cloud for the current list of Registered devices
         List devices = this.discoverRegisteredDevices();
         
-        // update our shadow count NOW...
-        if (devices != null) {
-            this.orchestrator().setShadowCount(devices.size());
-        }
-        
         // lets see how many devices we have to setup shadows with... 
         if (devices != null && devices.size() > 0 && devices.size() < this.m_mds_max_shadow_create_threads) {
             // DEBUG

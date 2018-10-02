@@ -413,7 +413,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
     // IoTHub Specific: subscribe to the IoTHub MQTT topics
     @Override
-    public void subscribe_to_topics(String ep_name, Topic topics[]) {
+    public void subscribeToTopics(String ep_name, Topic topics[]) {
         // IOTHUB DeviceID Prefix
         this.errorLogger().info("subscribe_to_topics(IoTHub): subscribing to topics...");
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
@@ -465,7 +465,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                     this.m_endpoints.remove(iothub_ep_name);
                     this.m_endpoints.put(iothub_ep_name, topic_data);
                     this.setEndpointTypeFromEndpointName(ep_name, ep_type);
-                    this.subscribe_to_topics(iothub_ep_name, (Topic[]) topic_data.get("topic_list"));
+                    this.subscribeToTopics(iothub_ep_name, (Topic[]) topic_data.get("topic_list"));
                 }
                 else {
                     this.orchestrator().errorLogger().warning("IoTHub: GET/PUT/POST/DELETE topic data NULL. GET/PUT/POST/DELETE disabled");
@@ -837,6 +837,9 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             if (this.m_device_manager.deleteDevice(iothub_ep_name) == false) {
                 this.errorLogger().warning("deleteDevice(IoTHub): unable to de-register device from IoTHub...");
             }
+            
+            // remove type as well
+            this.removeEndpointTypeFromEndpointName(ep_name);
         }
         return true;
     }

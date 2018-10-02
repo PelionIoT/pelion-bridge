@@ -113,8 +113,8 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
     
     // OVERRIDE: subscirption to topics
     @Override
-    public void subscribe_to_topics(String ep_name, Topic topics[]) {
-        super.subscribe_to_topics(ep_name, topics);
+    public void subscribeToTopics(String ep_name, Topic topics[]) {
+        super.subscribeToTopics(ep_name, topics);
     }
 
     // OVERRIDE: process a re-registration in AWSIoT
@@ -451,6 +451,9 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
             if (this.m_device_manager.deleteDevice(device) == false) {
                 this.errorLogger().warning("deregisterDevice(AWSIoT): unable to de-register device from AWSIoT...");
             }
+            
+            // remove the type
+            this.removeEndpointTypeFromEndpointName(device);
         }
         return true;
     }

@@ -65,9 +65,6 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
 
     // WatsonIoT Device Manager
     private WatsonIoTDeviceManager m_device_manager = null;
-    
-    // Endpoint Name/Type map
-    private HashMap<String,String> m_endpoint_type_map = null;
 
     // constructor (singleton)
     public WatsonIoTMQTTProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
@@ -86,10 +83,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
         this.m_watson_iot_org_key = this.orchestrator().preferences().valueOf("iotf_org_key", this.m_suffix);
         this.m_mqtt_ip_address = this.orchestrator().preferences().valueOf("iotf_mqtt_ip_address", this.m_suffix);
         this.m_mqtt_port = this.orchestrator().preferences().intValueOf("iotf_mqtt_port", this.m_suffix);
-        
-        // initialize the Name/Type map
-        this.m_endpoint_type_map = new HashMap<>();
-        
+                
         // set defaults for keys
         this.m_observation_key = "notify";
         this.m_cmd_response_key = "cmd-response";
@@ -431,7 +425,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
     
     // Watson IoT: subscribe to the API Request topic for each device
     @Override
-    protected void subscribe_to_api_request_topic(String ep_name) {
+    protected void subscribeToAPIRequestTopic(String ep_name) {
         Topic[] api_topics = new Topic[1];
         String topic_str = this.customizeTopic(this.m_watson_iot_coap_cmd_topic_api, ep_name, this.getEndpointTypeFromEndpointName(ep_name));
         api_topics[0] = new Topic(topic_str,QoS.AT_LEAST_ONCE);
@@ -440,14 +434,14 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
 
     // subscribe to the WatsonIoT MQTT topics
     @Override
-    public void subscribe_to_topics(String ep_name, Topic topics[]) {
+    public void subscribeToTopics(String ep_name, Topic topics[]) {
         // subscribe to the device topics
         this.errorLogger().info("subscribe_to_topics(WatsonIoT): subscribing to topics...");
         this.mqtt().subscribe(topics);
         
         // now subscribe to the API topic
         this.errorLogger().info("subscribe_to_topics(WatsonIoT): subscribing to API request topic...");
-        this.subscribe_to_api_request_topic(ep_name);
+        this.subscribeToAPIRequestTopic(ep_name);
     }
 
     // Watson IoT Specific: un-register topics for CoAP commands
@@ -700,20 +694,5 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
     public String getCoAPVerbFromTopic(String topic) {
         // format: iot-2/type/mbed/id/mbed-eth-observe/cmd/put/fmt/json
         return this.getTopicElement(topic, 6);
-    }
-    
-    // get the endpoint type from the endpoint name
-    public String endpointTypeFromEndpointName(String ep) {
-        return this.m_endpoint_type_map.get(ep);
-    }
-    
-    // clear the endpoint type from the endpoint name
-    public void removeEndpointFromMap(String ep) {
-        this.m_endpoint_type_map.remove(ep);
-    }
-    
-    // add the endpoint type to the endpoint name
-    public void setEndpointTypeForEndpointName(String ep,String ept) {
-        this.m_endpoint_type_map.put(ep,ept);
     }
 }

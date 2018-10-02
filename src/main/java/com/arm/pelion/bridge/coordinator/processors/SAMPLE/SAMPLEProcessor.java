@@ -175,6 +175,7 @@ public class SAMPLEProcessor extends GenericConnectablePeerProcessor implements 
             String device_type_id = this.createDeviceTypeID(devices[i],this.m_device_type_prefix);
             this.m_device_manager.deleteDevice(devices[i]);
             this.m_device_manager.deleteDeviceType(device_type_id);
+            this.removeEndpointTypeFromEndpointName(devices[i]);
         }
         return super.processDeviceDeletions(parsed);
     }
@@ -187,6 +188,7 @@ public class SAMPLEProcessor extends GenericConnectablePeerProcessor implements 
             String device_type_id = this.createDeviceTypeID(devices[i],this.m_device_type_prefix);
             this.m_device_manager.deleteDevice(devices[i]);
             this.m_device_manager.deleteDeviceType(device_type_id);
+            this.removeEndpointTypeFromEndpointName(devices[i]);
         }
         return super.processDeregistrations(parsed);
     }

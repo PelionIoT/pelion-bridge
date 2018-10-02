@@ -223,6 +223,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         boolean status = false;
 
         // get the device details
+        String ep_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
         String ep_name = Utils.valueFromValidKey(message, "id", "ep");
 
         // see if we already have a device...
@@ -248,6 +249,11 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
 
             // device is not registered... so create/register it
             status = this.createAndRegisterNewDevice(message,true);
+        }
+        
+        // add the device type
+        if (status == true) {
+            this.m_processor.setEndpointTypeFromEndpointName(ep_name, ep_type);
         }
 
         // return our status

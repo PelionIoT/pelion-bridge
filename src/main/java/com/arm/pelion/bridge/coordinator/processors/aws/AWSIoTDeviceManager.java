@@ -124,6 +124,12 @@ public class AWSIoTDeviceManager extends DeviceManager {
                 status = this.createAndRegisterNewDevice(message);
             }
             
+            // add the device type to the map if we are OK...
+            if (status == true) {
+                // add the device type
+                this.m_processor.setEndpointTypeFromEndpointName(device, device_type);
+            }
+            
             // no longer in progress
             this.m_in_progress = false;
         }
@@ -276,6 +282,9 @@ public class AWSIoTDeviceManager extends DeviceManager {
         
         // remove the endpoint details
         this.m_endpoint_details.remove(device);
+        
+        // remove the endpoint type
+        this.m_processor.removeEndpointTypeFromEndpointName(device);
 
         // DEBUG
         this.errorLogger().info("AWS: deleteDevice: device: " + device + " deletion RESULT: " + result);

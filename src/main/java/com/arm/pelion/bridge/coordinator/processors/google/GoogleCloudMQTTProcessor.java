@@ -278,8 +278,12 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
             Map endpoint = (Map) endpoints.get(i);
             
+            // get the device ID and device Type
+            String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+            String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+            
             // ensure we have the endpoint type
-            this.setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
+            this.setEndpointTypeFromEndpointName(device_id,device_type);
 
             // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
             this.retrieveEndpointAttributes(endpoint,this);
@@ -351,6 +355,9 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             
             // Remove from GoogleCloud
             this.deleteDevice(deletions[i]);
+            
+            // remove type
+            this.removeEndpointTypeFromEndpointName(deletions[i]);
         }
         return deletions;
     }
@@ -1003,8 +1010,8 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     
     // OVERRIDE: subscirption to topics
     @Override
-    public void subscribe_to_topics(String ep_name, Topic topics[]) {
-        super.subscribe_to_topics(ep_name, topics);
+    public void subscribeToTopics(String ep_name, Topic topics[]) {
+        super.subscribeToTopics(ep_name, topics);
     }
     
     // AsyncResponse response processor

@@ -162,7 +162,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
 
     // get the associated device type from the device name
     public String getDeviceType(String device) {
-        String type = this.m_processor.endpointTypeFromEndpointName(device);
+        String type = this.m_processor.getEndpointTypeFromEndpointName(device);
         if (type == null || type.length() == 0) {
             // DEBUG
             this.errorLogger().info("Watson IoT: WARNING Defaulting Device Type to: " + this.m_watson_iot_def_type + " for Device: " + device);
@@ -498,7 +498,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         String payload = this.createAddDeviceJSON(message);
 
         // aggressively save the endpoint type - this keeps from creating devices of type "mbed-generic" in Watson
-        this.m_processor.setEndpointTypeForEndpointName(device_id,device_type);
+        this.m_processor.setEndpointTypeFromEndpointName(device_id,device_type);
             
         // DEBUG
         this.errorLogger().info("Watson IoT: registerNewDevice: URL: " + url + " DATA: " + payload + " USER: " + this.m_watson_iot_gw_key + " PW: " + this.m_watson_iot_gw_auth_token);
@@ -534,7 +534,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
 
     // process device deletion
     public Boolean deleteDevice(String device_id) {
-        String device_type = this.m_processor.endpointTypeFromEndpointName(device_id);
+        String device_type = this.m_processor.getEndpointTypeFromEndpointName(device_id);
 
         // create the URL
         String url = this.createDevicesURL(device_type);
@@ -564,7 +564,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         }
 
         // remove our device if successful
-        this.m_processor.removeEndpointFromMap(device_id);
+        this.m_processor.removeEndpointTypeFromEndpointName(device_id);
 
         // return our status
         return true;

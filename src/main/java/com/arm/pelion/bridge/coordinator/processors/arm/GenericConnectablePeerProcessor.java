@@ -541,7 +541,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
     }
     
     // subscribe to the API request topic
-    protected void subscribe_to_api_request_topic(String ep_name) {
+    protected void subscribeToAPIRequestTopic(String ep_name) {
         Topic[] api_topics = new Topic[1];
         api_topics[0] = new Topic(this.m_api_request_topic,QoS.AT_LEAST_ONCE);
         if (ep_name != null) {
@@ -553,7 +553,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
     }
     
     // subscribe MQTT Topics
-    protected void subscribe_to_topics(String ep_name, Topic topics[]) {
+    protected void subscribeToTopics(String ep_name, Topic topics[]) {
         if (this.mqtt(ep_name) != null) {
             // subscribe to endpoint specific topics
             this.errorLogger().info("GenericConnectablePeerProcessor(subscribe_to_topics): subscribing to topics...");
@@ -561,7 +561,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
             
             // subscribe to the API Request topic
             this.errorLogger().info("GenericConnectablePeerProcessor(subscribe_to_topics): subscribing to API request topic...");
-            this.subscribe_to_api_request_topic(ep_name);
+            this.subscribeToAPIRequestTopic(ep_name);
         }
     }
 
@@ -598,7 +598,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
                     this.m_endpoints.remove(ep_name);
                     this.m_endpoints.put(ep_name, topic_data);
                     this.setEndpointTypeFromEndpointName(ep_name, ep_type);
-                    cc.subscribe_to_topics(ep_name, (Topic[]) topic_data.get("topic_list"));
+                    cc.subscribeToTopics(ep_name, (Topic[]) topic_data.get("topic_list"));
                 }
                 else {
                     // unable to register as topic data is NULL
@@ -666,6 +666,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
         // clean up
         if (ep_name != null) {
             this.m_endpoints.remove(ep_name);
+            this.removeEndpointTypeFromEndpointName(ep_name);
         }
 
         // return the unsubscribe status

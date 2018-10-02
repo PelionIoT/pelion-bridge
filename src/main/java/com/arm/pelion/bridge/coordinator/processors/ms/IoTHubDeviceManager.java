@@ -111,7 +111,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         boolean status = false;
 
         // get the device details
-        //String device_type = (String)message.get("ept");
+        String ep_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
         String ep_name = Utils.valueFromValidKey(message, "id", "ep");
 
         // IOTHUB DeviceID Prefix
@@ -129,6 +129,11 @@ public class IoTHubDeviceManager extends DeviceManager {
         else {
             // device is not registered... so create/register it
             status = this.createAndRegisterNewDevice(message);
+        }
+        
+        // add the device type
+        if (status == true) {
+            this.m_processor.setEndpointTypeFromEndpointName(ep_name, ep_type);
         }
 
         // return our status

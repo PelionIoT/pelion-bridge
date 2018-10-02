@@ -33,5 +33,5 @@ public interface ConnectionCreator {
     public boolean createAndStartMQTTForEndpoint(String ep_name, String ep_type,Topic topics[]);
     
     // subscribe to topics
-    public void subscribe_to_topics(String ep_name, Topic topics[]);
+    public void subscribeToTopics(String ep_name, Topic topics[]);
 }

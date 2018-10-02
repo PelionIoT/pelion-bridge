@@ -298,7 +298,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
 
     
     // get the endpoint type from the endpoint name
-    protected String getEndpointTypeFromEndpointName(String ep_name) {
+    public String getEndpointTypeFromEndpointName(String ep_name) {
         String recorded = this.getEndpointTypeManager().endpointTypeFromEndpointName(ep_name);
         if (recorded != null) {
             // return what the subscription manager has for the endpoint
@@ -328,6 +328,11 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     // set the endpoint type from the endpoint name
     public void setEndpointTypeFromEndpointName(String ep_name, String ep_type) {
         this.m_endpoint_type_list.put(ep_name,ep_type);
+    }
+    
+    // remove the endpoint type from the endpoint name
+    public void removeEndpointTypeFromEndpointName(String ep_name) {
+        this.m_endpoint_type_list.remove(ep_name);
     }
     
     // initialize the mDS request tag
