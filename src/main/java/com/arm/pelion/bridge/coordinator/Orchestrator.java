@@ -112,6 +112,9 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     
     // our primary manager
     private Manager m_manager = null;
+    
+    // primary endpoint type manager for the bridge
+    private EndpointTypeManager m_endpoint_type_manager = null;
 
     // primary constructor
     public Orchestrator(ErrorLogger error_logger, PreferenceManager preference_manager) {
@@ -121,6 +124,9 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         
         // we are parent
         this.m_error_logger.setParent(this);
+        
+        // Create an endpoint type manager
+        this.m_endpoint_type_manager = new EndpointTypeManager(this);
         
         // get our master node designation
         this.m_is_master_node = this.m_preference_manager.booleanValueOf("is_master_node");
@@ -182,6 +188,12 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
        
         // start device discovery in Pelion...
         this.initDeviceDiscovery();
+    }
+    
+    // get the endpoint type manager
+    @Override
+    public EndpointTypeManager getEndpointTypeManager() {
+        return this.m_endpoint_type_manager;
     }
     
     // start the health check provider thread to monitor and provide statistics
@@ -624,16 +636,6 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
             shadow_count += p.getCurrentEndpointCount();
         }
         return shadow_count;
-    }
-
-    // unused
-    @Override
-    public EndpointTypeManager getEndpointTypeManager() {
-        if (this.m_peer_processor_list.size() > 0) {
-            // return just the first one... they are all the same... 
-            return this.m_peer_processor_list.get(0).getEndpointTypeManager();
-        }
-        return null;
     }
     
     // process the mbed Device Server inbound message

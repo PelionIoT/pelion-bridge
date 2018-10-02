@@ -960,6 +960,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // pull the initial device metadata from mbed Cloud.. add it to the device endpoint map
     @Override
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {
+        // Get the DeviceID and DeviceType
+        String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+        String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+
+        // record the device type for the device ID
+        this.orchestrator().getEndpointTypeManager().setEndpointTypeFromEndpointName(device_id, device_type);
+            
+
         // initialize the endpoint with defaulted device attributes
         this.initDeviceWithDefaultAttributes(endpoint);
 
@@ -1049,7 +1057,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     
                     // DEBUG
                     this.errorLogger().info("PelionProcessor(AsyncResponse): endpoint: " + endpoint);
-
+                    
                     // call the AsyncResponseProcessor within the peer to finalize the device
                     peer_processor.processAsyncResponse(endpoint);
                 }

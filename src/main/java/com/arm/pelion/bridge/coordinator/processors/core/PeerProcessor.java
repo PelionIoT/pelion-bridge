@@ -46,7 +46,6 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class PeerProcessor extends Processor implements GenericSender, TopicParseInterface {
     private AsyncResponseManager m_async_response_manager = null;
-    private EndpointTypeManager m_endpoint_type_manager = null;
     private String m_mds_topic_root = null;
     private TypeDecoder m_type_decoder = null;
     private String m_mds_request_tag = null;
@@ -71,10 +70,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                 
         // allocate our AsyncResponse orchestrator
         this.m_async_response_manager = new AsyncResponseManager(orchestrator);
-        
-        // Create an endpoint type manager
-        this.m_endpoint_type_manager = new EndpointTypeManager(orchestrator);
-        
+                
         // initial topic root
         this.m_mds_topic_root = "";
                 
@@ -127,7 +123,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String[] device_deletions = this.parseDeviceDeletionsBody(parsed);
         this.orchestrator().processDeviceDeletions(device_deletions);
         for (int i = 0; i < device_deletions.length; ++i) {
-            this.m_endpoint_type_manager.removeEndpointTypeFromEndpointName(device_deletions[i]);
+            this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(device_deletions[i]);
         }
         return device_deletions;
     }
@@ -137,7 +133,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String[] deregistrations = this.parseDeRegistrationBody(parsed);
         this.orchestrator().processDeregistrations(deregistrations);
         for (int i = 0; i < deregistrations.length; ++i) {
-            this.m_endpoint_type_manager.removeEndpointTypeFromEndpointName(deregistrations[i]);
+            this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(deregistrations[i]);
         }
         return deregistrations;
     }
@@ -147,7 +143,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String[] regs_expired = this.parseRegistrationsExpiredBody(parsed);
         this.orchestrator().processRegistrationsExpired(regs_expired);
         for (int i = 0; i < regs_expired.length; ++i) {
-            this.m_endpoint_type_manager.removeEndpointTypeFromEndpointName(regs_expired[i]);
+            this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(regs_expired[i]);
         }
         return regs_expired;
     }
@@ -295,7 +291,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // get the endpoint type from the endpoint name
     public String getEndpointTypeFromEndpointName(String ep_name) {
-       return this.m_endpoint_type_manager.getEndpointTypeFromEndpointName(ep_name);
+       return this.orchestrator().getEndpointTypeManager().getEndpointTypeFromEndpointName(ep_name);
     }
     
     // get the current endpoint count
@@ -305,12 +301,12 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
 
     // set the endpoint type from the endpoint name
     public void setEndpointTypeFromEndpointName(String ep_name, String ep_type) {
-        this.m_endpoint_type_manager.setEndpointTypeFromEndpointName(ep_name,ep_type);
+        this.orchestrator().getEndpointTypeManager().setEndpointTypeFromEndpointName(ep_name,ep_type);
     }
     
     // remove the endpoint type from the endpoint name
     public void removeEndpointTypeFromEndpointName(String ep_name) {
-        this.m_endpoint_type_manager.removeEndpointTypeFromEndpointName(ep_name);
+        this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(ep_name);
     }
     
     // initialize the mDS request tag
@@ -362,7 +358,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // get the get the endpoint type  manager
     public EndpointTypeManager getEndpointTypeManager() {
-        return this.m_endpoint_type_manager;
+        return this.orchestrator().getEndpointTypeManager();
     }
 
     // get the AsyncResponseManager

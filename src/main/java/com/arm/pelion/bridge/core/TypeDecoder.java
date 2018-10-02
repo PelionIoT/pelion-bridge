@@ -90,6 +90,39 @@ public class TypeDecoder extends BaseClass {
 
     // Get the fundamenal value
     public Object getFundamentalValue(Object data) {
+        if (data != null) {
+            // direct comparisons first...
+            if (data instanceof Integer) {
+                // DEBUG
+                this.errorLogger().info("getFundamentalValue: Type is Integer");
+
+                this.m_i = (Integer)data;
+                return this.m_i;
+            }
+            if (data instanceof Float) {
+                // DEBUG
+                this.errorLogger().info("getFundamentalValue: Type is Float(Double)");
+
+                this.m_d = (Double)data;
+                return this.m_d;
+            }
+            if (data instanceof Double) {
+                // DEBUG
+                this.errorLogger().info("getFundamentalValue: Type is Double");
+
+                this.m_d = (Double)data;
+                return this.m_d;
+            }
+            if (data instanceof String) {
+                // DEBUG
+                this.errorLogger().info("getFundamentalValue: Type is String");
+
+                this.m_s = (String)data;
+                return this.m_s;
+            }
+        }
+        
+        // secondary checks next
         if (this.isDouble((String) data)) {
             // DEBUG
             this.errorLogger().info("getFundamentalValue: Type is Double");

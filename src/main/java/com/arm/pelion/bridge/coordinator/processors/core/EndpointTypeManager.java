@@ -42,26 +42,45 @@ public class EndpointTypeManager extends BaseClass {
         this.m_orchestrator = orchestrator;
         
         // create endpoint name/endpoint type map
-        this.m_endpoint_type_list = new SerializableHashMap(orchestrator,"BSM_ENDPOINT_TYPE_LIST");
+        this.m_endpoint_type_list = new SerializableHashMap(orchestrator,"ENDPOINT_TYPE_LIST");
     }
 
     // get the endpoint type from the endpoint name (if cached...)
     public String getEndpointTypeFromEndpointName(String ep) {
+        // DEBUG
+        this.errorLogger().info("EndpointTypeManager: Getting Type for: " + ep);
+        
+        // return the Endpoint Type
         return (String)this.m_endpoint_type_list.get(ep);
     }    
 
     // set the endpoint type from a given endpoint name
-    public void setEndpointTypeFromEndpointName(String endpoint, String type) {
+    public synchronized void setEndpointTypeFromEndpointName(String endpoint, String type) {
+        // DEBUG
+        this.errorLogger().info("EndpointTypeManager: Setting Type: " + type + " for EP: " + endpoint);
+        
+        // set the endpoint type 
         this.m_endpoint_type_list.put(endpoint,type);
+        
+        // DEBUG
+        this.errorLogger().info("EndpointTypeManager: Count(Set): " + this.size());
     }
     
     // remove the endpoint type from the endpoint name
-    public void removeEndpointTypeFromEndpointName(String endpoint) {
+    public synchronized void removeEndpointTypeFromEndpointName(String endpoint) {
+        // DEBUG
+        this.errorLogger().info("EndpointTypeManager: Removing Type for EP: " + endpoint);
+        
         this.m_endpoint_type_list.remove(endpoint);
+        
+        // DEBUG
+        this.errorLogger().info("EndpointTypeManager: Count(Remove): " + this.size());
     }
     
     // get the count of the map
-    public int size() {
+    public synchronized int size() {
+        // DEBUG
+        this.errorLogger().info("EndpointTypeManager: Count: " + this.m_endpoint_type_list.map().size());
         return this.m_endpoint_type_list.map().size();
     }
 }
