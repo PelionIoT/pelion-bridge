@@ -231,22 +231,28 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         return this.m_delete_device_on_deregistration;
     }
     
-    // process device-deletions of endpoints (mbed Cloud only)
+    // process device-deletions of endpoints
     @Override
     public void processDeviceDeletions(String[] endpoints) {
-        // XXX TO DO
+        for(int i=0;endpoints != null && i<endpoints.length;++i) {
+            this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(endpoints[i]);
+        }
     }
     
     // process de-registeration of endpoints
     @Override
     public void processDeregistrations(String[] endpoints) {
-        // unused: using bulk subscriptions
+        for(int i=0;endpoints != null && i<endpoints.length;++i) {
+            this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(endpoints[i]);
+        }
     }
     
     // process registerations-expired of endpoints
     @Override
     public void processRegistrationsExpired(String[] endpoints) {
-        // unused
+        for(int i=0;endpoints != null && i<endpoints.length;++i) {
+            this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(endpoints[i]);
+        }
     }
     
     // process the notification

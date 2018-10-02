@@ -44,15 +44,24 @@ public class EndpointTypeManager extends BaseClass {
         // create endpoint name/endpoint type map
         this.m_endpoint_type_list = new SerializableHashMap(orchestrator,"BSM_ENDPOINT_TYPE_LIST");
     }
-    
 
     // get the endpoint type from the endpoint name (if cached...)
-    public String endpointTypeFromEndpointName(String ep) {
+    public String getEndpointTypeFromEndpointName(String ep) {
         return (String)this.m_endpoint_type_list.get(ep);
     }    
 
     // set the endpoint type from a given endpoint name
     public void setEndpointTypeFromEndpointName(String endpoint, String type) {
         this.m_endpoint_type_list.put(endpoint,type);
+    }
+    
+    // remove the endpoint type from the endpoint name
+    public void removeEndpointTypeFromEndpointName(String endpoint) {
+        this.m_endpoint_type_list.remove(endpoint);
+    }
+    
+    // get the count of the map
+    public int size() {
+        return this.m_endpoint_type_list.map().size();
     }
 }

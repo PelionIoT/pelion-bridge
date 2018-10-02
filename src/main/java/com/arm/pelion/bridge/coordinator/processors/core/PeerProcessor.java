@@ -24,13 +24,11 @@ package com.arm.pelion.bridge.coordinator.processors.core;
 
 import com.arm.pelion.bridge.core.Processor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.TopicParseInterface;
 import com.arm.pelion.bridge.core.TypeDecoder;
 import com.arm.pelion.bridge.core.Utils;
-import com.arm.pelion.bridge.data.SerializableHashMap;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -66,10 +64,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     protected String m_observation_key = "observation";             // legacy: "observation", unified: "notify"
     protected String m_cmd_response_key = "cmd-response";           // common for both legacy and unified
     protected String m_api_response_key = "api-response";           // API response tag key
-    
-    // endpoint type hashmap
-    private SerializableHashMap m_endpoint_type_list = null;
-    
+        
     // default constructor
     public PeerProcessor(Orchestrator orchestrator, String suffix) {
         super(orchestrator, suffix);
@@ -82,10 +77,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         
         // initial topic root
         this.m_mds_topic_root = "";
-        
-        // create endpoint name/endpoint type map
-        this.m_endpoint_type_list = new SerializableHashMap(orchestrator,"PEER_ENDPOINT_TYPE_LIST");
-        
+                
         // initialize the auto subscription to OBS resources
         this.initAutoSubscribe(null);
         
@@ -105,9 +97,13 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         List endpoints = (List) data.get(key);
         for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
             Map endpoint = (Map) endpoints.get(i);
+            
+            // get the device ID and device Type
+            String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+            String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
 
-            // ensure we have the endpoint type
-            this.setEndpointTypeFromEndpointName((String) endpoint.get("ep"), (String) endpoint.get("ept"));
+            // set the endpoint type for this endpoint name
+            this.setEndpointTypeFromEndpointName(device_id, device_type);
          }
     }
     
@@ -131,7 +127,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String[] device_deletions = this.parseDeviceDeletionsBody(parsed);
         this.orchestrator().processDeviceDeletions(device_deletions);
         for (int i = 0; i < device_deletions.length; ++i) {
-            this.m_endpoint_type_list.remove(device_deletions[i]);
+            this.m_endpoint_type_manager.removeEndpointTypeFromEndpointName(device_deletions[i]);
         }
         return device_deletions;
     }
@@ -141,7 +137,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String[] deregistrations = this.parseDeRegistrationBody(parsed);
         this.orchestrator().processDeregistrations(deregistrations);
         for (int i = 0; i < deregistrations.length; ++i) {
-            this.m_endpoint_type_list.remove(deregistrations[i]);
+            this.m_endpoint_type_manager.removeEndpointTypeFromEndpointName(deregistrations[i]);
         }
         return deregistrations;
     }
@@ -151,7 +147,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String[] regs_expired = this.parseRegistrationsExpiredBody(parsed);
         this.orchestrator().processRegistrationsExpired(regs_expired);
         for (int i = 0; i < regs_expired.length; ++i) {
-            this.m_endpoint_type_list.remove(regs_expired[i]);
+            this.m_endpoint_type_manager.removeEndpointTypeFromEndpointName(regs_expired[i]);
         }
         return regs_expired;
     }
@@ -299,40 +295,22 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // get the endpoint type from the endpoint name
     public String getEndpointTypeFromEndpointName(String ep_name) {
-        String recorded = this.getEndpointTypeManager().endpointTypeFromEndpointName(ep_name);
-        if (recorded != null) {
-            // return what the subscription manager has for the endpoint
-            return recorded;
-        }
-        
-        // look for a previously cached value
-        String def = (String)this.m_endpoint_type_list.get(ep_name);
-        if (def == null) {
-            // not available... so use the default
-            def = PelionProcessor.DEFAULT_ENDPOINT_TYPE;
-        }
-        
-        // return the cached/default value
-        return def;
+       return this.m_endpoint_type_manager.getEndpointTypeFromEndpointName(ep_name);
     }
     
     // get the current endpoint count
     public int getCurrentEndpointCount() {
-        if (this.m_endpoint_type_list != null) {
-            // just return the name/type map size... it will have one type for each device shadowed...
-            return this.m_endpoint_type_list.map().size();
-        }
-        return 0;
+        return this.getEndpointTypeManager().size();
     }
 
     // set the endpoint type from the endpoint name
     public void setEndpointTypeFromEndpointName(String ep_name, String ep_type) {
-        this.m_endpoint_type_list.put(ep_name,ep_type);
+        this.m_endpoint_type_manager.setEndpointTypeFromEndpointName(ep_name,ep_type);
     }
     
     // remove the endpoint type from the endpoint name
     public void removeEndpointTypeFromEndpointName(String ep_name) {
-        this.m_endpoint_type_list.remove(ep_name);
+        this.m_endpoint_type_manager.removeEndpointTypeFromEndpointName(ep_name);
     }
     
     // initialize the mDS request tag
