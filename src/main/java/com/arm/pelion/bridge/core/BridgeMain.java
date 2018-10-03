@@ -241,6 +241,11 @@ public class BridgeMain implements Runnable {
                     ++count;
                 }
             }
+                        
+            // add one for main...
+            ++count;
+            
+            // record the count
             this.m_thread_count = count;
         }
         catch (Exception ex) {
