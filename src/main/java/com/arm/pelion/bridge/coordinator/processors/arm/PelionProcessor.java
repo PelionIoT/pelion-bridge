@@ -1317,7 +1317,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // loop and pull all of the pages... 
         while(more_pages == true) {
             String url = base_url + filter + this.createAfterFilter(last_device_id);
-            this.errorLogger().warning("PelionProcessor(performPagenatedDiscovery): URL: " + url);
+            this.errorLogger().info("PelionProcessor(performPagenatedDiscovery): URL: " + url);
             String json = this.httpsGet(url);
             if (json != null && json.length() > 0) {
                 try {
@@ -1340,12 +1340,12 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     }
                 }
                 catch (Exception ex) {
-                    this.errorLogger().info("PelionProcessor(performPagenatedDiscovery): Exception in JSON parse: " + ex.getMessage() + " URL: " + url);
+                    this.errorLogger().warning("PelionProcessor(performPagenatedDiscovery): Exception in JSON parse: " + ex.getMessage() + " URL: " + url);
                     more_pages = false;
                 }
             }
             else {
-                this.errorLogger().info("PelionProcessor(performPagenatedDiscovery): No DEVICE response given for URL: " + url);
+                this.errorLogger().warning("PelionProcessor(performPagenatedDiscovery): No DEVICE response given for URL: " + url);
                 more_pages = false;
             }
         }
@@ -1375,7 +1375,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             List list = (List)response.get(key);
             
             // DEBUG
-            this.errorLogger().warning("PelionProcessor(Discovery): Number of devices found (paginated discovery): " + list.size());
+            this.errorLogger().info("PelionProcessor(Discovery): Number of devices found (paginated discovery): " + list.size());
             
             // return our list...
             return list;

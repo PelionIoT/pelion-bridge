@@ -641,20 +641,27 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
      */
     @Override
     protected synchronized Boolean deleteDevice(String device) {
-        if (this.m_device_manager != null) {
+        if (this.m_device_manager != null && device != null && device.length() > 0) {
             // DEBUG
             this.errorLogger().info("deleteDevice(GoogleCloud): deleting device: " + device);
 
-            // stop the refresher thread - this will kill the listener and MQTT connection
+            // stop the refresher thread
             this.stopJwTRefresherThread(device);
+           
+            // stop the listener thread for this device
+            this.stopListenerThread(device);
+            
+            // disconnect MQTT for this device
+            this.disconnect(device);
             
             // remove the device from GoogleCloud
             if (this.m_device_manager.deleteDevice(device) == false) {
                 this.errorLogger().warning("deleteDevice(GoogleCloud): unable to delete device from GoogleCloud...");
             }            
-            
-            // make sure the MQTT endpoint is GONE
-            this.remove(device);
+        }
+        else if (this.m_device_manager != null) {
+            // invalid params
+            this.errorLogger().info("deleteDevice(GoogleCloud): device parameter is NULL. Nothing deleted (OK).");
         }
         return true;
     }
