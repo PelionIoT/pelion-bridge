@@ -106,7 +106,7 @@ public final class Manager {
         }
     }
 
-    public void processNotification(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    public void processDeviceServerEvent(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         this.m_orchestrator.processIncomingDeviceServerMessage(request, response);
     }
     

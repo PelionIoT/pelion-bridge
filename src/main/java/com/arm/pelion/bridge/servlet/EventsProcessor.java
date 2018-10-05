@@ -24,6 +24,7 @@ package com.arm.pelion.bridge.servlet;
 
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.preferences.PreferenceManager;
+import com.arm.pelion.bridge.servlet.interfaces.ServletProcessor;
 import java.io.IOException;
 import java.io.PrintWriter;
 import javax.servlet.ServletException;
@@ -38,7 +39,7 @@ import javax.servlet.http.HttpServletResponse;
  * @author Doug Anson
  */
 @WebServlet(name = "events", urlPatterns = {"/events/*"})
-public class EventsProcessor extends HttpServlet {
+public class EventsProcessor extends HttpServlet implements ServletProcessor {
 
     private Manager m_manager = null;
     private ErrorLogger m_error_logger = null;
@@ -59,35 +60,34 @@ public class EventsProcessor extends HttpServlet {
         return this.m_manager;
     }
 
-    /**
-     * Processes requests for both HTTP
-     * <code>GET</code> and
-     * <code>POST</code> methods.
-     *
-     * @param request servlet request
-     * @param response servlet response
-     * @throws ServletException if a servlet-specific error occurs
-     * @throws IOException if an I/O error occurs
-     */
-    protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        if (this.m_manager != null) {
-            // process our request
-            this.m_manager.processNotification(request, response);
-        }
-        else {
-            // error - no Manager instance
-            this.m_error_logger.warning("EventsProcessor: ERROR: Manager instance is NULL. Ignoring the processing request...");
-            
-            // send a response
-            try {
+    // Process an inbound device server event request to the Pelion bridge
+    protected void processRequest(HttpServletRequest request, HttpServletResponse response) {
+        ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this);
+        Thread t = new Thread(pit);
+        t.start();
+    }
+    
+    // invoke the device server processing request
+    @Override
+    public void invokeRequest(HttpServletRequest request, HttpServletResponse response) {
+        try {
+            if (this.m_manager != null) {
+                // process our device server event
+                this.m_manager.processDeviceServerEvent(request, response);
+            }
+            else {
+                // error - no Manager instance
+                this.m_error_logger.warning("EventsProcessor: ERROR: Manager instance is NULL. Ignoring the device server event...");
+
+                // send a response
                 response.setContentType("application/json;charset=utf-8");
                 response.setHeader("Pragma", "no-cache");
                 PrintWriter out = response.getWriter();
                 out.println("{}");
             }
-            catch (IOException ex) {
-                this.m_error_logger.critical("EventsProcessor: Unable to send response back to Pelion...", ex);
-            }
+        }
+        catch (IOException | ServletException ex) {
+            this.m_error_logger.critical("EventsProcessor: Unable to send device server event response back to Pelion...", ex);
         }
     }
 

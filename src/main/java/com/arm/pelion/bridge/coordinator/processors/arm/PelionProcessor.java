@@ -37,6 +37,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import com.mbed.lwm2m.LWM2MResource;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
+import java.util.ArrayList;
 
 /**
  * Pelion Peer Processor - this HTTP based processor integrates with the REST API of Pelion for the device shadow bridge functionality
@@ -44,6 +45,9 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorIn
  * @author Doug Anson
  */
 public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
+    // How many device entries to retrieve in a single /v3/devices query (discovery)
+    private static final int PELION_MAX_DEVICES_PER_QUERY = 100;
+    
     // Pelion API port
     private static final int PELION_API_PORT = 443;                            // std TLS port used by pelion
     
@@ -113,6 +117,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // Pelion API Key is configured or not?
     private boolean m_api_key_is_configured = false;
+    
+    // Maximum # of devices to query per GET
+    private int m_max_devices_per_query = PELION_MAX_DEVICES_PER_QUERY;
 
     // constructor
     public PelionProcessor(Orchestrator orchestrator, HttpTransport http) {
@@ -143,6 +150,13 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         
         // determine if the API key is configured or not
         this.setAPIKeyConfigured(this.apiToken());
+        
+        // get the requested pagination value
+        this.m_max_devices_per_query = orchestrator.preferences().intValueOf("pelion_pagination_limit");
+        if (this.m_max_devices_per_query <= 0) {
+            this.m_max_devices_per_query = PELION_MAX_DEVICES_PER_QUERY;
+        }
+        this.errorLogger().warning("PelionProcessor: Pagination Limit set to: " + this.m_max_devices_per_query + " device IDs per page retrieved");
         
         // LongPolling Support
         this.m_enable_long_poll = this.prefBoolValue("mds_enable_long_poll");
@@ -1231,30 +1245,143 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         return this.performDiscovery(url,null);
     }
     
-    // perform a discovery (JSON)
-    private List performDiscovery(String url,String key) {
-        this.errorLogger().info("PelionProcessor(Discovery): URL: " + url + " Key: " + key);
-        if (key != null) {
+    // determine if we have more pages or not to read
+    private boolean hasMorePages(Map page) {
+        if (page != null && page.containsKey("has_more")) {
+            return (Boolean)page.get("has_more");
+        }
+        return false;
+    }
+    
+    // get the last device ID
+    private String getLastDeviceID(List list) {
+        if (list != null && list.size() > 0) {
+            Map device = (Map)list.get(list.size() - 1);
+            return Utils.valueFromValidKey(device, "id", "ep");
+        }
+        return null;
+    }
+    
+    // combine pages into a single List result
+    private List combinePages(ArrayList<List> pages) {
+        ArrayList<Map> combined_list = new ArrayList<>();
+        
+        // loop through and combine if needed
+        if (pages != null) {
+            // handle singleton case
+            if (pages.size() == 1) {
+                // just bail and return the first list
+                return pages.get(0);
+            }
+            else {
+                // we have to loop and combine...
+                for(int i=0;i<pages.size();++i) {
+                    // Grab the ith page 
+                    List page = (List)pages.get(i);
+                    
+                    // we are combining device discovery data... so we need to combine the "data" values...
+                    for(int j=0;page != null && j<page.size();++j) {
+                        combined_list.add((Map)page.get(j));
+                    }                    
+                }
+            }
+        }
+        
+        // if we have nothing to report... nullify for consistency
+        if (combined_list.isEmpty()) {
+            combined_list = null;
+        }
+        
+        // return the combined list
+        return (List)combined_list;
+    }
+    
+    // create the "after" filter
+    private String createAfterFilter(String device_id) {
+        if (device_id == null || device_id.length() == 0) {
+            return "";
+        }
+        return "&after=" + device_id;
+    }
+    
+    // perform a pagenated discovery (of devices...)
+    private Map performPagenatedDiscovery(String base_url,String key) {
+        boolean more_pages = true;
+        HashMap<String,Object> response = new HashMap<>();
+        ArrayList<List> pages = new ArrayList<>();
+        String last_device_id = null;
+        
+        // limit filter - also set the ordering... 
+        String filter = "&limit=" + this.m_max_devices_per_query + "&order=ASC";
+        
+        // loop and pull all of the pages... 
+        while(more_pages == true) {
+            String url = base_url + filter + this.createAfterFilter(last_device_id);
+            this.errorLogger().warning("PelionProcessor(performPagenatedDiscovery): URL: " + url);
             String json = this.httpsGet(url);
             if (json != null && json.length() > 0) {
                 try {
                     if (key != null) {
                         Map base = this.jsonParser().parseJson(json);
                         if (base != null) {
-                            this.errorLogger().info("PelionProcessor(Discovery): Key:" + key + " Response: " + base);
-                            return (List)base.get(key);
+                            // Add the page
+                            List page = (List)base.get(key);
+                            pages.add(page);
+                            
+                            // Query the page and see if we need to repeat...
+                            more_pages = this.hasMorePages(base);
+                            if (more_pages) {
+                                last_device_id = this.getLastDeviceID((List)base.get(key));
+                            }
+                            
+                            // DEBUG
+                            this.errorLogger().info("PelionProcessor(performPagenatedDiscovery): Added: " + page.size() + " Total: " + pages.size());
                         }
                     }
                 }
                 catch (Exception ex) {
-                    this.errorLogger().info("PelionProcessor(Discovery): Exception in JSON parse: " + ex.getMessage() + " URL: " + url);
+                    this.errorLogger().info("PelionProcessor(performPagenatedDiscovery): Exception in JSON parse: " + ex.getMessage() + " URL: " + url);
+                    more_pages = false;
                 }
             }
             else {
-                this.errorLogger().warning("PelionProcessor(Discovery): No RESOURCE response given for URL: " + url);
+                this.errorLogger().info("PelionProcessor(performPagenatedDiscovery): No DEVICE response given for URL: " + url);
+                more_pages = false;
             }
         }
+        
+        // combine the data pages into one list
+        List combined_list = this.combinePages(pages);
+        
+        // if not null, create the new response with the combined data list
+        if (combined_list != null) {
+            // has data 
+            response.put(key,combined_list);
+        }
         else {
+            // empty list
+            response.put(key,new ArrayList());
+        }
+        
+        return response;
+    }
+   
+    // perform a discovery (JSON)
+    private List performDiscovery(String url,String key) {
+        this.errorLogger().info("PelionProcessor(Discovery): URL: " + url + " Key: " + key);
+        if (key != null) {
+            // Device Discovery - handle possible pagenation
+            Map response = this.performPagenatedDiscovery(url,key);
+            List list = (List)response.get(key);
+            
+            // DEBUG
+            this.errorLogger().warning("PelionProcessor(Discovery): Number of devices found (paginated discovery): " + list.size());
+            
+            // return our list...
+            return list;
+        }
+        else {
+            // Resource Discovery - no pagenation support needed
             String json = this.httpsGet(url);
             if (json != null && json.length() > 0) {
                 List list = this.jsonParser().parseJsonToArray(json);

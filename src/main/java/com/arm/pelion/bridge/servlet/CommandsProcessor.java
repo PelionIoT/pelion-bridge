@@ -24,6 +24,7 @@ package com.arm.pelion.bridge.servlet;
 
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.preferences.PreferenceManager;
+import com.arm.pelion.bridge.servlet.interfaces.ServletProcessor;
 import java.io.IOException;
 import java.io.PrintWriter;
 import javax.servlet.ServletException;
@@ -38,7 +39,7 @@ import javax.servlet.http.HttpServletResponse;
  * @author Doug Anson
  */
 @WebServlet(name = "commands", urlPatterns = {"/commands/*"})
-public class CommandsProcessor extends HttpServlet {
+public class CommandsProcessor extends HttpServlet implements ServletProcessor {
 
     private Manager m_manager = null;
     private ErrorLogger m_error_logger = null;
@@ -60,34 +61,38 @@ public class CommandsProcessor extends HttpServlet {
     }
 
     /**
-     * Processes requests for both HTTP
-     * <code>GET</code> and
-     * <code>POST</code> methods.
+     * Process an inbound command request to the Pelion bridge
      *
-     * @param request servlet request
-     * @param response servlet response
-     * @throws ServletException if a servlet-specific error occurs
-     * @throws IOException if an I/O error occurs
+     * @param request inbound request
+     * @param response outbound response
      */
-    protected void processRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        if (this.m_manager != null) {
-            // process our request
-            this.m_manager.processPeerCommand(request, response);
-        }
-        else {
-            // error - no Manager instance
-            this.m_error_logger.warning("CommandsProcessor: ERROR: Manager instance is NULL. Ignoring the processing request...");
-            
-            // send a response
-            try {
+    protected void processRequest(HttpServletRequest request, HttpServletResponse response) {
+        ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this);
+        Thread t = new Thread(pit);
+        t.start();
+    }
+    
+    // invoke the command processing request
+    @Override
+    public void invokeRequest(HttpServletRequest request, HttpServletResponse response) {
+        try {
+            if (this.m_manager != null) {
+                // process our command request
+                this.m_manager.processPeerCommand(request, response);
+            }
+            else {
+                // error - no Manager instance
+                this.m_error_logger.warning("CommandsProcessor: ERROR: Manager instance is NULL. Ignoring the inbound command request...");
+
+                // send a response
                 response.setContentType("application/json;charset=utf-8");
                 response.setHeader("Pragma", "no-cache");
                 PrintWriter out = response.getWriter();
                 out.println("{}");
             }
-            catch (IOException ex) {
-                this.m_error_logger.critical("CommandsProcessor: Unable to send response back to requestor", ex);
-            }
+        }
+        catch (IOException | ServletException ex) {
+            this.m_error_logger.critical("CommandsProcessor: Unable to send command response back to Pelion...", ex);
         }
     }
 
