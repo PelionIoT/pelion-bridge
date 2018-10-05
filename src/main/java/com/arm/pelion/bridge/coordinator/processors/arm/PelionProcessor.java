@@ -669,7 +669,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
     // mbed Cloud: create the dispatch URL for changing the notification webhook URL
     private String createWebhookDispatchURL() {
-        return this.createBaseURL() + "/v" + this.m_connect_api_version + "/notification/callback";
+        return this.createBaseURL() + "/notification/callback";
     }
     
     // check for duplicated messages
