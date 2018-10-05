@@ -62,9 +62,10 @@ public class EventsProcessor extends HttpServlet implements ServletProcessor {
 
     // Process an inbound device server event request to the Pelion bridge
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) {
-        ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this);
-        Thread t = new Thread(pit);
-        t.start();
+        //ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this);
+        //Thread t = new Thread(pit);
+        //t.start();
+        this.invokeRequest(request,response);
     }
     
     // invoke the device server processing request

@@ -67,9 +67,10 @@ public class CommandsProcessor extends HttpServlet implements ServletProcessor {
      * @param response outbound response
      */
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) {
-        ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this);
-        Thread t = new Thread(pit);
-        t.start();
+        //ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this);
+        //Thread t = new Thread(pit);
+        //t.start();
+        this.invokeRequest(request,response);
     }
     
     // invoke the command processing request
