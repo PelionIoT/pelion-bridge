@@ -137,11 +137,11 @@ public class BridgeMain implements Runnable {
             new Thread() {
                 @Override
                 public void run() {
-                    errorLogger().warning("Main: Removing webhook...");
-                    m_manager.removeWebhook();
-
                     errorLogger().warning("Main: Stopping Listeners...");
                     m_manager.stopListeners();
+
+                    errorLogger().warning("Main: Removing webhook...");
+                    m_manager.removeWebhook();
                 }
             }
         );
