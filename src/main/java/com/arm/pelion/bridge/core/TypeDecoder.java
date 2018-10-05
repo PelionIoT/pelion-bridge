@@ -99,56 +99,52 @@ public class TypeDecoder extends BaseClass {
                 this.m_i = (Integer)data;
                 return this.m_i;
             }
-            if (data instanceof Float) {
+            else if (data instanceof Float) {
                 // DEBUG
                 this.errorLogger().info("getFundamentalValue: Type is Float(Double)");
 
                 this.m_d = (Double)data;
                 return this.m_d;
             }
-            if (data instanceof Double) {
+            else if (data instanceof Double) {
                 // DEBUG
                 this.errorLogger().info("getFundamentalValue: Type is Double");
 
                 this.m_d = (Double)data;
                 return this.m_d;
             }
-            if (data instanceof String) {
-                // DEBUG
-                this.errorLogger().info("getFundamentalValue: Type is String");
+            else {
+                // secondary checks next
+                if (this.isDouble((String) data)) {
+                    // DEBUG
+                    this.errorLogger().info("getFundamentalValue: Type is Double");
 
-                this.m_s = (String)data;
-                return this.m_s;
+                    // return a Double
+                    return this.m_d;
+                }
+                else if (this.isInteger((String) data)) {
+                    // DEBUG
+                    this.errorLogger().info("getFundamentalValue: Type is Integer");
+
+                    // return an Integer
+                    return this.m_i;
+                }
+                else if (this.isString((String) data)) {
+                    // DEBUG
+                    this.errorLogger().info("getFundamentalValue: Type is String");
+
+                    // return an Integer
+                    return this.m_s;
+                }
+                else {
+                    // DEBUG
+                    this.errorLogger().info("getFundamentalValue: Type is Object");
+
+                    // return itself... not a Double, Integer, or String 
+                    return data;
+                }
             }
         }
-        
-        // secondary checks next
-        if (this.isDouble((String) data)) {
-            // DEBUG
-            this.errorLogger().info("getFundamentalValue: Type is Double");
-
-            // return a Double
-            return this.m_d;
-        }
-        if (this.isInteger((String) data)) {
-            // DEBUG
-            this.errorLogger().info("getFundamentalValue: Type is Integer");
-
-            // return an Integer
-            return this.m_i;
-        }
-        if (this.isString((String) data)) {
-            // DEBUG
-            this.errorLogger().info("getFundamentalValue: Type is String");
-
-            // return an Integer
-            return this.m_s;
-        }
-
-        // DEBUG
-        this.errorLogger().info("getFundamentalValue: Type is Object");
-
-        // return itself... not a Double, Integer, or String 
         return data;
     }
 }
