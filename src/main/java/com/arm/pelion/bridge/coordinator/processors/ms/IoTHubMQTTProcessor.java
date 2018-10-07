@@ -1078,7 +1078,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                     this.errorLogger().warning("IoTHub: connecting MQTT for endpoint: " + ep_name + " type: " + ep_type + "...");
 
                     // connect and start listening... 
-                    if (this.connect(iothub_ep_name) == true) {
+                    if (this.connect(ep_name) == true) {
                         // DEBUG
                         this.errorLogger().warning("IoTHub: connection SUCCESS");
                         this.errorLogger().info("IoTHub: Creating and registering listener Thread for endpoint: " + iothub_ep_name + " type: " + ep_type);
