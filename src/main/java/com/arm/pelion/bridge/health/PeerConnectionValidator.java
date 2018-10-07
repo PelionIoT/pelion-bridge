@@ -57,7 +57,7 @@ public class PeerConnectionValidator extends BaseValidatorClass implements Runna
             }
             else {
                 // DEBUG
-                this.errorLogger().warning("PeerConnectionValidator: One or more Peer Connections is DOWN.");
+                this.errorLogger().info("PeerConnectionValidator: One or more Peer Connections is DOWN.");
                 this.m_value = (Boolean)false;
             }
 

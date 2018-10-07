@@ -434,7 +434,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
     @Override
     public String formatAsyncResponseAsReply(Map async_response, String verb) {
         // DEBUG
-        this.errorLogger().info("MQTT(" + verb + ") AsyncResponse: ID: " + async_response.get("id") + " response: " + async_response);
+        this.errorLogger().info("GenericConnectablePeerProcessor MQTT(" + verb + ") AsyncResponse: ID: " + async_response.get("id") + " response: " + async_response);
 
         if (verb != null && verb.equalsIgnoreCase("GET") == true) {
             try {
@@ -637,7 +637,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
         boolean unsubscribed = false;
         if (ep_name != null && this.mqtt(ep_name) != null) {
             // DEBUG
-            this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: Un-Subscribing to CoAP command topics for endpoint: " + ep_name);
+            this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: Un-Subscribing to CoAP command topics for device: " + ep_name);
             try {
                 HashMap<String, Object> topic_data = (HashMap<String, Object>) this.m_endpoints.get(ep_name);
                 if (topic_data != null) {
@@ -646,7 +646,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
                 }
                 else {
                     // not in subscription list (OK)
-                    this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: Endpoint: " + ep_name + " not in subscription list (OK).");
+                    this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: Device: " + ep_name + " not in subscription list (OK).");
                     unsubscribed = true;
                 }
             }
@@ -655,7 +655,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
             }
         }
         else if (this.mqtt(ep_name) != null) {
-            this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: NULL Endpoint name... ignoring unsubscribe()...");
+            this.orchestrator().errorLogger().info("GenericConnectablePeerProcessor: NULL device name... ignoring unsubscribe()...");
             unsubscribed = true;
         }
         else {
@@ -676,7 +676,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
     // discover the endpoint attributes
     protected void retrieveEndpointAttributes(Map endpoint,AsyncResponseProcessor arp) {
         // DEBUG
-        this.errorLogger().info("GenericConnectablePeerProcessor: Creating New Device: " + endpoint);
+        this.errorLogger().info("GenericConnectablePeerProcessor: Getting device attributes for device: " + endpoint);
 
         // pre-populate the new endpoint with initial values for registration
         this.orchestrator().pullDeviceMetadata(endpoint, arp);
@@ -691,6 +691,8 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
     // disconnect
     protected void disconnect(String ep_name) {
         if (this.isConnected(ep_name)) {
+            // DEBUG
+            this.errorLogger().warning("GenericConnectablePeerProcessor: Disconnecting MQTT for device: " + ep_name + "...");
             this.mqtt(ep_name).disconnect(true);
         }
         this.remove(ep_name);

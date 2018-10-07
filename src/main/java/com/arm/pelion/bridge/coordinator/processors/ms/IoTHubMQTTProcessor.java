@@ -77,7 +77,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         super(manager, mqtt, suffix, http);
 
         // IoTHub Processor Announce
-        this.errorLogger().info("MS IoTHub Processor ENABLED.");
+        this.errorLogger().info("Azure IoTHub Processor ENABLED.");
 
         // get the IoTHub version tag
         this.m_iot_hub_version_tag = this.orchestrator().preferences().valueOf("iot_event_hub_version_tag",this.m_suffix);
@@ -283,12 +283,12 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             // this.errorLogger().info("IoTHub : CoAP re-registration: " + entry);
             if (this.hasSubscriptions(iothub_ep_name) == false) {
                 // no subscriptions - so process as a new registration
-                this.errorLogger().info("IoTHub : CoAP re-registration: no subscriptions.. processing as new registration...");
+                this.errorLogger().info("IoTHub: CoAP re-registration: no subscriptions.. processing as new registration...");
                 this.processRegistration(data, "reg-updates");
             }
             else {
                 // already subscribed (OK)
-                this.errorLogger().info("IoTHub : CoAP re-registration: already subscribed (OK)");
+                this.errorLogger().info("IoTHub: CoAP re-registration: already subscribed (OK)");
             }
         }
     }
@@ -299,12 +299,12 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         // TEST: We can actually DELETE the device on deregistration to test device-delete before the device-delete message goes live
         if (this.orchestrator().deviceRemovedOnDeRegistration() == true) {
             // processing deregistration as device deletion
-            this.errorLogger().info("processDeregistrations(IoTHub): processing de-registration as device deletion (OK).");
+            this.errorLogger().info("IoTHub: processing de-registration as device deletion (OK).");
             this.processDeviceDeletions(parsed, true);
         }
         else {
             // not processing deregistration as a deletion
-            this.errorLogger().info("processDeregistrations(IoTHub): Not processing de-registration as device deletion (OK).");
+            this.errorLogger().info("IoTHub: Not processing de-registration as device deletion (OK).");
         }
         
         // always by default...
@@ -320,25 +320,33 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     // handle device deletions IoTHub
     private String[] processDeviceDeletions(Map parsed,boolean use_deregistration) {
         String[] deletions = null;
+        
+        // complete processing in base class...
         if (use_deregistration == true) {
             deletions = super.processDeregistrations(parsed);
         }
         else {
             deletions = super.processDeviceDeletions(parsed);
         }
+        
+        // delete the device shadows...
         for (int i = 0; deletions != null && i < deletions.length; ++i) {
-            // DEBUG
-            this.errorLogger().info("IoTHub : processing device deletion for device: " + deletions[i]);
+            if (deletions[i] != null && deletions[i].length() > 0) {
+                // DEBUG
+                this.errorLogger().info("IoTHub: processing device deletion for device: " + deletions[i]);
+                
+                // IoTHub add-on... 
+                this.unsubscribe(deletions[i]);
 
-            // IOTHUB Prefix
-            String iothub_ep_name = this.addDeviceIDPrefix(deletions[i]);
-
-            // IoTHub add-on... 
-            this.unsubscribe(iothub_ep_name);
-
-            // Remove from IoTHub
-            this.deleteDevice(iothub_ep_name);
+                // Remove from IoTHub
+                this.deleteDevice(deletions[i]);
+                
+                // remove type
+                this.removeEndpointTypeFromEndpointName(deletions[i]);
+            }
         }
+        
+        // return our deletions
         return deletions;
     }
     
@@ -415,7 +423,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     @Override
     public void subscribeToTopics(String ep_name, Topic topics[]) {
         // IOTHUB DeviceID Prefix
-        this.errorLogger().info("subscribe_to_topics(IoTHub): subscribing to topics...");
+        this.errorLogger().info("IoTHub: subscribing to topics...");
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
         this.mqtt(iothub_ep_name).subscribe(topics);
         
@@ -456,7 +464,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         // IOTHUB Prefix
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
 
-        if (iothub_ep_name != null && this.validateMQTTConnection(cc, iothub_ep_name, ep_type, null)) {
+        if (iothub_ep_name != null && this.validateMQTTConnection(cc, ep_name, ep_type, null)) {
             // DEBUG
             this.orchestrator().errorLogger().info("IoTHub: Subscribing to CoAP command topics for endpoint: " + ep_name);
             try {
@@ -546,7 +554,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         }
         catch (Exception ex) {
             // Exception during parse
-            this.errorLogger().info("WARNING: getTopicElement: Exception: " + ex.getMessage());
+            this.errorLogger().info("IoTHub; WARNING: getTopicElement: Exception: " + ex.getMessage());
         }
 
         // DEBUG
@@ -573,7 +581,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     @Override
     public void onMessageReceive(String topic, String message) {
         // DEBUG
-        this.errorLogger().info("IoTHub(CoAP Command): Topic: " + topic + " message: " + message);
+        this.errorLogger().info("IoTHub: Topic: " + topic + " message: " + message);
 
         // parse the topic to get the endpoint
         // format: devices/__EPNAME__/messages/devicebound/#
@@ -627,7 +635,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         // examine the response
         if (response != null && response.length() > 0) {
             // SYNC: We only process AsyncResponses from GET verbs... we dont sent HTTP status back through IoTHub.
-            this.errorLogger().info("IoTHub(CoAP Command): Response: " + response);
+            this.errorLogger().info("IoTHub: Response: " + response);
 
             // AsyncResponse detection and recording...
             if (this.isAsyncResponse(response) == true) {
@@ -638,18 +646,18 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                 }
                 else {
                     // we ignore AsyncResponses to PUT,POST,DELETE
-                    this.errorLogger().info("IoTHub(CoAP Command): Ignoring AsyncResponse for " + coap_verb + " (OK).");
+                    this.errorLogger().info("IoTHub: Ignoring AsyncResponse for " + coap_verb + " (OK).");
                 }
             }
             else if (coap_verb.equalsIgnoreCase("get")) {
                 // not an AsyncResponse... so just emit it immediately... only for GET...
-                this.errorLogger().info("IoTHub(CoAP Command): Response: " + response + " from GET... creating observation...");
+                this.errorLogger().info("IoTHub: Response: " + response + " from GET... creating observation...");
 
                 // we have to format as an observation...
                 String observation = this.createObservation(coap_verb, iothub_ep_name, uri, response);
 
                 // DEBUG
-                this.errorLogger().info("IoTHub(CoAP Command): Sending Observation(GET): " + observation);
+                this.errorLogger().info("IoTHub: Sending Observation(GET): " + observation);
 
                 // send the observation (GET reply)...
                 if (this.mqtt(iothub_ep_name) != null) {
@@ -658,16 +666,16 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                     boolean status = this.mqtt(iothub_ep_name).sendMessage(reply_topic, observation, QoS.AT_MOST_ONCE);
                     if (status == true) {
                         // success
-                        this.errorLogger().info("IoTHub(CoAP Command): CoAP observation(get) sent. SUCCESS");
+                        this.errorLogger().info("IoTHub: CoAP observation(get) sent. SUCCESS");
                     }
                     else {
                         // send failed
-                        this.errorLogger().warning("IoTHub(CoAP Command): CoAP observation(get) not sent. SEND FAILED");
+                        this.errorLogger().warning("IoTHub: CoAP observation(get) not sent. SEND FAILED");
                     }
                 }
                 else {
                     // not connected
-                    this.errorLogger().warning("IoTHub(CoAP Command): CoAP observation(get) not sent. NOT CONNECTED");
+                    this.errorLogger().warning("IIoTHub: CoAP observation(get) not sent. NOT CONNECTED");
                 }
             }
         }
@@ -715,7 +723,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             }
             catch (Exception ex) {
                 // Error in creating the observation message from the AsyncResponse GET reply... 
-                this.errorLogger().warning("IoTHub(GET): Exception in formatAsyncResponseAsReply(): ", ex);
+                this.errorLogger().warning("IoTHub: Exception in formatAsyncResponseAsReply(): ", ex);
             }
         }
 
@@ -773,7 +781,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             }
             catch (Exception ex) {
                 // Error in creating the observation message from the AsyncResponse PUT reply... 
-                this.errorLogger().warning("IoTHub(PUT): Exception in formatAsyncResponseAsReply(): ", ex);
+                this.errorLogger().warning("IoTHub: Exception in formatAsyncResponseAsReply(): ", ex);
             }
         }
 
@@ -799,7 +807,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
             // if successful, validate (i.e. add...) an MQTT Connection
             if (success == true) {
-                this.validateMQTTConnection(this,iothub_ep_name, device_type, null);
+                this.validateMQTTConnection(this, device_id, device_type, null);
             }
 
             // return status
@@ -816,29 +824,30 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
 
             // DEBUG
-            this.errorLogger().info("deleteDevice(IoTHub): deleting device device: " + iothub_ep_name);
+            this.errorLogger().warning("IoTHub: deleting device: " + ep_name);
 
-            // disconnect, remove the threaded listener... 
+            // remove the MQTT transport instance
+            this.disconnect(ep_name);
+            this.remove(iothub_ep_name);
+            
+            // remove the device's MQTT thread listener 
             if (this.m_mqtt_thread_list.get(iothub_ep_name) != null) {
                 try {
                     this.m_mqtt_thread_list.get(iothub_ep_name).disconnect();
                 }
                 catch (Exception ex) {
                     // note but continue...
-                    this.errorLogger().warning("deleteDevice(IoTHub): exception during device deletion", ex);
+                    this.errorLogger().warning("IoTHub: exception during device deletion", ex);
                 }
                 this.m_mqtt_thread_list.remove(iothub_ep_name);
             }
 
-            // also remove MQTT Transport instance too...
-            this.disconnect(iothub_ep_name);
-
             // remove the device from IoTHub
-            if (this.m_device_manager.deleteDevice(iothub_ep_name) == false) {
-                this.errorLogger().warning("deleteDevice(IoTHub): unable to de-register device from IoTHub...");
+            if (this.m_device_manager.deleteDevice(ep_name) == false) {
+                this.errorLogger().warning("IoTHub: unable to de-register device from IoTHub...");
             }
             
-            // remove type as well
+            // remove type from the type list
             this.removeEndpointTypeFromEndpointName(ep_name);
         }
         return true;
@@ -865,7 +874,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             this.stopListenerThread(iothub_ep_name);
             
             // clean up old MQTT connection (will remove as well...)
-            this.disconnect(iothub_ep_name);
+            this.disconnect(ep_name);
             
             // Create a new device record
             HashMap<String,Serializable> ep = new HashMap<>();
@@ -876,7 +885,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             this.errorLogger().info("startReconnection: EP: " + ep);            
             
             // deregister the old device (it may be gone already...)
-            this.m_device_manager.deleteDevice(iothub_ep_name);
+            this.m_device_manager.deleteDevice(ep_name);
             
             // sleep for abit
             Utils.waitForABit(this.errorLogger(), this.m_reconnect_sleep_time_ms);
@@ -904,20 +913,20 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             // create the device in IoTHub
             this.errorLogger().info("completeNewDeviceRegistration: calling registerNewDevice(): " + endpoint);
             this.registerNewDevice(endpoint);
-            this.errorLogger().info("completeNewDeviceRegistration: registerNewDevice() completed");
+            this.errorLogger().info("IoTHub: registerNewDevice() completed");
         }
         catch (Exception ex) {
-            this.errorLogger().warning("completeNewDeviceRegistration: caught exception in registerNewDevice(): " + endpoint, ex);
+            this.errorLogger().warning("IoTHub: caught exception in registerNewDevice(): " + endpoint, ex);
         }
 
         try {
             // subscribe for IoTHub as well..
-            this.errorLogger().info("completeNewDeviceRegistration: calling subscribe(): " + endpoint);
+            this.errorLogger().info("IoTHub: calling subscribe(): " + endpoint);
             this.subscribe(device_id, device_type);
-            this.errorLogger().info("completeNewDeviceRegistration: subscribe() completed");
+            this.errorLogger().info("IoTHub: subscribe() completed");
         }
         catch (Exception ex) {
-            this.errorLogger().warning("completeNewDeviceRegistration: caught exception in subscribe(): " + endpoint, ex);
+            this.errorLogger().warning("IoTHub: caught exception in subscribe(): " + endpoint, ex);
         }
     }
     
@@ -1066,12 +1075,13 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                     this.addMQTTTransport(iothub_ep_name, mqtt);
 
                     // DEBUG
-                    this.errorLogger().info("IoTHub: connecting to MQTT for endpoint: " + iothub_ep_name + " type: " + ep_type + "...");
+                    this.errorLogger().warning("IoTHub: connecting MQTT for endpoint: " + ep_name + " type: " + ep_type + "...");
 
                     // connect and start listening... 
                     if (this.connect(iothub_ep_name) == true) {
                         // DEBUG
-                        this.errorLogger().info("IoTHub: connected to MQTT. Creating and registering listener Thread for endpoint: " + iothub_ep_name + " type: " + ep_type);
+                        this.errorLogger().warning("IoTHub: connection SUCCESS");
+                        this.errorLogger().info("IoTHub: Creating and registering listener Thread for endpoint: " + iothub_ep_name + " type: " + ep_type);
 
                         // start the listener thread
                         this.startListenerThread(ep_name, mqtt);
@@ -1089,12 +1099,12 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                         connected = true;
                     }
                     else {
-                        // unable to connect!
-                        this.errorLogger().critical("IoTHub: Unable to connect to MQTT for endpoint: " + iothub_ep_name + " type: " + ep_type);
-                        this.remove(iothub_ep_name);
-
                         // ensure we only have 1 thread/endpoint
                         this.stopListenerThread(iothub_ep_name);
+                        
+                        // unable to connect!
+                        this.errorLogger().critical("IoTHub: Unable to connect MQTT for endpoint: " + ep_name + " type: " + ep_type);
+                        this.disconnect(ep_name);
                     }
                 }
                 else {
@@ -1131,7 +1141,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         }
 
         // return our connection status
-        return this.isConnected(iothub_ep_name);
+        return this.isConnected(ep_name);
     }
     
     // Connection to IoTHub MQTT vs. generic MQTT...
@@ -1140,7 +1150,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
 
         // if not connected attempt
-        if (!this.isConnected(iothub_ep_name)) {
+        if (!this.isConnected(ep_name)) {
             if (this.mqtt(iothub_ep_name).connect(this.m_mqtt_host, this.m_mqtt_port, iothub_ep_name, this.m_use_clean_session)) {
                 this.orchestrator().errorLogger().info("IoTHub: Setting CoAP command listener...");
                 this.mqtt(iothub_ep_name).setOnReceiveListener(this);
@@ -1153,8 +1163,8 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         }
 
         // return our connection status
-        this.orchestrator().errorLogger().info("IoTHub: Connection status: " + this.isConnected(iothub_ep_name));
-        return this.isConnected(iothub_ep_name);
+        this.orchestrator().errorLogger().info("IoTHub: Device: " + ep_name + " MQTT connection status=" + this.isConnected(ep_name));
+        return this.isConnected(ep_name);
     }
     
     // IoTHub Specific: disconnect
@@ -1162,9 +1172,15 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     protected void disconnect(String ep_name) {
         // IOTHUB DeviceID Prefix
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
-        if (this.isConnected(iothub_ep_name)) {
+        
+        // if connected, disconnect MQTT handle...
+        if (this.isConnected(ep_name) == true) {
+            // DEBUG
+            this.errorLogger().warning("IoTHub: Disconnecting MQTT for device: " + ep_name + "...");
             this.mqtt(iothub_ep_name).disconnect(true);
         }
+        
+        // remove from the MQTT connection list...
         this.remove(iothub_ep_name);
     }
 

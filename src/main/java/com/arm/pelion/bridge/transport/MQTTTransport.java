@@ -306,7 +306,7 @@ public class MQTTTransport extends Transport implements GenericSender {
             kms = kmf.getKeyManagers();
         }
         catch (NoSuchAlgorithmException | KeyStoreException | IOException | CertificateException | UnrecoverableKeyException ex) {
-            this.errorLogger().warning("createKeyManager: Exception in creating the KeyManager list", ex);
+            this.errorLogger().warning("MQTTTransport: createKeyManager: Exception in creating the KeyManager list", ex);
         }
 
         try {
@@ -765,7 +765,7 @@ public class MQTTTransport extends Transport implements GenericSender {
                             if (this.attemptConnection() == true) {
                                 // CONNECTED!  succesful... record and go...
                                 this.m_has_connected = true;
-                                this.errorLogger().warning("MQTTTransport: Connection to: " + url + " SUCCESSFUL");
+                                this.errorLogger().info("MQTTTransport: Connection to: " + url + " SUCCESSFUL");
                                 this.m_connect_host = host;
                                 this.m_connect_port = port;
                                 if (endpoint != null && endpoint.getClientId() != null) {

@@ -210,8 +210,8 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         }
         catch (IOException ex) {
             // Unable to create registry
-            this.errorLogger().critical("Google: CRITICAL: Unable to create device registry: " + ex.getMessage());
-            this.errorLogger().critical("Google: projectPath: " + this.m_project_path + " registryPath: " + this.m_registry_path);
+            this.errorLogger().critical("GoogleCloudIOT: CRITICAL: Unable to create device registry: " + ex.getMessage());
+            this.errorLogger().critical("GoogleCloudIOT: projectPath: " + this.m_project_path + " registryPath: " + this.m_registry_path);
         }
         
         // return our status
@@ -232,7 +232,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
             // next lets ensure that Google also has a record of this device...
             if (this.googleDeviceExists(ep_name) == true) {
                 // DEBUG
-                this.errorLogger().info("Google: registerNewDevice: device details: " + ep);
+                this.errorLogger().info("GoogleCloudIOT: registerNewDevice: device details: " + ep);
 
                 // we are good
                 status = true;
@@ -244,7 +244,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         }
         else {
             // DEBUG
-            this.errorLogger().info("Google: registerNewDevice: no device found for: " + ep_name + "... (OK).");
+            this.errorLogger().info("GoogleCloudIOT: registerNewDevice: no device found for: " + ep_name + "... (OK).");
             //this.errorLogger().info("Google: Device Details: " + message);
 
             // device is not registered... so create/register it
@@ -294,7 +294,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         }
         catch(IOException ex) {
             // unable to get the device
-            this.errorLogger().info("Google: Unable to query for the device (exception): " + ex.getMessage());
+            this.errorLogger().info("GoogleCloudIOT: Unable to query for the device (exception): " + ex.getMessage());
         }
         
         // return the existance status
@@ -389,8 +389,8 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         }
         
         // DEBUG
-        this.errorLogger().info("METADATA(GoogleCloud): " + metadata);
-        this.errorLogger().info("METADATA(GoogleCloud): MESSAGE: " + message);
+        this.errorLogger().info("GoogleCloudIOT: METADATA: " + metadata);
+        this.errorLogger().info("GoogleCloudIOT: MESSAGE: " + message);
         
         return metadata;
     }
@@ -439,7 +439,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                         // cache the device
                         if (cache_device == true) {
                             // DEBUG
-                            this.errorLogger().info("Google: registerNewDevice: device created!  Now saving off device details...");
+                            this.errorLogger().info("GoogleCloudIOT: registerNewDevice: device created!  Now saving off device details...");
 
                             // save off device details... (empty result)
                             this.saveAddDeviceDetails(ep_name, ep_type);
@@ -447,19 +447,19 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                         }
                         else {
                             // already cached (OK)
-                            this.errorLogger().info("Google: registerNewDevice: device already cached...(OK).");
+                            this.errorLogger().info("GoogleCloudIOT: registerNewDevice: device already cached...(OK).");
                             created = true;
                         }
                     }
                 }
                 else {
                     // unable to create keystore... so cannot create device
-                    this.errorLogger().warning("Google: registerNewDevice: key creation FAILED. Unable to create device.");
+                    this.errorLogger().warning("GoogleCloudIOT: registerNewDevice: key creation FAILED. Unable to create device.");
                 }
             }
             else if (cache_device == true) {
                 // device already exists in google... so just add it here...
-                this.errorLogger().info("Google: registerNewDevice: device already exists... (OK). Caching device details...");
+                this.errorLogger().info("GoogleCloudIOT: registerNewDevice: device already exists... (OK). Caching device details...");
 
                 // save off device details... (empty result)
                 this.saveAddDeviceDetails(ep_name, ep_type);
@@ -467,13 +467,13 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
             }
             else {
                 // device already exists in google... so just add it here...
-                this.errorLogger().info("Google: registerNewDevice: device already exists... (OK). Already cached(OK).");
+                this.errorLogger().info("GoogleCloudIOT: registerNewDevice: device already exists... (OK). Already cached(OK).");
                 created = true;
             }
         }
         catch(IOException | NullPointerException ex) {
             // Unable to create device
-            this.errorLogger().warning("Google: registerNewDevice: ERROR: Unable to create device: " + ep_name + " Error: " + ex.getMessage());
+            this.errorLogger().warning("GoogleCloudIOT: registerNewDevice: ERROR: Unable to create device: " + ep_name + " Error: " + ex.getMessage());
         }
 
         // return our status
@@ -492,18 +492,18 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                 this.m_endpoint_details.remove(ep_name);
 
                 // DEBUG
-                this.errorLogger().info("Google: deleteDevice: device: " + ep_name + " deletion SUCCESSFUL");
+                this.errorLogger().info("GoogleCloudIOT: deleteDevice: device: " + ep_name + " deletion SUCCESSFUL");
 
                 // success
                 return true;
             }
             catch (IOException ex) {
                 // unable to delete the device
-                this.errorLogger().warning("Google: deleteDevice: WARNING:  Unable to delete device: " + ep_name + " Error: " + ex.getMessage());
+                this.errorLogger().warning("GoogleCloudIOT: deleteDevice: WARNING:  Unable to delete device: " + ep_name + " Error: " + ex.getMessage());
             }
         }
         else {
-            this.errorLogger().info("Google: deleteDevice: WARNING: device name is NULL. Nothing deleted");
+            this.errorLogger().info("GoogleCloudIOT: deleteDevice: WARNING: device name is NULL. Nothing deleted");
         }
         
         // error
@@ -566,26 +566,26 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                 }
                 catch (com.google.api.client.googleapis.json.GoogleJsonResponseException ex) {
                     // Create the Topic
-                    this.errorLogger().info("createTopic: Creating Main Topic: " + topic);
+                    this.errorLogger().info("GoogleCloudIOT: Creating Main Topic: " + topic);
                     return this.m_pub_sub.projects().topics().create(topic,new Topic()).execute();
                 }
             }
             catch (com.google.api.client.googleapis.json.GoogleJsonResponseException ex) {
                 // DEBUG
-                this.errorLogger().info("createTopic(GoogleJsonResponseException): Exception during topic creation: " + topic);
+                this.errorLogger().info("GoogleCloudIOT: Exception during topic creation: " + topic);
             } 
             catch (IOException ex) {
                 // no pubsub instance
-                this.errorLogger().info("createTopic: I/O exception in topic creation: " + topic);
+                this.errorLogger().info("GoogleCloudIOT: I/O exception in topic creation: " + topic);
             }
             catch (Exception ex) {
                 // no pubsub instance
-                this.errorLogger().info("createTopic: General exception in topic creation: " + topic);
+                this.errorLogger().info("GoogleCloudIOT: General exception in topic creation: " + topic);
             }
         }
         else {
             // no pubsub instance
-            this.errorLogger().warning("createTopic: no pubsub instance... unable to create topic");
+            this.errorLogger().warning("GoogleCloudIOT: no pubsub instance... unable to create topic");
         }
         return null;
     }
@@ -595,20 +595,20 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         if (this.m_pub_sub != null) {
             try {
                 // remove the topic
-                this.errorLogger().info("removeTopic: removing topic: " + topic + "...");
+                this.errorLogger().info("GoogleCloudIOT: removing topic: " + topic + "...");
                 this.m_pub_sub.projects().topics().delete(topic).execute();
             }
             catch (com.google.api.client.googleapis.json.GoogleJsonResponseException ex) {
                 // DEBUG
-                this.errorLogger().info("removeTopic(GoogleJsonResponseException): Exception during topic removal: " + topic);
+                this.errorLogger().info("GoogleCloudIOT: Exception during topic removal: " + topic);
             }   
             catch (IOException ex) {
                 // DEBUG
-                this.errorLogger().info("removeTopic: I/O exception during topic removal: " + topic);
+                this.errorLogger().info("GoogleCloudIOT: I/O exception during topic removal: " + topic);
             }
             catch (Exception ex) {
                 // DEBUG
-                this.errorLogger().info("removeTopic: General exception during topic removal: " + topic);
+                this.errorLogger().info("GoogleCloudIOT: General exception during topic removal: " + topic);
             }
         }
     }

@@ -285,7 +285,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
             else {
                 // DUPLICATE!  So ignore it
-                this.errorLogger().info("PelionProcessor(ProcNotification): Duplicate message discovered... Ignoring(OK)...");
+                this.errorLogger().info("PelionProcessor: Duplicate message discovered... Ignoring(OK)...");
             }
         }
         
@@ -330,7 +330,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             if (this.isConfiguredAPIKey() == true) {
                 // API Key has been set... so lets try to setup the webhook now...
                 for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
-                    this.errorLogger().warning("PelionProcessor(WebhookSet): Setting up webhook to mbed Cloud...");
+                    this.errorLogger().warning("PelionProcessor: Setting up webhook to mbed Cloud...");
                     
                     // create the dispatch URL
                     String target_url = this.createWebhookURL();
@@ -341,54 +341,54 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     // if OK, lets set bulk subscriptions...
                     if (ok) {
                         // bulk subscriptions enabled
-                        this.errorLogger().warning("PelionProcessor(WebhookSet): Webhook to mbed Cloud set. Enabling bulk subscriptions.");
+                        this.errorLogger().warning("PelionProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
                         ok = this.setupBulkSubscriptions();
                         if (ok) {
                             if (do_discovery == true) {
                                 // scan for devices now
-                                this.errorLogger().warning("PelionProcessor(WebhookSet): Initial scan for mbed devices...");
+                                this.errorLogger().warning("PelionProcessor: Initial scan for mbed devices...");
                                 this.startDeviceDiscovery();
                             }
                             else {
                                 // skip the device discovery
-                                this.errorLogger().warning("PelionProcessor(WebhookSet): Skipping initial scan for mbed devices (OK).");
+                                this.errorLogger().warning("PelionProcessor: Skipping initial scan for mbed devices (OK).");
                             }
                         }
                         else {
                             // ERROR
-                            this.errorLogger().warning("PelionProcessor(WebhookSet): Webhook not setup. Not scanning for devices yet...");
+                            this.errorLogger().warning("PelionProcessor: Webhook not setup. Not scanning for devices yet...");
                         }
                     }
 
                     // wait a bit if we have failed
                     else {
                         // log and wait
-                        this.errorLogger().warning("PelionProcessor(WebhookSet): Pausing.. then will retry to set the webhook to Pelion...");
+                        this.errorLogger().warning("PelionProcessor: Pausing.. then will retry to set the webhook to Pelion...");
                         Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
                     }
                 }
             }
             else {
                 // Webhook has not been set. 
-                this.errorLogger().warning("PelionProcessor(WebhookSet): Pelion API Key has not been set. Unable to setup webhook. Please set the API Key and restart the bridge...");
+                this.errorLogger().warning("PelionProcessor: Pelion API Key has not been set. Unable to setup webhook. Please set the API Key and restart the bridge...");
                 do_restart = false;
             }   
 
             // Final status
             if (ok == true) {
                 // SUCCESS
-                this.errorLogger().warning("PelionProcessor(WebhookSet): Webhook to Pelion setup SUCCESSFULLY");
+                this.errorLogger().warning("PelionProcessor: Webhook to Pelion setup SUCCESSFULLY");
             }
             else if (do_restart == true) {
                 // FAILURE
-                this.errorLogger().critical("PelionProcessor(WebhookSet): Unable to set the webhook to Pelion. Restarting bridge...");
+                this.errorLogger().critical("PelionProcessor: Unable to set the webhook to Pelion. Restarting bridge...");
 
                 // RESET
                 this.orchestrator().reset();
             }
             else {
                 // FAILURE
-                this.errorLogger().critical("PelionProcessor(WebhookSet): Pelion API Key has not been set. Unable to set the webhook..");
+                this.errorLogger().critical("PelionProcessor: Pelion API Key has not been set. Unable to set the webhook..");
             }
         }
         else {
@@ -425,7 +425,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             String url = this.createBaseURL("") + uri + options;
 
             // DEBUG
-            this.errorLogger().info("PelionProcessor(APIResponse): Invoking API Request. ContentType: " + content_type + " URL: " + url);
+            this.errorLogger().info("PelionProcessor: Invoking API Request. ContentType: " + content_type + " URL: " + url);
 
             // GET
             if (verb.equalsIgnoreCase("get")) {
@@ -445,13 +445,13 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             } 
             else {
                 // verb is unknown - should never get called as verb is already sanitized...
-                this.errorLogger().warning("PelionProcessor(APIResponse): ERROR: HTTP verb[" + verb + "] ContentType: [" + content_type + "] is UNKNOWN. Unable to execute request...");
+                this.errorLogger().warning("PelionProcessor: ERROR: HTTP verb[" + verb + "] ContentType: [" + content_type + "] is UNKNOWN. Unable to execute request...");
                 return this.createJSONMessage("api_execute_status","invalid coap verb");
             }
         }
         else {
             // invalid parameters
-            this.errorLogger().warning("PelionProcessor(APIResponse): ERROR: invalid parameters in API request. Unable to execute request...");
+            this.errorLogger().warning("PelionProcessor: ERROR: invalid parameters in API request. Unable to execute request...");
             return this.createJSONMessage("api_execute_status","iinvalid api parameters");
         }
         
@@ -459,7 +459,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String sanitized = this.sanitizeApiResponse(response);
         
         // DEBUG
-        this.errorLogger().info("PelionProcessor(APIResponse):Sanitized API Response: " + sanitized);
+        this.errorLogger().info("PelionProcessor:Sanitized API Response: " + sanitized);
         
         // return the sanitized response
         return sanitized;
@@ -469,7 +469,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private String sanitizeApiResponse(String response) {
         if (response == null || response.length() <= 0) {
             // DEBUG
-            this.errorLogger().info("PelionProcessor(APIResponse): Response was EMPTY (OK).");
+            this.errorLogger().info("PelionProcessor: Response was EMPTY (OK).");
             
             // empty response
             return this.createJSONMessage("api_execute_status","empty response");
@@ -479,14 +479,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             Map parsed = this.tryJSONParse(response);
             if (parsed != null && parsed.isEmpty() == false) {
                 // DEBUG
-                this.errorLogger().info("PelionProcessor(APIResponse): Parsable RESPONSE: " + response);
+                this.errorLogger().info("PelionProcessor: Parsable RESPONSE: " + response);
                 
                 // parsable! just return the (patched) JSON string
                 return response;
             }
             else {
                 // DEBUG
-                this.errorLogger().warning("PelionProcessor(APIResponse): Response parsing FAILED");
+                this.errorLogger().warning("PelionProcessor: Response parsing FAILED");
                 
                 // unparsable JSON... error
                 return this.createJSONMessage("api_execute_status","unparsable json");
@@ -502,29 +502,29 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // determine if our callback URL has already been set
     private boolean webhookSet(String target_url, boolean skip_check) {
         String current_url = this.getWebhook();
-        this.errorLogger().info("PelionProcessor(WebhookSet): current_url: " + current_url + " target_url: " + target_url);
+        this.errorLogger().info("PelionProcessor: current_url: " + current_url + " target_url: " + target_url);
         boolean is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
         if (is_set == true && skip_check == false) {
             // for Connector, lets ensure that we always have the expected Auth Header setup. So, while the same, lets delete and re-install...
-            this.errorLogger().info("PelionProcessor(WebhookSet): Deleting existing webhook URL...");
+            this.errorLogger().info("PelionProcessor: Deleting existing webhook URL...");
             this.removeWebhook();
-            this.errorLogger().info("PelionProcessor(WebhookSet): Re-establishing webhook URL...");
+            this.errorLogger().info("PelionProcessor: Re-establishing webhook URL...");
             is_set = this.setWebhook(target_url, skip_check); // skip_check, go ahead and assume we need to set it...
             if (is_set) {
                 // SUCCESS
-                this.errorLogger().info("PelionProcessor(WebhookSet): Re-checking that webhook URL is properly set...");
+                this.errorLogger().info("PelionProcessor: Re-checking that webhook URL is properly set...");
                 current_url = this.getWebhook();
                 is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
             }
             else {
                 // ERROR
-                this.errorLogger().info("PelionProcessor(WebhookSet): Re-checking that webhook URL is properly set...");
+                this.errorLogger().info("PelionProcessor: Re-checking that webhook URL is properly set...");
             }
         }
         
         // Not set... so confirm by delete
         if (current_url == null) {
-            this.errorLogger().warning("PelionProcessor(WebhookSet): No response. Deleting existing webhook to reset and retry...");
+            this.errorLogger().warning("PelionProcessor: No response. Deleting existing webhook to reset and retry...");
             this.removeWebhook();
         }
         
@@ -556,15 +556,15 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 }
 
                 // DEBUG
-                this.orchestrator().errorLogger().info("PelionProcessor(getWebhook): received url: " + url + " headers: " + headers + " from pelion callback dispatch: " + dispatch_url + " http response code: " + this.getLastResponseCode());
+                this.orchestrator().errorLogger().info("PelionProcessor: received url: " + url + " headers: " + headers + " from pelion callback dispatch: " + dispatch_url + " http response code: " + this.getLastResponseCode());
             }
             else {
                 // no response received back from mbed Cloud
-                this.orchestrator().errorLogger().warning("PelionProcessor(getWebhook): ERROR: no response from pelion callback dispatch: " + dispatch_url + " http response code: " + this.getLastResponseCode() + " (may need to re-create API Key if using long polling previously...)");
+                this.orchestrator().errorLogger().warning("PelionProcessor: ERROR: no response from pelion callback dispatch: " + dispatch_url + " http response code: " + this.getLastResponseCode() + " (may need to re-create API Key if using long polling previously...)");
             }
         }
         catch (Exception ex) {
-            this.orchestrator().errorLogger().warning("PelionProcessor(getWebhook): ERROR exception during pelion callback dispatch: " + dispatch_url + " message: " + ex.getMessage() + " http response code: " + this.getLastResponseCode() + " JSON: " + json);
+            this.orchestrator().errorLogger().warning("PelionProcessor: ERROR exception during pelion callback dispatch: " + dispatch_url + " message: " + ex.getMessage() + " http response code: " + this.getLastResponseCode() + " JSON: " + json);
         }
 
         return url;
@@ -607,7 +607,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
 
             // DEBUG
-            this.errorLogger().info("PelionProcessor(Webhook): json: " + json + " dispatch: " + dispatch_url);
+            this.errorLogger().info("PelionProcessor: json: " + json + " dispatch: " + dispatch_url);
 
             // set the callback URL (SSL)
             this.httpsPut(dispatch_url, json);
@@ -615,14 +615,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             // check that it succeeded
             if (!this.webhookSet(target_url, !check_url_set)) {
                 // DEBUG
-                this.errorLogger().warning("PelionProcessor(Webhook): ERROR: unable to set callback URL to: " + target_url);
+                this.errorLogger().warning("PelionProcessor: ERROR: unable to set callback URL to: " + target_url);
                 
                 // not set...
                 webhook_set_ok = false;
             }
             else {
                 // DEBUG
-                this.errorLogger().info("PelionProcessor(Webhook): Notification URL set to: " + target_url + " (SUCCESS)");
+                this.errorLogger().info("PelionProcessor: Notification URL set to: " + target_url + " (SUCCESS)");
                 
                 // SUCCESS
                 webhook_set_ok = true;
@@ -630,7 +630,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         else {
             // DEBUG
-            this.errorLogger().info("PelionProcessor(Webhook): Notification URL already set to: " + target_url + " (OK)");
+            this.errorLogger().info("PelionProcessor: Notification URL already set to: " + target_url + " (OK)");
             
             // SUCCESS
             webhook_set_ok = true;
@@ -657,7 +657,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         if (override_ip != null && override_ip.length() > 0 && override_ip.contains(".") == true && override_ip.equalsIgnoreCase("off") == false) {
             // override our local IP address...
             local_ip = override_ip;
-            this.errorLogger().info("PelionProcessor(Webhook): Overriding webhook IP address to: " + local_ip);
+            this.errorLogger().info("PelionProcessor: Overriding webhook IP address to: " + local_ip);
         }
         
         int local_port = this.prefIntValue("mds_gw_port");
@@ -711,7 +711,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // process and route the mbed Cloud message to the appropriate peer method
     public void processDeviceServerMessage(String json, HttpServletRequest request) {
         // DEBUG
-        this.orchestrator().errorLogger().info("PelionProcessor(ProcessMessage): Received message from Pelion: " + json);
+        this.orchestrator().errorLogger().info("PelionProcessor: Received message from Pelion: " + json);
 
         // tell the orchestrator to call its peer processors with this mbed Cloud message
         try {
@@ -719,20 +719,20 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 Map parsed = (Map) this.parseJson(json);
                 if (parsed != null) {
                     // DEBUG
-                    this.errorLogger().info("PelionProcessor(ProcessMessage) Parsed: " + parsed);
+                    this.errorLogger().info("PelionProcessor: Parsed: " + parsed);
 
                     // notifications processing
                     if (parsed.containsKey("notifications")) {
                         if (this.validateNotification(request)) {
                             // DEBUG
-                            this.errorLogger().info("PelionProcessor(ProcessMessage): Notification VALIDATED");
+                            this.errorLogger().info("PelionProcessor: Notification VALIDATED");
 
                             // validated notification... process it...
                             this.orchestrator().processNotification(parsed);
                         }
                         else {
                             // validation FAILED. Note but do not process...
-                            this.errorLogger().warning("PelionProcessor(ProcessMessage): Notification validation FAILED. Not processed (OK)");
+                            this.errorLogger().warning("PelionProcessor: Notification validation FAILED. Not processed (OK)");
                         }
                     }  
                     
@@ -763,17 +763,17 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 }
                 else {
                     // parseJson() failed...
-                    this.errorLogger().warning("PelionProcessor(ProcessMessage): Unable to parse JSON: " + json);
+                    this.errorLogger().warning("PelionProcessor: Unable to parse JSON: " + json);
                 }
             }
             else {
                 // empty JSON... so not parsed
-                this.errorLogger().info("PelionProcessor(ProcProcessMessageResOp): Empty JSON not parsed (OK).");
+                this.errorLogger().info("PelionProcessor: Empty JSON not parsed (OK).");
             }
         }
         catch (Exception ex) {
             // exception during JSON parsing
-            this.errorLogger().info("PelionProcessor(ProcessMessage): Exception during JSON parse of message: " + json + "... ignoring.", ex);
+            this.errorLogger().info("PelionProcessor: Exception during JSON parse of message: " + json + "... ignoring.", ex);
         }
     }
 
@@ -792,33 +792,33 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         if (verb != null && verb.length() > 0) {
             // dispatch the mbed Cloud REST based on CoAP verb received
             if (verb.equalsIgnoreCase(("get"))) {
-                this.errorLogger().info("PelionProcessor(ProcResOp): Invoking GET: " + url);
+                this.errorLogger().info("PelionProcessor: Invoking GET: " + url);
                 json = this.httpsGet(url);
                 if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("put"))) {
-                this.errorLogger().info("PelionProcessor(ProcResOp): Invoking PUT: " + url + " DATA: " + value);
+                this.errorLogger().info("PelionProcessor: Invoking PUT: " + url + " DATA: " + value);
                 json = this.httpsPut(url, value);
                 if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("post"))) {
-                this.errorLogger().info("PelionProcessor(ProcResOp): Invoking POST: " + url + " DATA: " + value);
+                this.errorLogger().info("PelionProcessor: Invoking POST: " + url + " DATA: " + value);
                  json = this.httpsPost(url, value, "plain/text", this.apiToken());  // nail content_type to "plain/text"
                  if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("delete"))) {
-                this.errorLogger().info("PelionProcessor(ProcResOp): Invoking DELETE: " + url);
+                this.errorLogger().info("PelionProcessor: Invoking DELETE: " + url);
                  json = this.httpsDelete(url, "plain/text", this.apiToken());      // nail content_type to "plain/text"
                  if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("del"))) {
-                this.errorLogger().info("PelionProcessor(ProcResOp): Invoking DELETE: " + url);
+                this.errorLogger().info("PelionProcessor: Invoking DELETE: " + url);
                 json = this.httpsDelete(url, "plain/text", this.apiToken());      // nail content_type to "plain/text"
                 if (json == null) json = "";
             }
         }
         else {
-            this.errorLogger().info("PelionProcessor(ProcResOp): ERROR: CoAP Verb is NULL. Not processing: ep: " + ep_name + " uri: " + uri + " value: " + value);
+            this.errorLogger().info("PelionProcessor: ERROR: CoAP Verb is NULL. Not processing: ep: " + ep_name + " uri: " + uri + " value: " + value);
             json = null;
         }
 
@@ -877,15 +877,15 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         catch (Exception ex) {
             // caught exception
-            this.errorLogger().info("PelionProcessor(DevAttributes): Exception caught: " + ex.getMessage(), ex);
+            this.errorLogger().info("PelionProcessor: Exception caught: " + ex.getMessage(), ex);
         }
         
         // DEBUG
         if (has_device_attributes == true) {
-            this.errorLogger().info("PelionProcessor(DevAttributes): Device HAS attributes: " + endpoint);
+            this.errorLogger().info("PelionProcessor: Device HAS attributes: " + endpoint);
         }
         else {
-            this.errorLogger().info("PelionProcessor(DevAttributes): Device DOES NOT have attributes: " + endpoint);
+            this.errorLogger().info("PelionProcessor: Device DOES NOT have attributes: " + endpoint);
         }
 
         // return our status
@@ -928,7 +928,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
             else {
                 // error - no peer AsyncResponseProcessor...
-                this.errorLogger().warning("PelionProcessor(DevAttributes): No peer AsyncResponse processor. Device may not get addeded within peer.");
+                this.errorLogger().warning("PelionProcessor: No peer AsyncResponse processor. Device may not get addeded within peer.");
             }
         }
     }
@@ -964,7 +964,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         catch (Exception ex) {
             // exception during TLV parse... 
-            this.errorLogger().info("PelionProcessor(DevAttributes): Error parsing TLV device attributes... using defaults...OK: " + ex.getMessage(),ex);
+            this.errorLogger().info("PelionProcessor: Error parsing TLV device attributes... using defaults...OK: " + ex.getMessage(),ex);
         }
 
         // return the updated endpoint
@@ -1065,24 +1065,24 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 AsyncResponseProcessor peer_processor = (AsyncResponseProcessor) orig_endpoint.get("peer_processor");
                 if (peer_processor != null) {
                     // parse the device attributes
-                    this.errorLogger().info("PelionProcessor(AsyncResponse): ORIG endpoint: " + orig_endpoint);
-                    this.errorLogger().info("PelionProcessor(AsyncResponse): RESPONSE: " + response);
+                    this.errorLogger().info("PelionProcessor: ORIG endpoint: " + orig_endpoint);
+                    this.errorLogger().info("PelionProcessor: RESPONSE: " + response);
                     Map endpoint = this.parseDeviceAttributes(response,orig_endpoint);
                     
                     // DEBUG
-                    this.errorLogger().info("PelionProcessor(AsyncResponse): endpoint: " + endpoint);
+                    this.errorLogger().info("PelionProcessor: endpoint: " + endpoint);
                     
                     // call the AsyncResponseProcessor within the peer to finalize the device
                     peer_processor.processAsyncResponse(endpoint);
                 }
                 else {
                     // error - no peer AsyncResponseProcessor...
-                    this.errorLogger().warning("PelionProcessor(AsyncResponse): No peer AsyncResponse processor. Device may not get addeded within peer: " + record);
+                    this.errorLogger().warning("PelionProcessor: No peer AsyncResponse processor. Device may not get addeded within peer: " + record);
                 }
             }
             else {
                 // error - no peer AsyncResponseProcessor...
-                this.errorLogger().warning("PelionProcessor(AsyncResponse): No peer AsyncResponse processor. Device may not get addeded within peer: " + orig_endpoint);
+                this.errorLogger().warning("PelionProcessor: No peer AsyncResponse processor. Device may not get addeded within peer: " + orig_endpoint);
             }
 
             // return processed status (defaulted)
@@ -1114,7 +1114,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // lets see how many devices we have to setup shadows with... 
         if (devices != null && devices.size() > 0 && devices.size() < this.m_mds_max_shadow_create_threads) {
             // DEBUG
-            this.errorLogger().warning("PelionProcessor(DeviceShadowSetup): Dispatching group of devices for shadow creation. Count: " + devices.size());
+            this.errorLogger().warning("PelionProcessor: Dispatching group of devices for shadow creation. Count: " + devices.size());
   
             // small number of shadows... one dispatch only
             this.beginDispatchGroup(devices);
@@ -1129,7 +1129,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 List device_list_i = chopped_list.get(i);
                 
                 // DEBUG
-                this.errorLogger().warning("PelionProcessor(DeviceShadowSetup): Dispatching group (" + (i+1) + " of " + chopped_list.size() +  ") of devices for shadow creation...");
+                this.errorLogger().warning("PelionProcessor: Dispatching group (" + (i+1) + " of " + chopped_list.size() +  ") of devices for shadow creation...");
                 
                 // now invoke the dispatch of the ith group of devices
                 this.beginDispatchGroup(device_list_i);
@@ -1137,7 +1137,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         else {
             // no devices to shadow
-            this.errorLogger().warning("PelionProcessor(DeviceShadowSetup): No Pelion devices to shadow (OK)");
+            this.errorLogger().warning("PelionProcessor: No Pelion devices to shadow (OK)");
         }
     }
     
@@ -1150,7 +1150,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 Map device = (Map)devices.get(i);
                 
                 // DEBUG
-                this.errorLogger().warning("PelionProcessor(DispatchGroup): Shadow Device task starting for deviceID: " + (String)device.get("id"));
+                this.errorLogger().warning("PelionProcessor: Shadow Device task starting for deviceID: " + (String)device.get("id"));
                 
                 // create a thread and dispatch it to create the device shadow...
                 Thread dispatch = new Thread(new CreateShadowDeviceThread(this,device));
@@ -1158,7 +1158,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
             catch (Exception ex) {
                 // ERROR
-                this.errorLogger().warning("PelionProcessor(BeginDispatchGroup): Exception during device shadow create dispatch: " + ex.getMessage());
+                this.errorLogger().warning("PelionProcessor: Exception during device shadow create dispatch: " + ex.getMessage());
             }
         }
     }
@@ -1169,7 +1169,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         HashMap<String,Object> endpoint = new HashMap<>();
         
         // DEBUG
-        this.errorLogger().info("PelionProcessor(Discovery): DEVICE: " + device);
+        this.errorLogger().info("PelionProcessor: DEVICE: " + device);
 
         // sanitize the endpoint type
         device.put("endpoint_type",this.sanitizeEndpointType((String)device.get("endpoint_type")));
@@ -1189,7 +1189,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
 
         // DEBUG
-        this.errorLogger().warning("PelionProcessor(Discovery): Discovered Pelion device with ID: " + device_id + " Type: " + device_type);
+        this.errorLogger().warning("PelionProcessor: Discovered Pelion device with ID: " + device_id + " Type: " + device_type);
             
         // now, query mbed Cloud again for each device and get its resources
         List resources = this.discoverDeviceResources(device_id);
@@ -1212,7 +1212,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String url = this.createBaseURL("/v" + this.m_device_api_version) + "/devices" + "?filter=state%3Dregistered" ;
 
         // DEBUG
-        this.errorLogger().info("PelionProcessor(Discovery): Get Registered Devices URL: " + url);
+        this.errorLogger().info("PelionProcessor: Get Registered Devices URL: " + url);
         
         // return the device discovery URL
         return url;
@@ -1224,7 +1224,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String url = this.createBaseURL("/v" + this.m_connect_api_version) + "/endpoints/" +  device;
 
         // DEBUG
-        this.errorLogger().info("PelionProcessor(Discovery): Discovery URL: " + url);
+        this.errorLogger().info("PelionProcessor: Discovery URL: " + url);
         
         // return the device resource discovery URL
         return url;
@@ -1317,7 +1317,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // loop and pull all of the pages... 
         while(more_pages == true) {
             String url = base_url + filter + this.createAfterFilter(last_device_id);
-            this.errorLogger().info("PelionProcessor(performPagenatedDiscovery): URL: " + url);
+            this.errorLogger().info("PelionProcessor: URL: " + url);
             String json = this.httpsGet(url);
             if (json != null && json.length() > 0) {
                 try {
@@ -1335,17 +1335,17 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                             }
                             
                             // DEBUG
-                            this.errorLogger().info("PelionProcessor(performPagenatedDiscovery): Added: " + page.size() + " Total: " + pages.size());
+                            this.errorLogger().info("PelionProcessor: Added: " + page.size() + " Total: " + pages.size());
                         }
                     }
                 }
                 catch (Exception ex) {
-                    this.errorLogger().warning("PelionProcessor(performPagenatedDiscovery): Exception in JSON parse: " + ex.getMessage() + " URL: " + url);
+                    this.errorLogger().warning("PelionProcessor: Exception in JSON parse: " + ex.getMessage() + " URL: " + url);
                     more_pages = false;
                 }
             }
             else {
-                this.errorLogger().warning("PelionProcessor(performPagenatedDiscovery): No DEVICE response given for URL: " + url);
+                this.errorLogger().warning("PelionProcessor: No DEVICE response given for URL: " + url);
                 more_pages = false;
             }
         }
@@ -1368,14 +1368,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
    
     // perform a discovery (JSON)
     private List performDiscovery(String url,String key) {
-        this.errorLogger().info("PelionProcessor(Discovery): URL: " + url + " Key: " + key);
+        this.errorLogger().info("PelionProcessor: URL: " + url + " Key: " + key);
         if (key != null) {
             // Device Discovery - handle possible pagenation
             Map response = this.performPagenatedDiscovery(url,key);
             List list = (List)response.get(key);
             
             // DEBUG
-            this.errorLogger().info("PelionProcessor(Discovery): Number of devices found (paginated discovery): " + list.size());
+            this.errorLogger().info("PelionProcessor: Number of devices found (paginated discovery): " + list.size());
             
             // return our list...
             return list;
@@ -1385,11 +1385,11 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             String json = this.httpsGet(url);
             if (json != null && json.length() > 0) {
                 List list = this.jsonParser().parseJsonToArray(json);
-                this.errorLogger().info("PelionProcessor(Discovery): Response: " + list);
+                this.errorLogger().info("PelionProcessor: Response: " + list);
                 return list;
             }
             else {
-                this.errorLogger().warning("PelionProcessor(Discovery): No RESOURCE info response given for URL: " + url);
+                this.errorLogger().warning("PelionProcessor: No RESOURCE info response given for URL: " + url);
             }
         }
         return null;
@@ -1439,15 +1439,15 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // start the long polling thread
     private void startLongPolling() {
         // setup bulk subscriptions
-        this.errorLogger().warning("PelionProcessor(LongPolling): Enabling bulk subscriptions...");
+        this.errorLogger().warning("PelionProcessor: Enabling bulk subscriptions...");
         boolean ok = this.setupBulkSubscriptions();
         if (ok == true) {
             // success
-            this.errorLogger().info("PelionProcessor(LongPolling): bulk subscriptions enabled SUCCESS");
+            this.errorLogger().info("PelionProcessor: bulk subscriptions enabled SUCCESS");
         }
         else {
             // failure
-            this.errorLogger().info("PelionProcessor(LongPolling): bulk subscriptions enabled FAILED");
+            this.errorLogger().info("PelionProcessor: bulk subscriptions enabled FAILED");
         }
         
         // now begin to long poll Pelion
@@ -1462,7 +1462,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         boolean ok = false;
         
         // DEBUG
-        this.errorLogger().info("PelionProcessor(Subscriptions): Setting up bulk subscriptions...");
+        this.errorLogger().info("PelionProcessor: Setting up bulk subscriptions...");
 
         // JSON for the bulk subscription (must be an array)
         String json = "[" + this.createJSONMessage("endpoint-name","*") + "]";
@@ -1471,7 +1471,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String url = this.createBaseURL() + "/subscriptions";
 
         // DEBUG
-        this.errorLogger().info("PelionProcessor(Subscriptions): Bulk subscriptions URL: " + url + " DATA: " + json);
+        this.errorLogger().info("PelionProcessor: Bulk subscriptions URL: " + url + " DATA: " + json);
 
         // send PUT to establish the bulk subscriptions
         String result = this.httpsPut(url, json, "application/json", this.apiToken());
@@ -1479,18 +1479,18 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
         // DEBUG
         if (result != null && result.length() > 0) {
-            this.errorLogger().info("PelionProcessor(Subscriptions): Bulk subscriptions setup RESULT: " + result);
+            this.errorLogger().info("PelionProcessor: Bulk subscriptions setup RESULT: " + result);
         }
 
         // check the setup error code 
         if (error_code == 204) {    // SUCCESS response code: 204
             // success!
-            this.errorLogger().info("PelionProcessor(Subscriptions): Bulk subscriptions setup SUCCESS: Code: " + error_code);
+            this.errorLogger().info("PelionProcessor: Bulk subscriptions setup SUCCESS: Code: " + error_code);
             ok = true;
         }
         else {
             // failure
-            this.errorLogger().warning("PelionProcessor(Subscriptions): Bulk subscriptions setup FAILED: Code: " + error_code);
+            this.errorLogger().warning("PelionProcessor: Bulk subscriptions setup FAILED: Code: " + error_code);
         }
         
         // return our status
@@ -1514,7 +1514,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
                 // DEBUG
                 if (!validated) {
-                    this.errorLogger().warning("PelionProcessor(Validation): Notification Validation FAILED: calc: " + calc_hash + " header: " + header_hash);
+                    this.errorLogger().warning("PelionProcessor: Notification Validation FAILED: calc: " + calc_hash + " header: " + header_hash);
                 }
 
                 // return validation status

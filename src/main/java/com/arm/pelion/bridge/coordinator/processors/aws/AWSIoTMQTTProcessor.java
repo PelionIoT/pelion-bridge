@@ -66,7 +66,7 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         super(manager, mqtt, suffix, http);
 
         // AWSIoT Processor Announce
-        this.errorLogger().info("AWS IoT Processor ENABLED.");
+        this.errorLogger().info("Amazon AWSIoT Processor ENABLED.");
 
         // Observation notification topic
         this.m_aws_iot_observe_notification_topic = this.orchestrator().preferences().valueOf("aws_iot_observe_notification_topic",this.m_suffix);
@@ -127,12 +127,12 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
             // this.errorLogger().info("AWSIoT : CoAP re-registration: " + entry);
             if (this.hasSubscriptions((String) entry.get("ep")) == false) {
                 // no subscriptions - so process as a new registration
-                this.errorLogger().info("AWSIoT : CoAP re-registration: no subscriptions.. processing as new registration...");
+                this.errorLogger().info("AWSIoT: CoAP re-registration: no subscriptions.. processing as new registration...");
                 this.processRegistration(data, "reg-updates");
             }
             else {
                 // already subscribed (OK)
-                this.errorLogger().info("AWSIoT : CoAP re-registration: already subscribed (OK)");
+                this.errorLogger().info("AWSIoT: CoAP re-registration: already subscribed (OK)");
             }
         }
     }
@@ -143,12 +143,12 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         // TEST: We can actually DELETE the device on deregistration to test device-delete before the device-delete message goes live
         if (this.orchestrator().deviceRemovedOnDeRegistration() == true) {
             // processing deregistration as device deletion
-            this.errorLogger().info("processDeregistrations(AWSIOT): processing de-registration as device deletion (OK).");
+            this.errorLogger().info("AWSIoT: processing de-registration as device deletion (OK).");
             this.processDeviceDeletions(parsed,true);
         }
         else {
             // not processing deregistration as a deletion
-            this.errorLogger().info("processDeregistrations(AWSIOT): Not processing de-registration as device deletion (OK).");
+            this.errorLogger().info("AWSIoT: Not processing de-registration as device deletion (OK).");
         }
         
         // always by default...
@@ -164,22 +164,33 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
     // handle device deletions AWSIOT
     private String[] processDeviceDeletions(Map parsed,boolean use_deregistration) {
         String[] deletions = null;
+        
+        // complete processing in base class...
         if (use_deregistration == true) {
             deletions = super.processDeregistrations(parsed);
         }
         else {
             deletions = super.processDeviceDeletions(parsed);
         }
+        
+        // delete the device shadows...
         for (int i = 0; deletions != null && i < deletions.length; ++i) {
-            // DEBUG
-            this.errorLogger().info("AWSIOT : processing device deletion for device: " + deletions[i]);
+            if (deletions[i] != null && deletions[i].length() > 0) {
+                // DEBUG
+                this.errorLogger().info("AWSIOT: processing device deletion for device: " + deletions[i]);
 
-            // AWSIOT add-on... 
-            this.unsubscribe(deletions[i]);
+                // AWSIOT add-on... 
+                this.unsubscribe(deletions[i]);
 
-            // Remove from AWSIOT
-            this.deleteDevice(deletions[i]);
+                // Remove from AWSIOT
+                this.deleteDevice(deletions[i]);
+                
+                // remove type
+                this.removeEndpointTypeFromEndpointName(deletions[i]);
+            }
         }
+        
+        // return our deletions
         return deletions;
     }
     
@@ -305,7 +316,7 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
     @Override
     public void onMessageReceive(String topic, String message) {
         // DEBUG
-        this.errorLogger().info("AWSIoT(CoAP Command): Topic: " + topic + " message: " + message);
+        this.errorLogger().info("AWSIoT: Topic: " + topic + " message: " + message);
         
         // parse the topic to get the endpoint
         // format: mbed/__DEVICE_TYPE__/__EPNAME__/coap/__COMMAND_TYPE__/#
@@ -360,7 +371,7 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         // examine the response
         if (response != null && response.length() > 0) {
             // SYNC: We only process AsyncResponses from GET verbs... we dont sent HTTP status back through AWSIoT.
-            this.errorLogger().info("AWSIoT(CoAP Command): Response: " + response);
+            this.errorLogger().info("AWSIoT: Response: " + response);
 
             // AsyncResponse detection and recording...
             if (this.isAsyncResponse(response) == true) {
@@ -371,18 +382,18 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
                 }
                 else {
                     // we ignore AsyncResponses to PUT,POST,DELETE
-                    this.errorLogger().info("AWSIoT(CoAP Command): Ignoring AsyncResponse for " + coap_verb + " (OK).");
+                    this.errorLogger().info("AWSIoT: Ignoring AsyncResponse for " + coap_verb + " (OK).");
                 }
             }
             else if (coap_verb.equalsIgnoreCase("get")) {
                 // not an AsyncResponse... so just emit it immediately... only for GET...
-                this.errorLogger().info("AWSIoT(CoAP Command): Response: " + response + " from GET... creating observation...");
+                this.errorLogger().info("AWSIoT: Response: " + response + " from GET... creating observation...");
 
                 // we have to format as an observation...
                 String observation = this.createObservation(coap_verb, ep_name, uri, response);
 
                 // DEBUG
-                this.errorLogger().info("AWSIoT(CoAP Command): Sending Observation(GET): " + observation);
+                this.errorLogger().info("AWSIoT: Sending Observation(GET): " + observation);
 
                 // send the observation (GET reply)...
                 if (this.mqtt(ep_name) != null) {
@@ -391,16 +402,16 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
                     boolean status = this.mqtt(ep_name).sendMessage(reply_topic, observation, QoS.AT_MOST_ONCE);
                     if (status == true) {
                         // success
-                        this.errorLogger().info("AWSIoT(CoAP Command): CoAP observation(get) sent. SUCCESS");
+                        this.errorLogger().info("AWSIoT: CoAP observation(get) sent. SUCCESS");
                     }
                     else {
                         // send failed
-                        this.errorLogger().warning("AWSIoT(CoAP Command): CoAP observation(get) not sent. SEND FAILED");
+                        this.errorLogger().warning("AWSIoT: CoAP observation(get) not sent. SEND FAILED");
                     }
                 }
                 else {
                     // not connected
-                    this.errorLogger().warning("AWSIoT(CoAP Command): CoAP observation(get) not sent. NOT CONNECTED");
+                    this.errorLogger().warning("AWSIoT: CoAP observation(get) not sent. NOT CONNECTED");
                 }
             }
         }
@@ -437,25 +448,31 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
     // process device de-registration
     @Override
     protected synchronized Boolean deleteDevice(String device) {
+        boolean deleted = false;
         if (this.m_device_manager != null) {
             // DEBUG
-            this.errorLogger().info("deregisterDevice(AWSIoT): deregistering device: " + device);
+            this.errorLogger().info("AWSIoT: deregistering device: " + device);
 
             // disconnect, remove the threaded listener... 
             this.stopListenerThread(device);
 
             // also remove MQTT Transport instance too...
             this.disconnect(device);
-
-            // remove the device from AWSIoT
-            if (this.m_device_manager.deleteDevice(device) == false) {
-                this.errorLogger().warning("deregisterDevice(AWSIoT): unable to de-register device from AWSIoT...");
-            }
             
             // remove the type
             this.removeEndpointTypeFromEndpointName(device);
+
+            // remove the device from AWSIoT
+            deleted = this.m_device_manager.deleteDevice(device);
         }
-        return true;
+        
+        // DEBUG
+        if (deleted == false) {
+            this.errorLogger().warning("AWSIoT: WARNING: Unable to fully delete device: " + device + " from AWSIoT...");
+        }
+        
+        // return the deletion status
+        return deleted;
     }
     
     // start our listener thread
@@ -499,12 +516,13 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
                         this.addMQTTTransport(ep_name, mqtt);
 
                         // DEBUG
-                        this.errorLogger().info("AWSIoT: connecting to MQTT for endpoint: " + ep_name + " type: " + ep_type + "...");
+                        this.errorLogger().warning("AWSIoT: connecting MQTT for endpoint: " + ep_name + " type: " + ep_type + "...");
 
                         // connect and start listening... 
                         if (this.connect(ep_name, client_id) == true) {
                             // DEBUG
-                            this.errorLogger().info("AWSIoT: connected to MQTT. Creating and registering listener Thread for endpoint: " + ep_name + " type: " + ep_type);
+                            this.errorLogger().warning("AWSIoT: connection SUCCESS");
+                            this.errorLogger().info("Creating and registering listener Thread for endpoint: " + ep_name + " type: " + ep_type);
 
                             // start the listener thread
                             this.startListenerThread(ep_name, mqtt);
@@ -523,7 +541,7 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
                         }
                         else {
                             // unable to connect!
-                            this.errorLogger().critical("AWSIoT: Unable to connect to MQTT for endpoint: " + ep_name + " type: " + ep_type);
+                            this.errorLogger().critical("AWSIoT: Unable to connect MQTT for endpoint: " + ep_name + " type: " + ep_type);
                             this.remove(ep_name);
 
                             // ensure we only have 1 thread/endpoint
@@ -644,24 +662,24 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
     public synchronized void completeNewDeviceRegistration(Map endpoint) {
         try {
             // create the device in AWSIoT
-            this.errorLogger().info("completeNewDeviceRegistration: calling registerNewDevice(): " + endpoint);
+            this.errorLogger().info("AWSIoT: calling registerNewDevice(): " + endpoint);
             this.registerNewDevice(endpoint);
-            this.errorLogger().info("completeNewDeviceRegistration: registerNewDevice() completed");
+            this.errorLogger().info("AWSIoT: registerNewDevice() completed");
         }
         catch (Exception ex) {
-            this.errorLogger().warning("completeNewDeviceRegistration: caught exception in registerNewDevice(): " + endpoint, ex);
+            this.errorLogger().warning("AWSIoT: caught exception in registerNewDevice(): " + endpoint, ex);
         }
 
         try {
             // subscribe for AWSIoT as well..
             String ep_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
             String ep_name = Utils.valueFromValidKey(endpoint, "id", "ep");
-            this.errorLogger().info("completeNewDeviceRegistration: calling subscribe(): " + endpoint);
+            this.errorLogger().info("AWSIoT: calling subscribe(): " + endpoint);
             this.subscribe(ep_name,ep_type,this.createEndpointTopicData(ep_name, ep_type),this);
-            this.errorLogger().info("completeNewDeviceRegistration: subscribe() completed");
+            this.errorLogger().info("AWSIoT: subscribe() completed");
         }
         catch (Exception ex) {
-            this.errorLogger().warning("completeNewDeviceRegistration: caught exception in subscribe(): " + endpoint, ex);
+            this.errorLogger().warning("AWSIoT: caught exception in subscribe(): " + endpoint, ex);
         }
     }
     

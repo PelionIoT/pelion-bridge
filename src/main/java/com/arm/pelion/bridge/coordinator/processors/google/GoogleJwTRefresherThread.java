@@ -70,7 +70,7 @@ public class GoogleJwTRefresherThread extends Thread {
         }
         
         // Exiting
-        this.errorLogger().warning("GoogleJwTRefresherThread: JwT Refresh Thread STOPPED for: " + this.m_ep_name);
+        this.errorLogger().warning("GoogleCloudIOT: JwT Refresh Thread STOPPED for: " + this.m_ep_name);
     }
     
     /**
@@ -89,7 +89,7 @@ public class GoogleJwTRefresherThread extends Thread {
                 }
                 
                 // DEBUG
-                this.errorLogger().info("GoogleJwTRefresherThread: Refreshing JwT for: " + this.m_ep_name);
+                this.errorLogger().info("GoogleCloudIOT: Refreshing JwT for: " + this.m_ep_name);
 
                 // now refresh our token
                 this.m_processor.refreshJwTForEndpoint(this.m_ep_name);

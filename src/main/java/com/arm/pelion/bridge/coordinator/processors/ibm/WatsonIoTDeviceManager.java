@@ -325,14 +325,14 @@ public class WatsonIoTDeviceManager extends DeviceManager {
     // POST specific data to a given URL
     private String gwpost(String url, String payload) {
         String result = this.m_http.httpsPost(url, this.m_watson_iot_gw_key, this.m_gw_iotf_auth_token, payload, "application/json");
-        this.errorLogger().info("Watson IoT(gwpost): URL: " + url + " DATA: " + payload + " RESULT: " + result);
+        this.errorLogger().info("Watson IoT: (gwpost): URL: " + url + " DATA: " + payload + " RESULT: " + result);
         return result;
     }
 
     // DELETE specific data to a given URL
     private String delete(String url) {
         String result = this.m_http.httpsDelete(url, this.m_watson_iot_gw_key, this.m_gw_iotf_auth_token, null, "application/json");
-        this.errorLogger().info("Watson IoT(delete): URL: " + url + " RESULT: " + result);
+        this.errorLogger().info("Watson IoT: (delete): URL: " + url + " RESULT: " + result);
         return result;
     }
     
@@ -442,7 +442,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
     // build out the ADD Gateway Device Type JSON
     private String createAddGatewayDeviceTypeJSON(String device_type) {
         if (device_type == null || device_type.length() == 0) {
-            this.errorLogger().info("createAddGatewayDeviceTypeJSON: ERROR device type is NULL. Defaulting to: " + this.m_watson_iot_def_type);
+            this.errorLogger().info("Watson IoT: ERROR device type is NULL. Defaulting to: " + this.m_watson_iot_def_type);
             device_type = this.getDeviceType(device_type);
         }
         return this.m_watson_iot_add_gw_dev_type_template.replace("__TYPE_ID__", device_type);
@@ -483,7 +483,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         String device_id = Utils.valueFromValidKey(message, "id", "ep");
         
         // DEBUG
-        this.errorLogger().info("registerNewDevice(WatsonIoT): creating gateway device type: EP: " + device_id + " EPT: " + device_type + " MSG: " + message);
+        this.errorLogger().info("Watson IoT: creating gateway device type: EP: " + device_id + " EPT: " + device_type + " MSG: " + message);
        
         // now create the gateway device type
         this.createGatewayDeviceType(device_type);

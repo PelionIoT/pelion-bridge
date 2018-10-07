@@ -189,8 +189,8 @@ public class AWSIoTDeviceManager extends DeviceManager {
         }
         else {
             // until we get a persistent store that can permanently map ep:ARN, we will have leakage on restart of the bridge...
-            this.errorLogger().info("unlinkCertificateFromThing: Unable to unlink Cert from Thing... no Endpoint Name provided");
-            this.errorLogger().info("unlinkCertificateFromThing: Unlink Failure details EP: " + ep_name + " ARN: " + arn);
+            this.errorLogger().info("AWSIoT: Unable to unlink Cert from Thing... no Endpoint Name provided");
+            this.errorLogger().info("AWSIoT: Unlink Failure details EP: " + ep_name + " ARN: " + arn);
         }
     }
 
@@ -242,61 +242,73 @@ public class AWSIoTDeviceManager extends DeviceManager {
 
     // unlink a certificate from the policy and thing record, deactivate it, then delete it
     private void removeCertificate(String device) {
-        // Get our record 
-        HashMap<String, Serializable> ep = this.getEndpointDetails(device);
-        if (ep != null) {
-            // unlink the certificate from the thing record
-            this.unlinkCertificateFromThing(ep);
+        if (device != null && device.length() > 0) {
+            // Get our record 
+            HashMap<String, Serializable> ep = this.getEndpointDetails(device);
+            if (ep != null) {
+                // unlink the certificate from the thing record
+                this.unlinkCertificateFromThing(ep);
 
-            // unlink the certificate from the thing record
-            this.unlinkCertificateFromPolicy(ep);
+                // unlink the certificate from the thing record
+                this.unlinkCertificateFromPolicy(ep);
 
-            // deactivate the certificate
-            this.inactivateCertificate(ep);
+                // deactivate the certificate
+                this.inactivateCertificate(ep);
 
-            // delete the certificate
-            this.deleteCertificate(ep);
-            
-            // remove locally as well
-            int index = this.getKeyAndCertIndex(device);
-            if (index >= 0) {
-                this.m_keys_cert_ids.remove(index);
+                // delete the certificate
+                this.deleteCertificate(ep);
+
+                // remove locally as well
+                int index = this.getKeyAndCertIndex(device);
+                if (index >= 0) {
+                    this.m_keys_cert_ids.remove(index);
+                }
+            }
+            else {
+                this.errorLogger().warning("AWSIoT: Unable to find device details for: " + device + ". Unable to remove certs for it.");
             }
         }
         else {
-            this.errorLogger().warning("removeCertificate(AWSIoT): Unable to find device details for: " + device + ". Unable to remove certs for it.");
+            this.errorLogger().info("AWSIoT: removeCertificate: Device parameter is NULL. Ignoring cert deletion.");
         }
     }
 
     // process device deletion
     public boolean deleteDevice(String device) {
-        // DEBUG
-        //this.errorLogger().ping("deleteDevice(AWSIoT): " + device);
-        
-        // first, unlink the certificate and deactivate it/remove it
-        this.removeCertificate(device);
-        
-        // invoke AWS CLI to delete the current device shadow thing
-        String args = "iot delete-thing --thing-name=" + device;
-        String result = Utils.awsCLI(this.errorLogger(), args);
-        
-        // remove the endpoint details
-        this.m_endpoint_details.remove(device);
-        
-        // remove the endpoint type
-        this.m_processor.removeEndpointTypeFromEndpointName(device);
+        if (device != null && device.length() > 0) {
+            // DEBUG
+            this.errorLogger().warning("AWSIoT: deleting device: " + device + "...");
 
-        // DEBUG
-        this.errorLogger().info("AWS: deleteDevice: device: " + device + " deletion RESULT: " + result);
+            // first, unlink the certificate and deactivate it/remove it
+            this.removeCertificate(device);
 
-        // return status
-        return true;
+            // invoke AWS CLI to delete the current device shadow thing
+            String args = "iot delete-thing --thing-name=" + device;
+            String result = Utils.awsCLI(this.errorLogger(), args);
+
+            // remove the endpoint details
+            this.m_endpoint_details.remove(device);
+
+            // remove the endpoint type
+            this.m_processor.removeEndpointTypeFromEndpointName(device);
+
+            // DEBUG
+            this.errorLogger().info("AWSIoT: deleteDevice: device: " + device + " deletion RESULT: " + result);
+            
+            // return status
+            return true;
+        }
+        else {
+            // ignore the deletion request
+            this.errorLogger().info("AWSIoT: deleteDevice: Device parameter is NULL. Ignoring deletion request");
+        }
+        return false;
     }
 
     // complete the device details
     private void completeDeviceDetails(HashMap<String, Serializable> ep) {
         // DEBUG
-        this.errorLogger().info("completeDeviceDetails(AWSIOT): EP: " + ep);
+        this.errorLogger().info("AWSIoT: EP: " + ep);
         
         // add the thing type details
         if (ep.get("thingTypeArn") == null) {
@@ -463,7 +475,7 @@ public class AWSIoTDeviceManager extends DeviceManager {
         if (ep != null) {
             if (ep.get("PrivateKey") != null) {
                 // DEBUG
-                this.errorLogger().info("hasCompleteDeviceDetails: Device details already complete: " + ep);
+                this.errorLogger().info("AWSIoT: Device details already complete: " + ep);
                 
                 // complete!
                 return true;
@@ -584,7 +596,7 @@ public class AWSIoTDeviceManager extends DeviceManager {
             List arns = (List)parsed.get("principals");
             for (int i=0;arns != null && i<arns.size();++i) {
                 // DEBUG
-                this.errorLogger().info("captureCertificateDetails: doomed ARN: " + (String)arns.get(i));
+                this.errorLogger().info("AWSIoT: doomed ARN: " + (String)arns.get(i));
 
                 // put on the doomed list...
                 doomed_arn_list.add((String)arns.get(i));
@@ -596,7 +608,7 @@ public class AWSIoTDeviceManager extends DeviceManager {
                 String cert_id = Utils.pullCertificateIdFromAWSPrincipal(cert_arn);
 
                 // DEBUG
-                this.errorLogger().info("captureCertificateDetails: unlinking: " + cert_arn);
+                this.errorLogger().info("AWSIoT: unlinking: " + cert_arn);
 
                 // unlink the certificate from the thing record
                 this.unlinkCertificateFromThing((String)ep.get("thingName"), cert_arn);
@@ -605,13 +617,13 @@ public class AWSIoTDeviceManager extends DeviceManager {
                 this.unlinkCertificateFromPolicy(cert_arn);
 
                 // DEBUG
-                this.errorLogger().info("captureCertificateDetails: inactivating: " + cert_id);
+                this.errorLogger().info("AWSIoT: inactivating: " + cert_id);
                 
                 // inactivate
                 this.inactivateCertificate(cert_id);
                 
                 // DEBUG
-                this.errorLogger().info("captureCertificateDetails: deleting: " + cert_id);
+                this.errorLogger().info("AWSIoT: deleting: " + cert_id);
 
                 // delete
                 this.deleteCertificate(cert_id);

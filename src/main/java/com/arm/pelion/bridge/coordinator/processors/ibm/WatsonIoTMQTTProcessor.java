@@ -187,7 +187,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
             // this.errorLogger().info("WatsonIoT: CoAP re-registration: " + entry);
             if (this.hasSubscriptions(device_id) == false) {
                 // no subscriptions - so process as a new registration
-                this.errorLogger().info("Watson IoT : CoAP re-registration: no subscriptions.. processing as new registration...");
+                this.errorLogger().info("Watson IoT: CoAP re-registration: no subscriptions.. processing as new registration...");
                 this.processRegistration(data,"reg-updates");
             }
             else {
@@ -203,12 +203,12 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
         // TEST: We can actually DELETE the device on deregistration to test device-delete before the device-delete message goes live
         if (this.orchestrator().deviceRemovedOnDeRegistration() == true) {
             // processing deregistration as device deletion
-            this.errorLogger().info("processDeregistrations(Watson): processing de-registration as device deletion (OK).");
+            this.errorLogger().info("Watson IoT: processing de-registration as device deletion (OK).");
             this.processDeviceDeletions(parsed, true);
         }
         else {
             // not processing deregistration as a deletion
-            this.errorLogger().info("processDeregistrations(Watson): Not processing de-registration as device deletion (OK).");
+            this.errorLogger().info("Watson IoT: Not processing de-registration as device deletion (OK).");
         }
         
         // always by default...
@@ -232,7 +232,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
         }
         for (int i = 0; deletions != null && i < deletions.length; ++i) {
             // DEBUG
-            this.errorLogger().info("Watson IoT : processing device deletion for device: " + deletions[i]);
+            this.errorLogger().info("Watson IoT: processing device deletion for device: " + deletions[i]);
 
             // Watson IoT add-on... 
             this.unsubscribe(deletions[i]);
@@ -343,13 +343,13 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
             this.mqtt().noSelfSignedCertsOrKeys(true);
             
             // DEBUG
-            this.errorLogger().info("WatsonIoT: connecting: " + this.m_mqtt_ip_address + " port: " + this.m_mqtt_port + "clientID: " + this.m_client_id + " cleanSession: " + this.m_use_clean_session);
+            this.errorLogger().warning("WatsonIoT: Connecting MQTT to: " + this.m_mqtt_ip_address + " port: " + this.m_mqtt_port + " clientID: " + this.m_client_id + " cleanSession: " + this.m_use_clean_session);
             
             // attempt connect
             if (this.mqtt().connect(this.m_mqtt_ip_address, this.m_mqtt_port, this.m_client_id, this.m_use_clean_session)) {
                 this.orchestrator().errorLogger().info("Watson IoT: Setting CoAP command listener...");
                 this.mqtt().setOnReceiveListener(this);
-                this.orchestrator().errorLogger().info("Watson IoT: connection completed successfully");
+                this.orchestrator().errorLogger().warning("Watson IoT: connection completed successfully");
             }
             else {
                 // ERROR
@@ -436,11 +436,11 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
     @Override
     public void subscribeToTopics(String ep_name, Topic topics[]) {
         // subscribe to the device topics
-        this.errorLogger().info("subscribe_to_topics(WatsonIoT): subscribing to topics...");
+        this.errorLogger().info("Watson IoT: subscribing to topics...");
         this.mqtt().subscribe(topics);
         
         // now subscribe to the API topic
-        this.errorLogger().info("subscribe_to_topics(WatsonIoT): subscribing to API request topic...");
+        this.errorLogger().info("Watson IoT: subscribing to API request topic...");
         this.subscribeToAPIRequestTopic(ep_name);
     }
 
@@ -490,7 +490,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
     @Override
     public void onMessageReceive(String topic, String message) {
         // DEBUG
-        this.errorLogger().info("Watson IoT(CoAP Command): Topic: " + topic + " message: " + message);
+        this.errorLogger().info("Watson IoT: Topic: " + topic + " message: " + message);
         
         // parse the topic to get the endpoint and CoAP verb
         // format: iot-2/type/mbed/id/mbed-eth-observe/cmd/put/fmt/json
@@ -536,7 +536,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
         // examine the response
         if (response != null && response.length() > 0) {
             // SYNC: We only process AsyncResponses from GET verbs... we dont sent HTTP status back through WatsonIoT.
-            this.errorLogger().info("Watson IoT(CoAP Command): Response: " + response);
+            this.errorLogger().info("Watson IoT: Response: " + response);
 
             // AsyncResponse detection and recording...
             if (this.isAsyncResponse(response) == true) {
@@ -547,18 +547,18 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
                 }
                 else {
                     // we ignore AsyncResponses to PUT,POST,DELETE
-                    this.errorLogger().info("Watson IoT(CoAP Command): Ignoring AsyncResponse for " + coap_verb + " (OK).");
+                    this.errorLogger().info("Watson IoT: Ignoring AsyncResponse for " + coap_verb + " (OK).");
                 }
             }
             else if (coap_verb.equalsIgnoreCase("get")) {
                 // not an AsyncResponse... so just emit it immediately... only for GET...
-                this.errorLogger().info("Watson IoT(CoAP Command): Response: " + response + " from GET... creating observation...");
+                this.errorLogger().info("Watson IoT: Response: " + response + " from GET... creating observation...");
 
                 // we have to format as an observation...
                 String observation = this.createObservation(coap_verb, ep_name, uri, response);
 
                 // DEBUG
-                this.errorLogger().info("Watson IoT(CoAP Command): Sending Observation(GET): " + observation);
+                this.errorLogger().info("Watson IoT: Sending Observation(GET): " + observation);
 
                 // send the observation (GET reply)...
                 if (this.mqtt() != null) {
@@ -567,16 +567,16 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
                     boolean status = this.mqtt().sendMessage(reply_topic, observation, QoS.AT_MOST_ONCE);
                     if (status == true) {
                         // success
-                        this.errorLogger().info("Watson IoT(CoAP Command): CoAP observation(get) sent. SUCCESS");
+                        this.errorLogger().info("Watson IoT: CoAP observation(get) sent. SUCCESS");
                     }
                     else {
                         // send failed
-                        this.errorLogger().warning("Watson IoT(CoAP Command): CoAP observation(get) not sent. SEND FAILED");
+                        this.errorLogger().warning("Watson IoT: CoAP observation(get) not sent. SEND FAILED");
                     }
                 }
                 else {
                     // not connected
-                    this.errorLogger().info("Watson IoT(CoAP Command): CoAP observation(get) not sent. NOT CONNECTED");
+                    this.errorLogger().info("Watson IoT: CoAP observation(get) not sent. NOT CONNECTED");
                 }
             }
         }

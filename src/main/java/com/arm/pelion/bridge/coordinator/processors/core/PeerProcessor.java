@@ -198,8 +198,8 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             String coap_json = coap_json_stripped;
 
             // DEBUG
-            this.errorLogger().info("processNotification(Peer): Active subscription for ep_name: " + ep_name + " ep_type: " + ep_type + " uri: " + uri);
-            this.errorLogger().info("processNotification(Peer): Publishing notification: payload: " + coap_json + " topic: " + topic);
+            this.errorLogger().info("PeerProcessor: Active subscription for ep_name: " + ep_name + " ep_type: " + ep_type + " uri: " + uri);
+            this.errorLogger().info("PeerProcessor: Publishing notification: payload: " + coap_json + " topic: " + topic);
 
             // publish to Peer...
             this.sendMessage(topic, coap_json);
@@ -209,7 +209,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     // messages from MQTT come here and are processed...
     public void onMessageReceive(String topic, String message) {
         // DEBUG
-        this.errorLogger().info("onMessageReceive(Peer): Topic: " + topic + " message: " + message);
+        this.errorLogger().info("PeerProcessor: OnMessageReceive: Topic: " + topic + " message: " + message);
         
         // Get/Put/Post Endpoint Resource Value...
         if (this.isEndpointResourceRequest(topic)) {
@@ -249,19 +249,19 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                 if (this.isAsyncResponse(json) == true) {
                     if (verb.equalsIgnoreCase("get") == true || verb.equalsIgnoreCase("put") == true) {
                         // DEBUG
-                        this.errorLogger().info("onMessageReceive(Peer): saving async response (" + verb + ") on topic: " + response_topic + " value: " + json);
+                        this.errorLogger().info("PeerProcessor: OnMessageReceive: saving async response (" + verb + ") on topic: " + response_topic + " value: " + json);
 
                         // its an AsyncResponse to a GET or PUT.. so record it... 
                         this.recordAsyncResponse(json, verb, response_topic, message, ep_name, uri);
                     }
                     else {
                         // we dont process AsyncResponses to POST and DELETE
-                        this.errorLogger().info("onMessageReceive(Peer): AsyncResponse (" + verb + ") ignored (OK).");
+                        this.errorLogger().info("PeerProcessor: OnMessageReceive: AsyncResponse (" + verb + ") ignored (OK).");
                     }
                 }
                 else {
                     // DEBUG
-                    this.errorLogger().info("onMessageReceive(Peer): sending immediate reply (" + verb + ") on topic: " + response_topic + " value: " + json);
+                    this.errorLogger().info("PeerProcessor: OnMessageReceive: sending immediate reply (" + verb + ") on topic: " + response_topic + " value: " + json);
 
                     // not an AsyncResponse... so just emit it immediately... (GET only)
                     this.sendMessage(response_topic, json);
@@ -269,12 +269,12 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             }
             else {
                 // Error - no response (due to error condition)
-                this.errorLogger().warning("onMessageReceive(Peer): no response to request VERB(" + verb + ")... null response (ERROR)");
+                this.errorLogger().warning("PeerProcessor: OnMessageReceive: no response to request VERB(" + verb + ")... null response (ERROR)");
             }
         }
         else {
             // not a recognized notification
-            this.errorLogger().warning("onMessageReceive(Peer): not a recognized notification/request: MESSAGE: " + message + " TOPIC: " + topic + "... ignoring (OK)");
+            this.errorLogger().warning("PeerProcessor: OnMessageReceive: not a recognized notification/request: MESSAGE: " + message + " TOPIC: " + topic + "... ignoring (OK)");
         }
     }
     
@@ -399,7 +399,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         }
 
         // DEBUG
-        this.errorLogger().info("isEndpointResourceRequest: topic: " + topic + " is: " + is_endpoint_resource_request);
+        this.errorLogger().info("PeerProcessor: topic: " + topic + " is: " + is_endpoint_resource_request);
         return is_endpoint_resource_request;
     }
     
@@ -540,7 +540,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     @Override
     public String getCoAPVerbFromTopic(String topic) {
         // not present in topic by default 
-        this.errorLogger().warning("getCoAPVerbFromTopic(Peer): WARNING topic: " + topic + " requesting CoAP verb (not present)");
+        this.errorLogger().warning("PeerProcessor: WARNING topic: " + topic + " requesting CoAP verb (not present)");
         return null;
     }
     
@@ -556,7 +556,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     protected String removeRequestTagFromTopic(String topic) {
         if (topic != null) {
             String stripped = topic.replace(this.getTopicRoot() + this.getRequestTag() + "/", "");
-            this.errorLogger().info("removeRequestTagFromTopic(Peer): topic: " + topic + " stripped: " + stripped);
+            this.errorLogger().info("PeerProcessor: topic: " + topic + " stripped: " + stripped);
             return stripped;
         }
         return null;
@@ -705,17 +705,17 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                         // value appears to be Base64 encoded... so decode... 
                         try {
                             // DEBUG
-                            this.errorLogger().info("getCoAPValue: Value: " + val + " flagged as Base64 encoded... decoding...");
+                            this.errorLogger().info("PeerProcessor: Value: " + val + " flagged as Base64 encoded... decoding...");
 
                             // Decode
                             val = new String(Base64.decodeBase64(val));
 
                             // DEBUG
-                            this.errorLogger().info("getCoAPValue: Base64 Decoded Value: " + val);
+                            this.errorLogger().info("PeerProcessor: Base64 Decoded Value: " + val);
                         }
                         catch (Exception ex) {
                             // just use the value itself...
-                            this.errorLogger().info("getCoAPValue: Exception in base64 decode", ex);
+                            this.errorLogger().info("PeerProcessor: Exception in base64 decode", ex);
                         }
                     }
                 }
@@ -768,7 +768,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         }
         catch (Exception ex) {
             // Exception during parse
-            this.errorLogger().info("WARNING: getURIPathFromTopic: Exception: " + ex.getMessage());
+            this.errorLogger().info("PeerProcessor: WARNING: getURIPathFromTopic: Exception: " + ex.getMessage());
         }
         return null;
     }
@@ -802,7 +802,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String coap_json = coap_json_stripped;
 
         // DEBUG
-        this.errorLogger().info("createObservation: CoAP notification(" + verb + " REPLY): " + coap_json);
+        this.errorLogger().info("PeerProcessor: CoAP notification(" + verb + " REPLY): " + coap_json);
 
         // return the generic MQTT observation JSON...
         return coap_json;
@@ -811,7 +811,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     // default formatter for AsyncResponse replies
     public String formatAsyncResponseAsReply(Map async_response, String verb) {
         // DEBUG
-        this.errorLogger().info("formatAsyncResponseAsReply(" + verb + ") AsyncResponse: " + async_response);
+        this.errorLogger().info("PeerProcessor: formatAsyncResponseAsReply(" + verb + ") AsyncResponse: " + async_response);
 
         // Handle AsyncReplies that are CoAP GETs
         if (verb != null && verb.equalsIgnoreCase("GET") == true) {
@@ -839,19 +839,19 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                     String message = this.createObservation(verb, ep_name, uri, value);
 
                     // DEBUG
-                    this.errorLogger().info("formatAsyncResponseAsReply: Created(" + verb + ") GET observation: " + message + " reply topic: " + async_response.get("reply_topic"));
+                    this.errorLogger().info("PeerProcessor: formatAsyncResponseAsReply: Created(" + verb + ") GET observation: " + message + " reply topic: " + async_response.get("reply_topic"));
 
                     // return the message
                     return message;
                 }
                 else {
                     // GET should always have a payload
-                    this.errorLogger().warning("formatAsyncResponseAsReply (" + verb + "): GET Observation has NULL payload... Ignoring...");
+                    this.errorLogger().warning("PeerProcessor: formatAsyncResponseAsReply (" + verb + "): GET Observation has NULL payload... Ignoring...");
                 }
             }
             catch (Exception ex) {
                 // Error in creating the observation message from the AsyncResponse GET reply... 
-                this.errorLogger().warning("formatAsyncResponseAsReply(GET): Exception in formatAsyncResponseAsReply(): ", ex);
+                this.errorLogger().warning("PeerProcessor: formatAsyncResponseAsReply(GET): Exception in formatAsyncResponseAsReply(): ", ex);
             }
         }
 
@@ -877,7 +877,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                         String message = this.createObservation(verb, ep_name, uri, value);
 
                         // DEBUG
-                        this.errorLogger().info("formatAsyncResponseAsReply: Created(" + verb + ") PUT Observation: " + message);
+                        this.errorLogger().info("PeerProcessor: formatAsyncResponseAsReply: Created(" + verb + ") PUT Observation: " + message);
 
                         // return the message
                         return message;
@@ -888,7 +888,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                     String message = (String) async_response.get("async-id");
 
                     // DEBUG
-                    this.errorLogger().info("formatAsyncResponseAsReply: Created(" + verb + ") PUT Observation: " + message);
+                    this.errorLogger().info("PeerProcessor: formatAsyncResponseAsReply: Created(" + verb + ") PUT Observation: " + message);
 
                     // return message
                     return message;
@@ -896,7 +896,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             }
             catch (Exception ex) {
                 // Error in creating the observation message from the AsyncResponse PUT reply... 
-                this.errorLogger().warning("formatAsyncResponseAsReply(PUT): Exception in formatAsyncResponseAsReply(): ", ex);
+                this.errorLogger().warning("PeerProcessor: formatAsyncResponseAsReply(PUT): Exception in formatAsyncResponseAsReply(): ", ex);
             }
         }
 
@@ -943,14 +943,14 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             }
 
             // DEBUG
-            this.errorLogger().info("getURIFromAsyncID: URI: " + uri);
+            this.errorLogger().info("PeerProcessor: getURIFromAsyncID: URI: " + uri);
         }
         else {
             // mbed Cloud async-response ID format has changed - so we need to pull this from the async-response record
             uri = this.asyncResponseManager().getURIFromAsyncID(id);
             
             // DEBUG
-            this.errorLogger().info("getURIFromAsyncID: (async-response) URI: " + uri);
+            this.errorLogger().info("PeerProcessor: getURIFromAsyncID: (async-response) URI: " + uri);
         }
 
         // return the URI
@@ -969,14 +969,14 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             name = parts[1];
             
             // DEBUG
-            this.errorLogger().info("getEndpointNameFromAsyncID: endpoint: " + name);
+            this.errorLogger().info("PeerProcessor: getEndpointNameFromAsyncID: endpoint: " + name);
         }
         else {
             // mbed Cloud async-response ID format has changed - so we need to pull this from the async-response record
             name = this.asyncResponseManager().getEndpointNameFromAsyncID(id);
             
             // DEBUG
-            this.errorLogger().info("getEndpointNameFromAsyncID: (async-response) endpoint: " + name);
+            this.errorLogger().info("PeerProcessor: getEndpointNameFromAsyncID: (async-response) endpoint: " + name);
         }
 
         // return the endpoint name
@@ -1082,7 +1082,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             }
         }
         catch (IOException ex) {
-            this.errorLogger().critical("PeerProcessor(sendResponseToCommandRequestor): Unable to send response back to command requestor...", ex);
+            this.errorLogger().critical("PeerProcessor: Unable to send response back to command requestor...", ex);
         }
     }
 }
