@@ -25,6 +25,7 @@ package com.arm.pelion.bridge.transport;
 import com.arm.pelion.bridge.core.BaseClass;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.KeyValuePair;
+import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.preferences.PreferenceManager;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -48,7 +49,8 @@ import org.apache.commons.codec.binary.Base64;
  * @author Doug Anson
  */
 public class HttpTransport extends BaseClass {
-
+    private static final int PELION_API_BACKOFF_MS = 1000;      // 1 second
+    
     private int m_last_response_code = 0;
     private String m_auth_qualifier_default = "Bearer";
     private String m_auth_qualifier = this.m_auth_qualifier_default;
@@ -56,6 +58,7 @@ public class HttpTransport extends BaseClass {
     private String m_etag_value = null;
     private String m_if_match_header_value = null;
     private String m_pelion_api_hostname = null;
+    private int m_pelion_backoff_ms = PELION_API_BACKOFF_MS;
     private PelionHostnameVerifier m_verifier = null;
     private PelionTrustManagerListFactory m_trust_managers = null;
     private ArrayList<KeyValuePair> m_additional_headers = null;
@@ -77,6 +80,12 @@ public class HttpTransport extends BaseClass {
         
         // set the hostname verifier
         this.m_verifier = new PelionHostnameVerifier(this.m_pelion_api_hostname);
+        
+        // get the backoff value
+        this.m_pelion_backoff_ms = preference_manager.intValueOf("pelion_api_backoff_ms");
+        if (this.m_pelion_backoff_ms <= 0) {
+            this.m_pelion_backoff_ms = PELION_API_BACKOFF_MS;
+        }
         
         // set the trust managers
         this.m_trust_managers = new PelionTrustManagerListFactory(error_logger, preference_manager);
@@ -367,6 +376,9 @@ public class HttpTransport extends BaseClass {
         URLConnection connection = null;
         SSLContext sc = null;
         boolean setup = false;
+        
+        // Pelion API throttle
+        Utils.waitForABit(this.errorLogger(), this.m_pelion_backoff_ms); 
 
         try {
             URL url = new URL(url_str);
