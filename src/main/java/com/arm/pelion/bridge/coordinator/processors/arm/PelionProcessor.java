@@ -248,25 +248,19 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // process device-deletions of endpoints
     @Override
     public void processDeviceDeletions(String[] endpoints) {
-        for(int i=0;endpoints != null && i<endpoints.length;++i) {
-            this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(endpoints[i]);
-        }
+        // empty in pelion processor
     }
     
     // process de-registeration of endpoints
     @Override
     public void processDeregistrations(String[] endpoints) {
-        for(int i=0;endpoints != null && i<endpoints.length;++i) {
-            this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(endpoints[i]);
-        }
+        // empty in pelion processor
     }
     
     // process registerations-expired of endpoints
     @Override
     public void processRegistrationsExpired(String[] endpoints) {
-        for(int i=0;endpoints != null && i<endpoints.length;++i) {
-            this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(endpoints[i]);
-        }
+        // empty in pelion processor
     }
     
     // process the notification

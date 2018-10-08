@@ -120,31 +120,49 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // process a device deletion
     public String[] processDeviceDeletions(Map parsed) {
-        String[] device_deletions = this.parseDeviceDeletionsBody(parsed);
-        this.orchestrator().processDeviceDeletions(device_deletions);
+        String[] device_deletions = this.processDeviceDeletionsBase(parsed);
         for (int i = 0; i < device_deletions.length; ++i) {
             this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(device_deletions[i]);
         }
         return device_deletions;
     }
     
+    // protected device deletion
+    protected String[] processDeviceDeletionsBase(Map parsed) {
+        String[] device_deletions = this.parseDeviceDeletionsBody(parsed);
+        this.orchestrator().processDeviceDeletions(device_deletions);
+        return device_deletions;
+    }
+    
     // process a deregistration
     public String[] processDeregistrations(Map parsed) {
-        String[] deregistrations = this.parseDeRegistrationBody(parsed);
-        this.orchestrator().processDeregistrations(deregistrations);
+        String[] deregistrations = this.processDeregistrationsBase(parsed);
         for (int i = 0; i < deregistrations.length; ++i) {
             this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(deregistrations[i]);
         }
         return deregistrations;
     }
     
+    // protected device deregistration
+    protected String[] processDeregistrationsBase(Map parsed) {
+        String[] deregistrations = this.parseDeRegistrationBody(parsed);
+        this.orchestrator().processDeregistrations(deregistrations);
+        return deregistrations;
+    }
+    
     // process a registrations-expired
     public String[] processRegistrationsExpired(Map parsed) {
-        String[] regs_expired = this.parseRegistrationsExpiredBody(parsed);
-        this.orchestrator().processRegistrationsExpired(regs_expired);
+        String[] regs_expired = this.processRegistrationsExpiredBase(parsed);
         for (int i = 0; i < regs_expired.length; ++i) {
             this.orchestrator().getEndpointTypeManager().removeEndpointTypeFromEndpointName(regs_expired[i]);
         }
+        return regs_expired;
+    }
+    
+    // protected registrations-expired
+    protected String[] processRegistrationsExpiredBase(Map parsed) {
+        String[] regs_expired = this.parseRegistrationsExpiredBody(parsed);
+        this.orchestrator().processRegistrationsExpired(regs_expired);
         return regs_expired;
     }
     

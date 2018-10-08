@@ -170,27 +170,38 @@ public class SAMPLEProcessor extends GenericConnectablePeerProcessor implements 
     // process a device deletion
     @Override
     public String[] processDeviceDeletions(Map parsed) {
-        String[] devices = this.parseDeviceDeletionsBody(parsed);
+        String[] devices = this.processDeviceDeletionsBase(parsed);
         for(int i=0;devices != null && i<devices.length;++i) {
             String device_type_id = this.createDeviceTypeID(devices[i],this.m_device_type_prefix);
             this.m_device_manager.deleteDevice(devices[i]);
             this.m_device_manager.deleteDeviceType(device_type_id);
             this.removeEndpointTypeFromEndpointName(devices[i]);
         }
-        return super.processDeviceDeletions(parsed);
+        return devices;
     }
     
     // OVERRIDE: process a deregistration
     @Override
     public String[] processDeregistrations(Map parsed) {
-        String[] devices = this.parseDeRegistrationBody(parsed);
-        for(int i=0;devices != null && i<devices.length;++i) {
-            String device_type_id = this.createDeviceTypeID(devices[i],this.m_device_type_prefix);
-            this.m_device_manager.deleteDevice(devices[i]);
-            this.m_device_manager.deleteDeviceType(device_type_id);
-            this.removeEndpointTypeFromEndpointName(devices[i]);
+        String[] devices = this.processDeregistrationsBase(parsed);
+        
+        // TEST: We can actually DELETE the device on deregistration to test device-delete before the device-delete message goes live
+        if (this.orchestrator().deviceRemovedOnDeRegistration() == true) {
+            for(int i=0;devices != null && i<devices.length;++i) {
+                String device_type_id = this.createDeviceTypeID(devices[i],this.m_device_type_prefix);
+                this.m_device_manager.deleteDevice(devices[i]);
+                this.m_device_manager.deleteDeviceType(device_type_id);
+                this.removeEndpointTypeFromEndpointName(devices[i]);
+            }
         }
-        return super.processDeregistrations(parsed);
+        return devices;
+    }
+    
+    // OVERRIDE: process a registrations-expired 
+    @Override
+    public String[] processRegistrationsExpired(Map parsed) {
+       // process a de-registration event
+       return this.processDeregistrations(parsed);
     }
 
     // OVERRIDE: process a received new registration

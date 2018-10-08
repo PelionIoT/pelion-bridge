@@ -289,9 +289,6 @@ public class AWSIoTDeviceManager extends DeviceManager {
             // remove the endpoint details
             this.m_endpoint_details.remove(device);
 
-            // remove the endpoint type
-            this.m_processor.removeEndpointTypeFromEndpointName(device);
-
             // DEBUG
             this.errorLogger().info("AWSIoT: deleteDevice: device: " + device + " deletion RESULT: " + result);
             

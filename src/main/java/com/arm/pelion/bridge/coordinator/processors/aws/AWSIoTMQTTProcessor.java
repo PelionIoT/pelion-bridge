@@ -144,7 +144,7 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         if (this.orchestrator().deviceRemovedOnDeRegistration() == true) {
             // processing deregistration as device deletion
             this.errorLogger().info("AWSIoT: processing de-registration as device deletion (OK).");
-            this.processDeviceDeletions(parsed,true);
+            return this.processDeviceDeletions(parsed,true);
         }
         else {
             // not processing deregistration as a deletion
@@ -161,16 +161,23 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         return this.processDeviceDeletions(parsed,false);
     }
     
+    // OVERRIDE: process a registrations-expired 
+    @Override
+    public String[] processRegistrationsExpired(Map parsed) {
+       // process a de-registration event
+       return this.processDeregistrations(parsed);
+    }
+    
     // handle device deletions AWSIOT
     private String[] processDeviceDeletions(Map parsed,boolean use_deregistration) {
         String[] deletions = null;
         
         // complete processing in base class...
         if (use_deregistration == true) {
-            deletions = super.processDeregistrations(parsed);
+            deletions = this.processDeregistrationsBase(parsed);
         }
         else {
-            deletions = super.processDeviceDeletions(parsed);
+            deletions = this.processDeviceDeletionsBase(parsed);
         }
         
         // delete the device shadows...
@@ -458,9 +465,6 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
             // also remove MQTT Transport instance too...
             this.disconnect(device);
-            
-            // remove the type
-            this.removeEndpointTypeFromEndpointName(device);
 
             // remove the device from AWSIoT
             deleted = this.m_device_manager.deleteDevice(device);

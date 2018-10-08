@@ -533,9 +533,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
     }
 
     // process device deletion
-    public Boolean deleteDevice(String device_id) {
-        String device_type = this.m_processor.getEndpointTypeFromEndpointName(device_id);
-
+    public Boolean deleteDevice(String device_id,String device_type) {
         // create the URL
         String url = this.createDevicesURL(device_type);
 
@@ -543,7 +541,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         url += "/devices/" + device_id;
 
         // DEBUG
-        this.errorLogger().info("Watson IoT: deleteDevice: URL: " + url + " USER: " + this.m_watson_iot_api_key + " PW: " + this.m_watson_iot_auth_token);
+        this.errorLogger().info("Watson IoT: deleting device: " + device_id + " Type: " + device_type + " URL: " + url + " USER: " + this.m_watson_iot_api_key + " PW: " + this.m_watson_iot_auth_token);
 
         // dispatch and look for the result.
         String result = this.gwdelete(url);
@@ -552,15 +550,11 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         int http_code = this.m_http.getLastResponseCode();
         if (Utils.httpResponseCodeOK(http_code)) {
             // DEBUG
-            this.errorLogger().info("Watson IoT: deleteDevice: SUCCESS. RESULT: " + result);
-        }
-        else if (http_code == 404) {
-            // DEBUG
-            this.errorLogger().info("Watson IoT: deleteDevice: SUCCESS");
+            this.errorLogger().warning("Watson IoT: deleted device: " + device_id + " Type: " + device_type + "  SUCCESS. Code: " + http_code + " RESULT: " + result);
         }
         else {
             // DEBUG
-            this.errorLogger().warning("Watson IoT: deleteDevice: FAILURE: " + this.m_http.getLastResponseCode() + " RESULT: " + result);
+            this.errorLogger().warning("Watson IoT: delete device: " + device_id + " Type: " + device_type + " FAILURE. Code: " + http_code + " RESULT: " + result);
         }
 
         // remove our device if successful

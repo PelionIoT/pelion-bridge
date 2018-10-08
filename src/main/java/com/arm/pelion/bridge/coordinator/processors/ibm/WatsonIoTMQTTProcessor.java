@@ -221,24 +221,35 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
         return this.processDeviceDeletions(parsed,false);
     }
     
+    // OVERRIDE: process a registrations-expired 
+    @Override
+    public String[] processRegistrationsExpired(Map parsed) {
+       // process a de-registration event
+       return this.processDeregistrations(parsed);
+    }
+    
     // handle device deletions Watson IoT
     private String[] processDeviceDeletions(Map parsed,boolean use_deregistration) {
         String[] deletions = null;
+        // Get the EndpointType from the endpoint name
         if (use_deregistration == true) {
-            deletions = super.processDeregistrations(parsed);
+            deletions = this.processDeregistrationsBase(parsed);
         }
         else {
-            deletions = super.processDeviceDeletions(parsed);
+            deletions = this.processDeviceDeletionsBase(parsed);
         }
         for (int i = 0; deletions != null && i < deletions.length; ++i) {
             // DEBUG
             this.errorLogger().info("Watson IoT: processing device deletion for device: " + deletions[i]);
-
+            
             // Watson IoT add-on... 
             this.unsubscribe(deletions[i]);
 
             // Remove from Watson IoT
             this.deleteDevice(deletions[i]);
+            
+            // remove type
+            this.removeEndpointTypeFromEndpointName(deletions[i]);
         }
         return deletions;
     }
@@ -612,9 +623,13 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
 
     // process device de-registration
     @Override
-    protected Boolean deleteDevice(String device) {
+    protected Boolean deleteDevice(String device_id) {
         if (this.m_device_manager != null) {
-            return this.m_device_manager.deleteDevice(device);
+            // Get the endpoint type from the endpoint name
+            String device_type = this.getEndpointTypeFromEndpointName(device_id);
+            
+            // call on the device manager to delete the device from Watson IoT
+            return this.m_device_manager.deleteDevice(device_id,device_type);
         }
         return false;
     }

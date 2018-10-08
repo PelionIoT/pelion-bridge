@@ -313,22 +313,19 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     // OVERRIDE: process a deregistration (deletion TEST)
     @Override
     public String[] processDeregistrations(Map parsed) {        
-        // always by default... if we delete the device, we also kill our thread... so do this one first...
-        String[] list = super.processDeregistrations(parsed);
-        
         // TEST: We can actually DELETE the device on deregistration to test device-delete before the device-delete message goes live
         if (this.orchestrator().deviceRemovedOnDeRegistration() == true) {
             // processing deregistration as device deletion
             this.errorLogger().info("GoogleCloudIOT: processing de-registration as device deletion (OK).");
-            this.processDeviceDeletions(parsed, true);
+            return this.processDeviceDeletions(parsed, true);
         }
         else {
             // not processing deregistration as a deletion
             this.errorLogger().info("GoogleCloudIOT: Not processing de-registration as device deletion (OK).");
         }
         
-        // return the list
-        return list;
+        // return a default 
+        return super.processDeregistrations(parsed);
     }
     
     // OVERRIDE: handle device deletions Google Cloud
@@ -337,16 +334,23 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         return this.processDeviceDeletions(parsed,false);
     }
     
+    // OVERRIDE: process a registrations-expired 
+    @Override
+    public String[] processRegistrationsExpired(Map parsed) {
+       // process a de-registration event
+       return this.processDeregistrations(parsed);
+    }
+    
     // handle device deletions Google Cloud
     private String[] processDeviceDeletions(Map parsed,boolean use_deregistration) {
         String[] deletions = null;
         
         // complete processing in base class...
         if (use_deregistration == true) {
-            deletions = super.processDeregistrations(parsed);
+            deletions = this.processDeregistrationsBase(parsed);
         }
         else {
-            deletions = super.processDeviceDeletions(parsed);
+            deletions = this.processDeviceDeletionsBase(parsed);
         }
         
         // delete the device shadows...

@@ -47,6 +47,7 @@ import org.fusesource.mqtt.client.Topic;
  * @author Doug Anson
  */
 public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor implements Runnable, ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {    
+    private static final String IOTHUB_DEVICE_PREFIX_SEPARATOR = "-";                       // device prefix separator (if used...)... cannot be an "_"
     private static final long SAS_TOKEN_VALID_TIME_MS = 365 * 24 * 60 * 60 * 1000;          // SAS Token created for 1 year expiration
     private static final long SAS_TOKEN_RECREATE_INTERVAL_MS = 180 * 24 *60 * 6 * 1000;     // number of days to wait before re-creating the SAS Token
     
@@ -116,7 +117,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             if (this.m_iot_event_hub_enable_device_id_prefix == true) {
                 this.m_iot_event_hub_device_id_prefix = this.preferences().valueOf("iot_event_hub_device_id_prefix", this.m_suffix);
                 if (this.m_iot_event_hub_device_id_prefix != null) {
-                    this.m_iot_event_hub_device_id_prefix += "-";
+                    this.m_iot_event_hub_device_id_prefix += IOTHUB_DEVICE_PREFIX_SEPARATOR;
                 }
             }
         }
@@ -317,16 +318,23 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         return this.processDeviceDeletions(parsed,false);
     }
     
+    // OVERRIDE: process a registrations-expired 
+    @Override
+    public String[] processRegistrationsExpired(Map parsed) {
+       // process a de-registration event
+       return this.processDeregistrations(parsed);
+    }
+    
     // handle device deletions IoTHub
     private String[] processDeviceDeletions(Map parsed,boolean use_deregistration) {
         String[] deletions = null;
         
         // complete processing in base class...
         if (use_deregistration == true) {
-            deletions = super.processDeregistrations(parsed);
+            deletions = this.processDeregistrationsBase(parsed);
         }
         else {
-            deletions = super.processDeviceDeletions(parsed);
+            deletions = this.processDeviceDeletionsBase(parsed);
         }
         
         // delete the device shadows...
@@ -379,14 +387,11 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                 notification.put("value", this.fundamentalTypeDecoder().getFundamentalValue(decoded_coap_payload)); // its a Float, Integer, or String
             }
 
-            // get our endpoint name
-            String ep_name = (String) notification.get("ep");
+            // get our Pelion endpoint name
+            String ep_name = Utils.valueFromValidKey(notification, "id", "ep");
 
             // IOTHUB Prefix
             String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
-
-            // IOTHUB Prefix - re-write EP
-            notification.put("ep", iothub_ep_name);
 
             // we will send the raw CoAP JSON... IoTHub can parse that... 
             String coap_raw_json = this.jsonGenerator().generateJson(notification);
@@ -402,7 +407,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
             // send to IoTHub...
             if (this.mqtt(iothub_ep_name) != null) {
-                boolean status = this.mqtt(iothub_ep_name).sendMessage(this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, null), iot_event_hub_coap_json, QoS.AT_MOST_ONCE);
+                boolean status = this.mqtt(iothub_ep_name).sendMessage(this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, ep_name, null), iot_event_hub_coap_json, QoS.AT_MOST_ONCE);
                 if (status == true) {
                     // not connected
                     this.errorLogger().info("IoTHub: CoAP notification sent. SUCCESS");
@@ -584,14 +589,15 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         this.errorLogger().info("IoTHub: Topic: " + topic + " message: " + message);
 
         // parse the topic to get the endpoint
-        // format: devices/__EPNAME__/messages/devicebound/#
+        // format: devices/__IOTHUB_EPNAME__/messages/devicebound/#
         // IOTHUB DevicIDPrefix
-        String iothub_ep_name = this.addDeviceIDPrefix(this.getEndpointNameFromTopic(topic));
+        String iothub_ep_name = this.getEndpointNameFromTopic(topic);
+        String ep_name = removeDeviceIDPrefix(iothub_ep_name);
         
         // process any API requests...
         if (this.isApiRequest(message)) {
             // process the message
-            String reply_topic = this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, null);
+            String reply_topic = this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, ep_name, null);
             reply_topic = reply_topic.replace(this.m_observation_key,this.m_api_response_key);
             this.sendApiResponse(iothub_ep_name,reply_topic,this.processApiRequestOperation(message));
             
@@ -661,7 +667,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
                 // send the observation (GET reply)...
                 if (this.mqtt(iothub_ep_name) != null) {
-                    String reply_topic = this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, null);
+                    String reply_topic = this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, ep_name, null);
                     reply_topic = reply_topic.replace(this.m_observation_key, this.m_cmd_response_key);
                     boolean status = this.mqtt(iothub_ep_name).sendMessage(reply_topic, observation, QoS.AT_MOST_ONCE);
                     if (status == true) {
@@ -972,7 +978,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             // IOTHUB DeviceID Prefix
             String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
 
-            topic_string_list[0] = this.customizeTopic(this.m_iot_hub_coap_cmd_topic_base, iothub_ep_name, ep_type);
+            topic_string_list[0] = this.customizeTopic(this.m_iot_hub_coap_cmd_topic_base, iothub_ep_name, ep_name, ep_type);
             for (int i = 0; i < m_num_coap_topics; ++i) {
                 list[i] = new Topic(topic_string_list[i], QoS.AT_LEAST_ONCE);
             }
@@ -988,12 +994,12 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     public String getReplyTopic(String ep_name, String ep_type, String def) {
         // IOTHUB DeviceID Prefix
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
-        return this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, ep_type).replace(this.m_observation_key, this.m_cmd_response_key);
+        return this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, ep_name, ep_type).replace(this.m_observation_key, this.m_cmd_response_key);
     }
 
     // final customization of a MQTT Topic...
-    private String customizeTopic(String topic, String ep_name, String ep_type) {
-        String cust_topic = topic.replace("__EPNAME__", ep_name);
+    private String customizeTopic(String topic, String iothub_ep_name, String ep_name, String ep_type) {
+        String cust_topic = topic.replace("__EPNAME__", iothub_ep_name);
         if (ep_type == null) {
             ep_type = this.getEndpointTypeFromEndpointName(ep_name);
         }
