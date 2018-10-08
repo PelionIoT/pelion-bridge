@@ -1105,7 +1105,7 @@ public class MQTTTransport extends Transport implements GenericSender {
         }
         else if (message != null) {
             // unable to send (not connected)
-            this.errorLogger().warning("sendMessage: NOT CONNECTED(no handle). Unable to send message: " + message);
+            this.errorLogger().info("sendMessage: NOT CONNECTED(no handle). Unable to send message: " + message);
         }
         else {
             // unable to send (empty message)

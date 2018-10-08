@@ -49,7 +49,7 @@ import org.apache.commons.codec.binary.Base64;
  * @author Doug Anson
  */
 public class HttpTransport extends BaseClass {
-    private static final int PELION_API_BACKOFF_MS = 1000;      // 1 second
+    private static final int PELION_API_BACKOFF_MS = 250;      // 1/4 second
     
     private int m_last_response_code = 0;
     private String m_auth_qualifier_default = "Bearer";
@@ -62,6 +62,7 @@ public class HttpTransport extends BaseClass {
     private PelionHostnameVerifier m_verifier = null;
     private PelionTrustManagerListFactory m_trust_managers = null;
     private ArrayList<KeyValuePair> m_additional_headers = null;
+    private SSLContext m_sc = null;
 
     // constructor
     /**
@@ -100,6 +101,17 @@ public class HttpTransport extends BaseClass {
         
         // initialize the additional header support
         this.m_additional_headers = new ArrayList<>();
+        
+        // initialize the SSL Context
+        try {
+            this.m_sc = SSLContext.getInstance("TLS");
+            this.m_sc.init(null, this.m_trust_managers.create(), new SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(this.m_sc.getSocketFactory());
+            HttpsURLConnection.setDefaultHostnameVerifier(this.m_verifier);
+        }
+        catch (KeyManagementException | NoSuchAlgorithmException ex) {
+            this.errorLogger().critical("HTTP: ERROR! Exception during SSL Context creation: " + ex.getMessage());
+        }
     }
     
     // add an additional header option
@@ -374,36 +386,20 @@ public class HttpTransport extends BaseClass {
         String result = "";
         String line = "";
         URLConnection connection = null;
-        SSLContext sc = null;
-        boolean setup = false;
         
         // Pelion API throttle
         Utils.waitForABit(this.errorLogger(), this.m_pelion_backoff_ms); 
 
         try {
-            URL url = new URL(url_str);
-
-            // Install our pelion trust manager and hostname verifier
-            try {
-                sc = SSLContext.getInstance("TLS");
-                sc.init(null, this.m_trust_managers.create(), new SecureRandom());
-                HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-                HttpsURLConnection.setDefaultHostnameVerifier(this.m_verifier);
-                setup = true;
-            }
-            catch (NoSuchAlgorithmException | KeyManagementException e) {
-                // ERROR - unable to setup/config TLS
-                this.errorLogger().critical("HttpTransport(" + verb + "): doHTTP() exception during TLS config: " + e.getMessage(),e);
-                this.saveResponseCode(599);
-                return null;
-            }
-
             // check if we have TLS setup/configured thus far...
-            if (setup == true) {
+            if (this.m_sc != null) {
+                // create our URL
+                URL url = new URL(url_str);
+                
                 // open the SSL connction
                 connection = (HttpsURLConnection) (url.openConnection());
                 ((HttpsURLConnection) connection).setRequestMethod(verb);
-                ((HttpsURLConnection) connection).setSSLSocketFactory(sc.getSocketFactory());
+                ((HttpsURLConnection) connection).setSSLSocketFactory(this.m_sc.getSocketFactory());
                 ((HttpsURLConnection) connection).setHostnameVerifier(this.m_verifier); 
 
                 // Input configuration
