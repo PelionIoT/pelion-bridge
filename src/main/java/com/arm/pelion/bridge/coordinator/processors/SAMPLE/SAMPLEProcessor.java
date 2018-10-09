@@ -208,22 +208,46 @@ public class SAMPLEProcessor extends GenericConnectablePeerProcessor implements 
     @Override
     public void processNewRegistration(Map data) {
         List registrations = (List)data.get("registrations");
-        for(int i=0;registrations != null && i<registrations.size();++i) {
-            Map device = (Map)registrations.get(i);
-            this.completeNewDeviceRegistration(device);
+        if (registrations != null && registrations.size() > 0) {
+            if ((this.getCurrentEndpointCount() + registrations.size()) < this.getMaxNumberOfShadows()) {
+                for(int i=0;registrations != null && i<registrations.size();++i) {
+                    Map device = (Map)registrations.get(i);
+                    this.completeNewDeviceRegistration(device);
+                }
+                super.processNewRegistration(data);
+            }
+            else {
+                // exceeded the maximum number of device shadows
+                this.errorLogger().warning("SAMPLE: Exceeded maximum number of device shadows. Limit: " + this.getMaxNumberOfShadows());
+            }
         }
-        super.processNewRegistration(data);
+        else {
+            // nothing to shadow
+            this.errorLogger().info("SAMPLE: Nothing to shadow (OK).");
+        }
     }
     
     // OVERRIDE:  process a reregistration
     @Override
     public void processReRegistration(Map data) {
         List registrations = (List)data.get("reg-updates");
-        for(int i=0;registrations != null && i<registrations.size();++i) {
-            Map device = (Map)registrations.get(i);
-            this.completeNewDeviceRegistration(device);
+        if (registrations != null && registrations.size() > 0) {
+            if ((this.getCurrentEndpointCount() + registrations.size()) < this.getMaxNumberOfShadows()) {
+                for(int i=0;registrations != null && i<registrations.size();++i) {
+                    Map device = (Map)registrations.get(i);
+                    this.completeNewDeviceRegistration(device);
+                }
+                super.processReRegistration(data);
+            }
+            else {
+                // exceeded the maximum number of device shadows
+                this.errorLogger().warning("SAMPLE: Exceeded maximum number of device shadows. Limit: " + this.getMaxNumberOfShadows());
+            }
         }
-        super.processReRegistration(data);
+        else {
+            // nothing to shadow
+            this.errorLogger().info("SAMPLE: Nothing to shadow (OK).");
+        }
     }
     
     // OVERRIDE: complete new registration

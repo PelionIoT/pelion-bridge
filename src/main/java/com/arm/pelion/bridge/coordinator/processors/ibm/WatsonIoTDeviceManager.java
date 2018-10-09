@@ -534,32 +534,34 @@ public class WatsonIoTDeviceManager extends DeviceManager {
 
     // process device deletion
     public Boolean deleteDevice(String device_id,String device_type) {
-        // create the URL
-        String url = this.createDevicesURL(device_type);
+        if (device_id != null && device_id.length() > 0 && device_type != null && device_type.length() > 0) {
+            // create the URL
+            String url = this.createDevicesURL(device_type);
 
-        // add the device ID to the end
-        url += "/devices/" + device_id;
+            // add the device ID to the end
+            url += "/devices/" + device_id;
 
-        // DEBUG
-        this.errorLogger().info("Watson IoT: deleting device: " + device_id + " Type: " + device_type + " URL: " + url + " USER: " + this.m_watson_iot_api_key + " PW: " + this.m_watson_iot_auth_token);
-
-        // dispatch and look for the result.
-        String result = this.gwdelete(url);
-
-        // check the result
-        int http_code = this.m_http.getLastResponseCode();
-        if (Utils.httpResponseCodeOK(http_code)) {
             // DEBUG
-            this.errorLogger().warning("Watson IoT: deleted device: " + device_id + " Type: " + device_type + "  SUCCESS. Code: " + http_code + " RESULT: " + result);
-        }
-        else {
-            // DEBUG
-            this.errorLogger().warning("Watson IoT: delete device: " + device_id + " Type: " + device_type + " FAILURE. Code: " + http_code + " RESULT: " + result);
-        }
+            this.errorLogger().info("Watson IoT: deleting device: " + device_id + " Type: " + device_type + " URL: " + url + " USER: " + this.m_watson_iot_api_key + " PW: " + this.m_watson_iot_auth_token);
 
-        // remove our device if successful
-        this.m_processor.removeEndpointTypeFromEndpointName(device_id);
+            // dispatch and look for the result.
+            String result = this.gwdelete(url);
 
+            // check the result
+            int http_code = this.m_http.getLastResponseCode();
+            if (Utils.httpResponseCodeOK(http_code)) {
+                // DEBUG
+                this.errorLogger().warning("Watson IoT: deleted device: " + device_id + " Type: " + device_type + "  SUCCESS. Code: " + http_code + " RESULT: " + result);
+            }
+            else {
+                // DEBUG
+                this.errorLogger().warning("Watson IoT: delete device: " + device_id + " Type: " + device_type + " FAILURE. Code: " + http_code + " RESULT: " + result);
+            }
+
+            // remove our device if successful
+            this.m_processor.removeEndpointTypeFromEndpointName(device_id);
+        }
+        
         // return our status
         return true;
     }

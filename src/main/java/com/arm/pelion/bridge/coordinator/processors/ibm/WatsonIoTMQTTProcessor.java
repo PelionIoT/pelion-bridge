@@ -158,18 +158,30 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
     @Override
     protected void processRegistration(Map data, String key) {
         List endpoints = (List) data.get(key);
-        for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
-            Map endpoint = (Map) endpoints.get(i);
-            
-            // get the device ID and device Type
-            String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
-            String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
-                    
-            // ensure we have the endpoint type
-            this.setEndpointTypeFromEndpointName(device_id,device_type);
+        if (endpoints != null && endpoints.size() > 0) {
+            if ((this.getCurrentEndpointCount() + endpoints.size()) < this.getMaxNumberOfShadows()) {
+                for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
+                    Map endpoint = (Map) endpoints.get(i);
 
-            // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
-            this.retrieveEndpointAttributes(endpoint,this);
+                    // get the device ID and device Type
+                    String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+                    String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+
+                    // ensure we have the endpoint type
+                    this.setEndpointTypeFromEndpointName(device_id,device_type);
+
+                    // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
+                    this.retrieveEndpointAttributes(endpoint,this);
+                }
+            }
+            else {
+                // exceeded the maximum number of device shadows
+                this.errorLogger().warning("WatsonIoT: Exceeded maximum number of device shadows. Limit: " + this.getMaxNumberOfShadows());
+            }
+        }
+        else {
+            // nothing to shadow
+            this.errorLogger().info("WatsonIoT: Nothing to shadow (OK).");
         }
     }
     
@@ -624,14 +636,16 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
     // process device de-registration
     @Override
     protected Boolean deleteDevice(String device_id) {
-        if (this.m_device_manager != null) {
+        if (this.m_device_manager != null && device_id != null && device_id.length() > 0) {
             // Get the endpoint type from the endpoint name
             String device_type = this.getEndpointTypeFromEndpointName(device_id);
             
             // call on the device manager to delete the device from Watson IoT
             return this.m_device_manager.deleteDevice(device_id,device_type);
         }
-        return false;
+        
+        // aggressive deletion
+        return true;
     }
 
     // AsyncResponse response processor

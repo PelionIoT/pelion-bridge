@@ -47,6 +47,9 @@ import org.fusesource.mqtt.client.Topic;
  * @author Doug Anson
  */
 public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor implements Runnable, ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {    
+    // maximum number of IoTHub device shadows per worker
+    private static final int MAX_IOTHUB_DEVICE_SHADOWS = 25000;                             // limitation: # ephemeral ports
+    
     private static final String IOTHUB_DEVICE_PREFIX_SEPARATOR = "-";                       // device prefix separator (if used...)... cannot be an "_"
     private static final long SAS_TOKEN_VALID_TIME_MS = 365 * 24 * 60 * 60 * 1000;          // SAS Token created for 1 year expiration
     private static final long SAS_TOKEN_RECREATE_INTERVAL_MS = 180 * 24 *60 * 6 * 1000;     // number of days to wait before re-creating the SAS Token
@@ -79,6 +82,13 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
         // IoTHub Processor Announce
         this.errorLogger().info("Azure IoTHub Processor ENABLED.");
+        
+        // get the max shadows override
+        this.m_max_shadows = manager.preferences().intValueOf("iot_event_hub_max_shadows",this.m_suffix);
+        if (this.m_max_shadows <= 0) {
+            this.m_max_shadows = MAX_IOTHUB_DEVICE_SHADOWS;
+        }
+        this.errorLogger().warning("IoTHub: Azure IoTHub Max Shadows (OVERRIDE) Limit: " + this.getMaxNumberOfShadows() + " devices");
 
         // get the IoTHub version tag
         this.m_iot_hub_version_tag = this.orchestrator().preferences().valueOf("iot_event_hub_version_tag",this.m_suffix);
@@ -125,6 +135,12 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             // unconfigured
             this.errorLogger().warning("IoTHub: IoTHub Connection String is UNCONFIGURED. Pausing...");
         }
+    }
+    
+    // default # of devices we can shadow
+    @Override
+    protected int getMaxNumberOfShadows() {
+        return MAX_IOTHUB_DEVICE_SHADOWS;
     }
     
     // initialize the SAS Token
@@ -252,18 +268,30 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     @Override
     protected synchronized void processRegistration(Map data, String key) {
         List endpoints = (List) data.get(key);
-        for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
-            Map endpoint = (Map) endpoints.get(i);
-            
-            // get the device ID and device Type
-            String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
-            String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
-            
-            // ensure we have the endpoint type
-            this.setEndpointTypeFromEndpointName(device_id, device_type);
+        if (endpoints != null && endpoints.size() > 0) {
+            if ((this.getCurrentEndpointCount() + endpoints.size()) < this.getMaxNumberOfShadows()) {
+                for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
+                    Map endpoint = (Map) endpoints.get(i);
 
-            // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
-            this.retrieveEndpointAttributes(endpoint,this);
+                    // get the device ID and device Type
+                    String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+                    String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+
+                    // ensure we have the endpoint type
+                    this.setEndpointTypeFromEndpointName(device_id, device_type);
+
+                    // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
+                    this.retrieveEndpointAttributes(endpoint,this);
+                }
+            }
+            else {
+                // exceeded the maximum number of device shadows
+                this.errorLogger().warning("IoTHub: Exceeded maximum number of device shadows. Limit: " + this.getMaxNumberOfShadows());
+            }
+        }
+        else {
+            // nothing to shadow
+            this.errorLogger().info("IoTHub: Nothing to shadow (OK).");
         }
     }
 
@@ -825,7 +853,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     // IoTHub Specific: process device deletion
     @Override
     protected synchronized Boolean deleteDevice(String ep_name) {
-        if (this.m_device_manager != null) {
+        if (this.m_device_manager != null && ep_name != null && ep_name.length() > 0) {
             // IOTHUB DeviceID Prefix
             String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
 
@@ -856,6 +884,8 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             // remove type from the type list
             this.removeEndpointTypeFromEndpointName(ep_name);
         }
+        
+        // aggressive deletion
         return true;
     }
 

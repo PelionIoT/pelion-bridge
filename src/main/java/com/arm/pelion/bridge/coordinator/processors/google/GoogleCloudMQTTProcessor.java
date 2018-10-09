@@ -67,6 +67,9 @@ import org.fusesource.mqtt.client.Topic;
  * @author Doug Anson
  */
 public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {
+    // maximum number of google device shadows per worker
+    private static final int MAX_GOOGLE_DEVICE_SHADOWS = 25000;     // limitation: # ephemeral ports
+    
     // Google Cloud IoT notifications get published to this topic:  /devices/{deviceID}/events
     private static String GOOGLE_CLOUDIOT_EVENT_TAG = "events";
     
@@ -155,6 +158,13 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
 
         // GoogleCloud Processor Announce
         this.errorLogger().info("Google Cloud MQTT Processor ENABLED.");
+        
+        // get the max shadows override
+        this.m_max_shadows = manager.preferences().intValueOf("google_cloud_max_shadows",this.m_suffix);
+        if (this.m_max_shadows <= 0) {
+            this.m_max_shadows = MAX_GOOGLE_DEVICE_SHADOWS;
+        }
+        this.errorLogger().warning("GoogleCloudIoT: Google CloudIoT Max Shadows (OVERRIDE) Limit: " + this.getMaxNumberOfShadows() + " devices");
                 
         // keystore root directory
         this.m_keystore_rootdir = this.orchestrator().preferences().valueOf("mqtt_keystore_basedir",this.m_suffix);
@@ -241,6 +251,12 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         }
     }
     
+    // default # of devices we can shadow
+    @Override
+    protected int getMaxNumberOfShadows() {
+        return MAX_GOOGLE_DEVICE_SHADOWS;
+    }
+    
     // get the WaitForLock time
     public long waitForLockTime() {
         return this.m_lock_wait_ms;
@@ -275,18 +291,30 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     @Override
     protected synchronized void processRegistration(Map data, String key) {
         List endpoints = (List) data.get(key);
-        for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
-            Map endpoint = (Map) endpoints.get(i);
-            
-            // get the device ID and device Type
-            String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
-            String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
-            
-            // ensure we have the endpoint type
-            this.setEndpointTypeFromEndpointName(device_id,device_type);
+        if (endpoints != null && endpoints.size() > 0) {
+            if ((this.getCurrentEndpointCount() + endpoints.size()) < this.getMaxNumberOfShadows()) {
+                for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
+                    Map endpoint = (Map) endpoints.get(i);
 
-            // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
-            this.retrieveEndpointAttributes(endpoint,this);
+                    // get the device ID and device Type
+                    String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+                    String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+
+                    // ensure we have the endpoint type
+                    this.setEndpointTypeFromEndpointName(device_id,device_type);
+
+                    // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
+                    this.retrieveEndpointAttributes(endpoint,this);
+                }
+            }
+            else {
+                // exceeded the maximum number of device shadows
+                this.errorLogger().warning("GoogleCloudIOT: Exceeded maximum number of device shadows. Limit: " + this.getMaxNumberOfShadows());
+            }
+        }
+        else {
+            // nothing to shadow
+            this.errorLogger().info("GoogleCloudIOT: Nothing to shadow (OK).");
         }
     }
 
@@ -671,10 +699,8 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                 this.errorLogger().warning("GoogleCloudIOT: unable to delete device from GoogleCloud...");
             }            
         }
-        else if (this.m_device_manager != null) {
-            // invalid params
-            this.errorLogger().info("GoogleCloudIOT: device parameter is NULL. Nothing deleted (OK).");
-        }
+        
+        // aggressive deletion
         return true;
     }
     

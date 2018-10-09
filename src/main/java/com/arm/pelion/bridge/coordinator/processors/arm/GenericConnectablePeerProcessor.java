@@ -49,6 +49,9 @@ import org.fusesource.mqtt.client.Topic;
  * @author Doug Anson
  */
 public class GenericConnectablePeerProcessor extends PeerProcessor implements Transport.ReceiveListener, PeerProcessorInterface {
+    // default maximum number of devices we can shadow
+    private static final int MAX_DEVICE_SHADOWS = 100000;       // 100,000 devices
+    
     // default generic MQTT thread key
     private static String DEFAULT_GENERIC_RT_KEY = "__generic__";
     
@@ -77,7 +80,8 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
     protected boolean m_use_clean_session = false;
     private String m_device_data_key = null;
     private String m_default_tr_key = null;
-    protected int m_reconnect_sleep_time_ms = DEFAULT_RECONNNECT_SLEEP_TIME_MS;  
+    protected int m_reconnect_sleep_time_ms = DEFAULT_RECONNNECT_SLEEP_TIME_MS;
+    protected int m_max_shadows = MAX_DEVICE_SHADOWS;
     
     private HashMap<String, MQTTTransport> m_mqtt = null;
     protected SerializableHashMap m_endpoints = null;
@@ -123,6 +127,13 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
         // initialize the listener thread map
         this.m_mqtt_thread_list = new HashMap<>();
         
+        // get the max shadows override
+        this.m_max_shadows = orchestrator.preferences().intValueOf("max_shadows",this.m_suffix);
+        if (this.m_max_shadows <= 0) {
+            this.m_max_shadows = MAX_DEVICE_SHADOWS;
+        }
+        this.errorLogger().warning("GenericConnectablePeerProcessor: Max Shadows Limit: " + this.getMaxNumberOfShadows() + " devices");
+        
         // get the overriden default wait time
         this.m_reconnect_sleep_time_ms = orchestrator.preferences().intValueOf("mqtt_reconnect_sleep_time_ms",this.m_suffix);
         if (this.m_reconnect_sleep_time_ms <= 0) {
@@ -157,6 +168,11 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
 
         // setup our defaulted MQTT transport if given one
         this.setupDefaultMQTTTransport(mqtt);
+    }
+    
+    // default # of devices we can shadow
+    protected int getMaxNumberOfShadows() {
+        return this.m_max_shadows;
     }
     
     // not using MQTT in this peer

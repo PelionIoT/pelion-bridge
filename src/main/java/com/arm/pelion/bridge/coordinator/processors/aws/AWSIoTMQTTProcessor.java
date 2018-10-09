@@ -47,6 +47,9 @@ import org.fusesource.mqtt.client.Topic;
  * @author Doug Anson
  */
 public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {
+    // maximum number of AWSIOT device shadows per worker
+    private static final int MAX_AWSIOT_DEVICE_SHADOWS = 25000;     // limitation: # ephemeral ports
+    
     private String m_aws_iot_observe_notification_topic = null;
     private String m_aws_iot_coap_cmd_topic_get = null;
     private String m_aws_iot_coap_cmd_topic_put = null;
@@ -67,6 +70,13 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
         // AWSIoT Processor Announce
         this.errorLogger().info("Amazon AWSIoT Processor ENABLED.");
+        
+        // get the max shadows override
+        this.m_max_shadows = manager.preferences().intValueOf("aws_iot_max_shadows",this.m_suffix);
+        if (this.m_max_shadows <= 0) {
+            this.m_max_shadows = MAX_AWSIOT_DEVICE_SHADOWS;
+        }
+        this.errorLogger().warning("AWSIoT: AWSIoT Max Shadows (OVERRIDE) Limit: " + this.getMaxNumberOfShadows() + " devices");
 
         // Observation notification topic
         this.m_aws_iot_observe_notification_topic = this.orchestrator().preferences().valueOf("aws_iot_observe_notification_topic",this.m_suffix);
@@ -96,18 +106,30 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
     @Override
     protected synchronized void processRegistration(Map data, String key) {
         List endpoints = (List) data.get(key);
-        for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
-            Map endpoint = (Map) endpoints.get(i);
-            
-            // get the device ID and device Type
-            String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
-            String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
-            
-            // ensure we have the endpoint type
-            this.setEndpointTypeFromEndpointName(device_id, device_type);
+        if (endpoints != null && endpoints.size() > 0) {
+            if ((this.getCurrentEndpointCount() + endpoints.size()) < this.getMaxNumberOfShadows()) {
+                for (int i = 0; endpoints != null && i < endpoints.size(); ++i) {
+                    Map endpoint = (Map) endpoints.get(i);
 
-            // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
-            this.retrieveEndpointAttributes(endpoint,this);
+                    // get the device ID and device Type
+                    String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+                    String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+
+                    // ensure we have the endpoint type
+                    this.setEndpointTypeFromEndpointName(device_id, device_type);
+
+                    // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
+                    this.retrieveEndpointAttributes(endpoint,this);
+                }
+            }
+            else {
+                // exceeded the maximum number of device shadows
+                this.errorLogger().warning("AWSIoT: Exceeded maximum number of device shadows. Limit: " + this.getMaxNumberOfShadows());
+            }
+        }
+        else {
+            // nothing to shadow
+            this.errorLogger().info("AWSIoT: Nothing to shadow (OK).");
         }
     }
     
@@ -454,25 +476,25 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
     // process device de-registration
     @Override
-    protected synchronized Boolean deleteDevice(String device) {
-        boolean deleted = false;
-        if (this.m_device_manager != null) {
+    protected synchronized Boolean deleteDevice(String device_id) {
+        boolean deleted = true;
+        if (this.m_device_manager != null && device_id != null && device_id.length() > 0) {
             // DEBUG
-            this.errorLogger().info("AWSIoT: deregistering device: " + device);
+            this.errorLogger().info("AWSIoT: deregistering device: " + device_id);
 
             // disconnect, remove the threaded listener... 
-            this.stopListenerThread(device);
+            this.stopListenerThread(device_id);
 
             // also remove MQTT Transport instance too...
-            this.disconnect(device);
+            this.disconnect(device_id);
 
             // remove the device from AWSIoT
-            deleted = this.m_device_manager.deleteDevice(device);
+            deleted = this.m_device_manager.deleteDevice(device_id);
         }
         
         // DEBUG
-        if (deleted == false) {
-            this.errorLogger().warning("AWSIoT: WARNING: Unable to fully delete device: " + device + " from AWSIoT...");
+        if (deleted == false && device_id != null && device_id.length() > 0) {
+            this.errorLogger().warning("AWSIoT: WARNING: Unable to fully delete device: " + device_id + " from AWSIoT...");
         }
         
         // return the deletion status
