@@ -1,6 +1,6 @@
 /**
- * @file ErrorLogger.java
- * @brief error logging facility
+ * @file CreateShadowDeviceThread.java
+ * @brief Create the Shadow Device Creation Thread
  * @author Doug Anson
  * @version 1.0
  * @see

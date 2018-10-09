@@ -26,6 +26,7 @@ import com.arm.pelion.bridge.coordinator.processors.core.LongPollProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.core.CreateShadowDeviceThread;
 import com.arm.pelion.bridge.coordinator.processors.core.HttpProcessor;
+import com.arm.pelion.bridge.coordinator.processors.core.ShadowDeviceThreadDispatcher;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.core.Utils;
@@ -37,6 +38,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import com.mbed.lwm2m.LWM2MResource;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
+import java.lang.Thread.State;
 import java.util.ArrayList;
 
 /**
@@ -1102,59 +1104,12 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // setup initial Device Shadows (mbed Cloud only...)
     private void setupExistingDeviceShadows() {
-        // query mbed Cloud for the current list of Registered devices
-        List devices = this.discoverRegisteredDevices();
+        // DEBUG
+        this.errorLogger().warning("PelionProcessor: Starting the device discovery thread dispatcher...");
         
-        // lets see how many devices we have to setup shadows with... 
-        if (devices != null && devices.size() > 0 && devices.size() < this.m_mds_max_shadow_create_threads) {
-            // DEBUG
-            this.errorLogger().warning("PelionProcessor: Dispatching group of devices for shadow creation. Count: " + devices.size());
-  
-            // small number of shadows... one dispatch only
-            this.beginDispatchGroup(devices);
-        }
-        
-        // large number!  So we have to take this in blocks
-        else if (devices != null && devices.size() > 0) {
-            // Chop the list up into a list of lists
-            List<List<Map>> chopped_list = Utils.chopList(devices,this.m_mds_max_shadow_create_threads);
-            for(int i=0;chopped_list != null && i<chopped_list.size();++i) {
-                // Get the ith list of devices...
-                List device_list_i = chopped_list.get(i);
-                
-                // DEBUG
-                this.errorLogger().warning("PelionProcessor: Dispatching group (" + (i+1) + " of " + chopped_list.size() +  ") of devices for shadow creation...");
-                
-                // now invoke the dispatch of the ith group of devices
-                this.beginDispatchGroup(device_list_i);
-            }
-        }
-        else {
-            // no devices to shadow
-            this.errorLogger().warning("PelionProcessor: No Pelion devices to shadow (OK)");
-        }
-    }
-    
-    // dispatch of device shadow setup in a single group
-    private void beginDispatchGroup(List devices) {
-        // loop through each device, dispatch a device shadow setup for it
-        for(int i=0;devices != null && i<devices.size();++i) {
-            try {
-                // get the ith device
-                Map device = (Map)devices.get(i);
-                
-                // DEBUG
-                this.errorLogger().warning("PelionProcessor: Shadow Device task starting for deviceID: " + (String)device.get("id"));
-                
-                // create a thread and dispatch it to create the device shadow...
-                Thread dispatch = new Thread(new CreateShadowDeviceThread(this,device));
-                dispatch.start();
-            }
-            catch (Exception ex) {
-                // ERROR
-                this.errorLogger().warning("PelionProcessor: Exception during device shadow create dispatch: " + ex.getMessage());
-            }
-        }
+        // Create the ShadowDeviceThread Dispatcher
+        Thread sdtp = new Thread(new ShadowDeviceThreadDispatcher(this,this.m_mds_max_shadow_create_threads));
+        sdtp.start();
     }
     
     // worker to setup a specific device's shadow
@@ -1162,9 +1117,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // endpoint to create the shadow with...
         HashMap<String,Object> endpoint = new HashMap<>();
         
-        // DEBUG
-        //this.errorLogger().info("PelionProcessor: DEVICE: " + device);
-
         // sanitize the endpoint type
         device.put("endpoint_type",this.sanitizeEndpointType((String)device.get("endpoint_type")));
 
@@ -1225,7 +1177,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
 
     // perform device discovery
-    private List discoverRegisteredDevices() {
+    public List discoverRegisteredDevices() {
         return this.performDiscovery(this.createGetRegisteredDevicesURL(),"data");
     }
 
