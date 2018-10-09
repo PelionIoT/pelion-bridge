@@ -116,6 +116,9 @@ public class ShadowDeviceThreadDispatcher extends BaseClass implements Runnable 
                 Thread dispatch = new Thread(new CreateShadowDeviceThread(this.m_pelion_processor,device));
                 dispatch.start();
                 thread_list.add(dispatch);
+                
+                // Throttle a bit
+                Utils.waitForABit(this.errorLogger(),500);     // 1/2 second
             }
             catch (Exception ex) {
                 // ERROR
@@ -135,7 +138,7 @@ public class ShadowDeviceThreadDispatcher extends BaseClass implements Runnable 
                     if (list.get(i).getState() == Thread.State.TERMINATED) {
                         --count;
                     }
-                    Utils.waitForABit(this.errorLogger(), 250); // check every 1/4 sec
+                    Utils.waitForABit(this.errorLogger(), 1000); // check every 1 second
                 }
                 if (count <= 0) {
                     finished = true;
