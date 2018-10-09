@@ -1163,7 +1163,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         HashMap<String,Object> endpoint = new HashMap<>();
         
         // DEBUG
-        this.errorLogger().info("PelionProcessor: DEVICE: " + device);
+        //this.errorLogger().info("PelionProcessor: DEVICE: " + device);
 
         // sanitize the endpoint type
         device.put("endpoint_type",this.sanitizeEndpointType((String)device.get("endpoint_type")));
