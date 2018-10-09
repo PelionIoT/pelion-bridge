@@ -95,6 +95,9 @@ public class ShadowDeviceThreadDispatcher extends BaseClass implements Runnable 
             // ERROR - invalid params to constructor
             this.errorLogger().warning("ShadowDeviceThreadDispatcher: NULL Pelion processor. Unable to create shadow dispatcher");
         }
+        
+        // DEBUG
+        this.errorLogger().warning("ShadowDeviceThreadDispatcher: Existing device discovery is COMPLETE");
     }
     
     // dispatch of device shadow setup in a single group
