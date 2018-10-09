@@ -24,7 +24,6 @@ package com.arm.pelion.bridge.coordinator.processors.arm;
 
 import com.arm.pelion.bridge.coordinator.processors.core.LongPollProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.core.CreateShadowDeviceThread;
 import com.arm.pelion.bridge.coordinator.processors.core.HttpProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.ShadowDeviceThreadDispatcher;
 import com.arm.pelion.bridge.core.ApiResponse;
@@ -1291,7 +1290,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 }
             }
             else {
-                this.errorLogger().warning("PelionProcessor: No DEVICE response given for URL: " + url);
+                this.errorLogger().info("PelionProcessor: No DEVICE response given for URL: " + url);
                 more_pages = false;
             }
         }
@@ -1335,7 +1334,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 return list;
             }
             else {
-                this.errorLogger().warning("PelionProcessor: No RESOURCE info response given for URL: " + url);
+                this.errorLogger().info("PelionProcessor: No RESOURCE info response given for URL: " + url);
             }
         }
         return null;
