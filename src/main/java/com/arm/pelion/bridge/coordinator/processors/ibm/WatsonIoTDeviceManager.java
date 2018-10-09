@@ -551,7 +551,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
             int http_code = this.m_http.getLastResponseCode();
             if (Utils.httpResponseCodeOK(http_code)) {
                 // DEBUG
-                this.errorLogger().warning("Watson IoT: deleted device: " + device_id + " Type: " + device_type + "  SUCCESS. Code: " + http_code + " RESULT: " + result);
+                this.errorLogger().warning("Watson IoT: deleted device: " + device_id + " Type: " + device_type + "  SUCCESS. Code: " + http_code);
             }
             else {
                 // DEBUG
