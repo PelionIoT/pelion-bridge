@@ -52,7 +52,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     
     private static final String IOTHUB_DEVICE_PREFIX_SEPARATOR = "-";                       // device prefix separator (if used...)... cannot be an "_"
     private static final long SAS_TOKEN_VALID_TIME_MS = 365 * 24 * 60 * 60 * 1000;          // SAS Token created for 1 year expiration
-    private static final long SAS_TOKEN_RECREATE_INTERVAL_MS = 180 * 24 *60 * 6 * 1000;     // number of days to wait before re-creating the SAS Token
+    private static final long SAS_TOKEN_RECREATE_INTERVAL_MS = 360 * 24 * 60 * 60 * 1000;   // number of days to wait before re-creating the SAS Token
     
     private int m_num_coap_topics = 1;                                  // # of MQTT Topics for CoAP verbs in IoTHub implementation
     private String m_iot_hub_observe_notification_topic = null;
