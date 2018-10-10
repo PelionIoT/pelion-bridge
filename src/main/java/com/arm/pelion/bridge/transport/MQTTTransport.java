@@ -696,6 +696,7 @@ public class MQTTTransport extends Transport implements GenericSender {
 
                     // set Clean Session...
                     endpoint.setCleanSession(clean_session);
+                    endpoint.setCleanSession(true);
 
                     // Will Message...
                     String will = this.prefValue("mqtt_will_message", this.m_suffix);
@@ -795,24 +796,7 @@ public class MQTTTransport extends Transport implements GenericSender {
                         this.errorLogger().warning("MQTTTransport: Exception during connect(): " + ex.getMessage());
 
                         // DEBUG
-                        this.errorLogger().warning("MQTT: URL: " + url);
-                        this.errorLogger().warning("MQTT: clientID: " + this.m_client_id);
-                        this.errorLogger().warning("MQTT: clean_session: " + clean_session);
-                        if (this.m_debug_creds == true) {
-                            this.errorLogger().warning("MQTT: username: " + this.getUsername());
-                            this.errorLogger().warning("MQTT: password: " + this.getPassword());
-
-                            if (this.m_pki_priv_key != null) {
-                                this.errorLogger().info("MQTT: PRIV: " + this.m_pki_priv_key);
-                            }
-
-                            if (this.m_pki_pub_key != null) {
-                                this.errorLogger().info("MQTT: PUB: " + this.m_pki_pub_key);
-                            }
-                            if (this.m_pki_cert != null) {
-                                this.errorLogger().info("MQTT: CERT: " + this.m_pki_cert);
-                            }
-                        }
+                        this.showConnectionInfo(url,clean_session);
                     }
                 }
                 else {
@@ -844,6 +828,29 @@ public class MQTTTransport extends Transport implements GenericSender {
 
         // return our connection status
         return this.m_connected;
+    }
+    
+    // debug connection info
+    private void showConnectionInfo(String url, boolean clean_session) {
+        // DEBUG
+        this.errorLogger().warning("MQTT: URL: " + url);
+        this.errorLogger().warning("MQTT: clientID: " + this.m_client_id);
+        this.errorLogger().warning("MQTT: clean_session: " + clean_session);
+        if (this.m_debug_creds == true) {
+            this.errorLogger().warning("MQTT: username: " + this.getUsername());
+            this.errorLogger().warning("MQTT: password: " + this.getPassword());
+
+            if (this.m_pki_priv_key != null) {
+                this.errorLogger().info("MQTT: PRIV: " + this.m_pki_priv_key);
+            }
+
+            if (this.m_pki_pub_key != null) {
+                this.errorLogger().info("MQTT: PUB: " + this.m_pki_pub_key);
+            }
+            if (this.m_pki_cert != null) {
+                this.errorLogger().info("MQTT: CERT: " + this.m_pki_cert);
+            }
+        }
     }
 
     /**
@@ -893,8 +900,8 @@ public class MQTTTransport extends Transport implements GenericSender {
                 // DEBUG
                 this.errorLogger().info("MQTT: attemptConnection(): waiting a bit...()...");
 
-                // wait a bit (2x)
-                //Utils.waitForABit(this.errorLogger(), 2*(this.m_sleep_time));
+                // wait a bit...
+                Utils.waitForABit(this.errorLogger(), this.m_sleep_time);
 
                 // DEBUG
                 this.errorLogger().info("MQTT: attemptConnection(): Getting Connection status...");
@@ -919,7 +926,7 @@ public class MQTTTransport extends Transport implements GenericSender {
             }
             catch (Exception ex) {
                 // exception caught in connection attempt
-                this.errorLogger().warning("MQTT: attemptConnection(): exception in connect(): " + ex.getMessage());
+                this.errorLogger().warning("MQTT: attemptConnection(): EXCEPTION in connect(): " + ex.getMessage());
                 
                 // get the connection status
                 this.m_connected = this.m_connection.isConnected();
@@ -927,7 +934,7 @@ public class MQTTTransport extends Transport implements GenericSender {
                     // DEBUG
                     this.errorLogger().warning("MQTT: attemptConnection(exception): Waiting a bit...");
 
-                    // wait a bit (2x)
+                    // wait a bit...
                     Utils.waitForABit(this.errorLogger(), this.m_sleep_time);
                     
                     // get the connection status

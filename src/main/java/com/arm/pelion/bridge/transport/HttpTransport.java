@@ -49,7 +49,8 @@ import org.apache.commons.codec.binary.Base64;
  * @author Doug Anson
  */
 public class HttpTransport extends BaseClass {
-    private static final int PELION_API_BACKOFF_MS = 250;      // 1/4 second
+    private static final int REQUEST_TIMEOUT_MS = 120000;       // 2 minutes on read/connect timeout..
+    private static final int PELION_API_BACKOFF_MS = 250;       // 1/4 second for backoff
     
     private int m_last_response_code = 0;
     private String m_auth_qualifier_default = "Bearer";
@@ -63,6 +64,7 @@ public class HttpTransport extends BaseClass {
     private PelionTrustManagerListFactory m_trust_managers = null;
     private ArrayList<KeyValuePair> m_additional_headers = null;
     private SSLContext m_sc = null;
+    private int m_request_timeout_ms = REQUEST_TIMEOUT_MS;
 
     // constructor
     /**
@@ -86,6 +88,12 @@ public class HttpTransport extends BaseClass {
         this.m_pelion_backoff_ms = preference_manager.intValueOf("pelion_api_backoff_ms");
         if (this.m_pelion_backoff_ms <= 0) {
             this.m_pelion_backoff_ms = PELION_API_BACKOFF_MS;
+        }
+        
+        // override for the timeout value
+        this.m_request_timeout_ms = preference_manager.intValueOf("http_timeout_ms");
+        if (this.m_request_timeout_ms <= 0) {
+            this.m_request_timeout_ms = REQUEST_TIMEOUT_MS;
         }
         
         // set the trust managers
@@ -112,6 +120,11 @@ public class HttpTransport extends BaseClass {
         catch (KeyManagementException | NoSuchAlgorithmException ex) {
             this.errorLogger().critical("HTTP: ERROR! Exception during SSL Context creation: " + ex.getMessage());
         }
+    }
+    
+    // manually set a specific timeout in ms
+    public void setConnectionTimeout(int timeout_ms) {
+        this.m_request_timeout_ms = timeout_ms;
     }
     
     // add an additional header option
@@ -401,6 +414,13 @@ public class HttpTransport extends BaseClass {
                 ((HttpsURLConnection) connection).setRequestMethod(verb);
                 ((HttpsURLConnection) connection).setSSLSocketFactory(this.m_sc.getSocketFactory());
                 ((HttpsURLConnection) connection).setHostnameVerifier(this.m_verifier); 
+                
+                // set the connection timeout if set to a value
+                if (this.m_request_timeout_ms > 0) {
+                    // set both connect and read timeouts to this (in ms...)
+                    connection.setConnectTimeout(this.m_request_timeout_ms);
+                    connection.setReadTimeout(this.m_request_timeout_ms);
+                }
 
                 // Input configuration
                 connection.setDoInput(doInput);

@@ -78,7 +78,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         this.m_iot_event_hub_enable_device_id_prefix = this.prefBoolValue("iot_event_hub_enable_device_id_prefix", this.m_suffix);
         this.m_iot_event_hub_device_id_prefix = null;
 
-        // If prefixing is enabled, get the prefix
+        // If prefixing is enabled, setup the details...
         if (this.m_iot_event_hub_enable_device_id_prefix == true) {
             this.m_iot_event_hub_device_id_prefix = this.preferences().valueOf("iot_event_hub_device_id_prefix", this.m_suffix);
             if (this.m_iot_event_hub_device_id_prefix != null) {
@@ -101,7 +101,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         return iothub_ep_name;
     }
     
-    // get the orchestrator
+    // httpsGet the orchestrator
     private Orchestrator orchestrator() {
         return this.m_orchestrator;
     }
@@ -110,18 +110,15 @@ public class IoTHubDeviceManager extends DeviceManager {
     public boolean registerNewDevice(Map message) {
         boolean status = false;
 
-        // get the device details
+        // httpsGet the device details
         String ep_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
         String ep_name = Utils.valueFromValidKey(message, "id", "ep");
 
-        // IOTHUB DeviceID Prefix
-        String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
-
         // see if we already have a device...
-        HashMap<String, Serializable> ep = this.getDeviceDetails(iothub_ep_name);
+        HashMap<String, Serializable> ep = this.getDeviceDetails(ep_name);
         if (ep != null) {
             // save off this device 
-            this.saveDeviceDetails(iothub_ep_name, ep);
+            this.saveDeviceDetails(ep_name, ep);
 
             // we are good
             status = true;
@@ -161,7 +158,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         this.errorLogger().info("IoTHub: registerNewDevice: URL: " + url + " DATA: " + payload);
 
         // dispatch and look for the result
-        String result = this.put(url, payload);
+        String result = this.httpsPut(url, payload);
 
         // check the result
         int http_code = this.m_http.getLastResponseCode();
@@ -208,7 +205,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         this.errorLogger().info("IoTHub: deleteDevice: URL: " + url);
 
         // dispatch and look for the result
-        String result = this.delete(url, etag);
+        String result = this.httpsDelete(url, etag);
 
         // check the result
         int http_code = this.m_http.getLastResponseCode();
@@ -232,10 +229,11 @@ public class IoTHubDeviceManager extends DeviceManager {
         return true;
     }
 
-    // get a given device's details...
+    // httpsGet a given device's details...
     private HashMap<String, Serializable> getDeviceDetails(String ep_name) {
         HashMap<String, Serializable> ep = null;
-        Boolean status = false;
+        boolean status = false;
+        boolean success = false;
 
         // IOTHUB DeviceID Prefix
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
@@ -246,28 +244,38 @@ public class IoTHubDeviceManager extends DeviceManager {
         // DEBUG
         this.errorLogger().info("IoTHub: getDeviceDetails: URL: " + url);
 
-        // dispatch and look for the result
-        String result = this.get(url);
+        // loop through and try a few times...
+        for(int i=0;i<this.m_num_retries && success == false;++i) {
+            // dispatch and look for the result
+            String result = this.httpsGet(url);
 
-        // check the result
-        int http_code = this.m_http.getLastResponseCode();
-        if (Utils.httpResponseCodeOK(http_code)) {
-            // DEBUG
-            this.errorLogger().info("IoTHub: getDeviceDetails: SUCCESS. RESULT: " + result);
-            status = true;
-        }
-        else if (http_code == 404) {
-            // DEBUG (not found... OK)
-            this.errorLogger().info("IoTHub: getDeviceDetails: SUCCESS");
-        }
-        else {
-            // DEBUG
-            this.errorLogger().warning("IoTHub: getDeviceDetails: FAILURE: " + this.m_http.getLastResponseCode() + " RESULT: " + result);
-        }
+            // check the result
+            int http_code = this.m_http.getLastResponseCode();
+            if (Utils.httpResponseCodeOK(http_code)) {
+                // DEBUG
+                this.errorLogger().info("IoTHub: getDeviceDetails: SUCCESS. RESULT: " + result);
+                status = true;
+                success = true;
+            }
+            else if (http_code == 404) {
+                // DEBUG (not found... OK)
+                this.errorLogger().info("IoTHub: getDeviceDetails: SUCCESS. (Not FOUND - OK)");
+                success = true;
+            }
+            else {
+                // DEBUG
+                this.errorLogger().info("IoTHub: getDeviceDetails: FAILURE: " + this.m_http.getLastResponseCode() + ". Retrying...");
+            }
 
-        // parse our result...
-        if (status == true) {
-            ep = this.parseDeviceDetails(iothub_ep_name, result);
+            // parse our result...
+            if (status == true) {
+                ep = this.parseDeviceDetails(ep_name, result);
+            }
+            
+            // if unsuccessful... wait a bit and retry
+            if (success == false) {
+                Utils.waitForABit(this.errorLogger(),this.m_get_retry_wait_ms);
+            }
         }
 
         // return our endpoint details
@@ -275,25 +283,27 @@ public class IoTHubDeviceManager extends DeviceManager {
     }
 
     // GET specific data to a given URL 
-    private String get(String url) {
+    private String httpsGet(String url) {
         this.m_http.setAuthorizationQualifier(this.m_iot_event_hub_auth_qualifier);
+        this.errorLogger().info("httpsGet: SASToken: " + this.m_iot_event_hub_sas_token);
         String result = this.m_http.httpsGetApiTokenAuth(url, this.m_iot_event_hub_sas_token, null, "application/json");
         return result;
     }
 
     // PUT specific data to a given URL (with data)
-    private String put(String url, String payload) {
+    private String httpsPut(String url, String payload) {
         this.m_http.setAuthorizationQualifier(this.m_iot_event_hub_auth_qualifier);
+        this.errorLogger().info("httpsPut: SASToken: " + this.m_iot_event_hub_sas_token);
         String result = this.m_http.httpsPutApiTokenAuth(url, this.m_iot_event_hub_sas_token, payload, "application/json");
         return result;
     }
 
     // DELETE specific data to a given URL (with data)
-    private String delete(String url, String etag) {
-        return this.delete(url, etag, null);
+    private String httpsDelete(String url, String etag) {
+        return this.httpsDelete(url, etag, null);
     }
 
-    private String delete(String url, String etag, String payload) {
+    private String httpsDelete(String url, String etag, String payload) {
         this.m_http.setAuthorizationQualifier(this.m_iot_event_hub_auth_qualifier);
         this.m_http.setETagValue(etag);             // ETag header required...
         this.m_http.setIfMatchValue("*");           // If-Match header required... 
@@ -310,7 +320,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         return null;
     }
 
-    // get the endpoint key
+    // httpsGet the endpoint key
     public String getEndpointKey(String ep_name) {
         return this.getEndpointKey(ep_name, "primary_key");
     }
@@ -323,7 +333,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         return null;
     }
 
-    // get the endpoint details
+    // httpsGet the endpoint details
     public HashMap<String,Serializable> getEndpointDetails(String ep_name) {
         // IOTHUB DeviceID Prefix
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
@@ -397,7 +407,7 @@ public class IoTHubDeviceManager extends DeviceManager {
             }
         }
         else {
-            this.errorLogger().warning("IoTHub: parseDeviceDetails: input JSON is EMPTY");
+            this.errorLogger().info("IoTHub: parseDeviceDetails: input JSON is EMPTY");
             ep = null;
         }
 
@@ -407,7 +417,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         }
         
         // returning empty map
-        this.errorLogger().warning("IoTHub: parseDeviceDetails: returning empty map!"); 
+        this.errorLogger().info("IoTHub: parseDeviceDetails: returning empty map!"); 
         return null;
     }
 

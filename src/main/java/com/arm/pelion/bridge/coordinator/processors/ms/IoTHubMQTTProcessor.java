@@ -829,19 +829,20 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         if (this.m_device_manager != null) {
             // create the device in IoTHub
             Boolean success = this.m_device_manager.registerNewDevice(message);
-            
-            // get the device ID and device Type
-            String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
-            String device_id = Utils.valueFromValidKey(message, "id", "ep");
-            
-            this.setEndpointTypeFromEndpointName(device_id, device_type);
-
-            // IOTHUB DeviceID Prefix
-            String iothub_ep_name = this.addDeviceIDPrefix(device_id);
-
-            // if successful, validate (i.e. add...) an MQTT Connection
             if (success == true) {
-                this.validateMQTTConnection(this, device_id, device_type, null);
+                // get the device ID and device Type
+                String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+                String device_id = Utils.valueFromValidKey(message, "id", "ep");
+
+                this.setEndpointTypeFromEndpointName(device_id, device_type);
+
+                // IOTHUB DeviceID Prefix
+                String iothub_ep_name = this.addDeviceIDPrefix(device_id);
+
+                // if successful, validate (i.e. add...) an MQTT Connection
+                if (success == true) {
+                    success = this.validateMQTTConnection(this, device_id, device_type, null);
+                }
             }
 
             // return status
@@ -1173,7 +1174,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         // see if we already have a connection for this endpoint...
         if (this.mqtt(iothub_ep_name) == null) {
             // create a MQTT connection for this endpoint... 
-            cc.createAndStartMQTTForEndpoint(iothub_ep_name, ep_type, null);
+            cc.createAndStartMQTTForEndpoint(ep_name, ep_type, null);
         }
 
         // return our connection status
@@ -1187,7 +1188,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
         // if not connected attempt
         if (!this.isConnected(ep_name)) {
-            if (this.mqtt(iothub_ep_name).connect(this.m_mqtt_host, this.m_mqtt_port, iothub_ep_name, this.m_use_clean_session)) {
+            if (this.mqtt(iothub_ep_name).connect(this.m_mqtt_host, this.m_mqtt_port, iothub_ep_name, true) == true) {
                 this.orchestrator().errorLogger().info("IoTHub: Setting CoAP command listener...");
                 this.mqtt(iothub_ep_name).setOnReceiveListener(this);
                 this.orchestrator().errorLogger().info("IoTHub: connection completed successfully");

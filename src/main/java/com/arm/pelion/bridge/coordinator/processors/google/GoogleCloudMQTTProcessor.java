@@ -964,7 +964,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                 // we may already have a connection established for this endpoint... if so, we just ignore...
                 if (this.mqtt(ep_name) == null) {
                     // no connection exists already... so... go get our endpoint details
-                    HashMap<String, Serializable> ep = this.m_device_manager.getEndpointDetails(ep_name);
+                    HashMap<String, Serializable> ep = this.m_device_manager.getDeviceDetails(ep_name);
                     if (ep != null) {
                         // create a new MQTT Transport instance for our endpoint
                         MQTTTransport mqtt = new MQTTTransport(this.errorLogger(), this.preferences(), this);

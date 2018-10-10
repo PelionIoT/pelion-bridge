@@ -26,7 +26,6 @@ import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.core.BaseClass;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.data.SerializableHashMapOfHashMaps;
-import com.arm.pelion.bridge.data.SerializableHashMap;
 import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.transport.HttpTransport;
 
@@ -35,11 +34,15 @@ import com.arm.pelion.bridge.transport.HttpTransport;
  * @author Doug Anson
  */
 public class DeviceManager extends BaseClass {
+    private static final int DEFAULT_NUM_RETRIES = 10;                              // 10 httpsGet() attempts before giving up... typically 10 is fine...
+    private static final int DEFAULT_RETRY_WAIT_MS = 1000;                          // typically wait about 1 second, then retry the https "get" call...
     protected HttpTransport m_http = null;
     protected Orchestrator m_orchestrator = null;
     protected String m_suffix = null;
     
     protected SerializableHashMapOfHashMaps m_endpoint_details = null;
+    protected int m_num_retries = DEFAULT_NUM_RETRIES;
+    protected int m_get_retry_wait_ms = DEFAULT_RETRY_WAIT_MS;  
     
     // new constructor
     public DeviceManager(Orchestrator orchestrator, HttpTransport http, String suffix) {
@@ -57,5 +60,17 @@ public class DeviceManager extends BaseClass {
         
         // initialize the endpoint keys map
         this.m_endpoint_details = new SerializableHashMapOfHashMaps(orchestrator,"ENDPOINT_DETAILS");
+        
+        // Number of https "get" retries
+        this.m_num_retries = this.preferences().intValueOf("http_get_num_retries",this.m_suffix);
+        if (this.m_num_retries <= 0) {
+            this.m_num_retries = DEFAULT_NUM_RETRIES;
+        }
+        
+        // Wait time in ms between https "get" retries
+        this.m_get_retry_wait_ms = this.preferences().intValueOf("http_get_retry_wait_ms",this.m_suffix);
+        if (this.m_get_retry_wait_ms <= 0) {
+            this.m_get_retry_wait_ms = DEFAULT_RETRY_WAIT_MS;
+        }
     }
 }

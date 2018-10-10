@@ -34,8 +34,14 @@ import java.util.Map;
  * @author Doug Anson
  */
 public class ShadowDeviceThreadDispatcher extends BaseClass implements Runnable {
+    // Throttling Tunables
+    private static final int WAIT_ON_DISPATCH_GROUP_MS=250;                 // 1/4 second (time between thread completion checks per dispatch group)
+    private static final int WAIT_DISPATCH_GROUP_LAUNCH_PAUSE_MS=100;       // 1/10 second (time between launching threads in a dispatch group)
+    
     private PelionProcessor m_pelion_processor = null;
     private int m_mds_max_shadow_create_threads = 0;
+    private int m_wait_on_dispatch_group_ms = WAIT_ON_DISPATCH_GROUP_MS;
+    private int m_wait_dispatch_group_launch_pause_ms = WAIT_DISPATCH_GROUP_LAUNCH_PAUSE_MS;
     
     // constructor
     public ShadowDeviceThreadDispatcher(PelionProcessor pelion_processor,int max_shadow_create_threads) {
@@ -118,7 +124,7 @@ public class ShadowDeviceThreadDispatcher extends BaseClass implements Runnable 
                 thread_list.add(dispatch);
                 
                 // Throttle a bit
-                Utils.waitForABit(this.errorLogger(),500);     // 1/2 second
+                Utils.waitForABit(this.errorLogger(), this.m_wait_dispatch_group_launch_pause_ms);
             }
             catch (Exception ex) {
                 // ERROR
@@ -138,7 +144,7 @@ public class ShadowDeviceThreadDispatcher extends BaseClass implements Runnable 
                     if (list.get(i).getState() == Thread.State.TERMINATED) {
                         --count;
                     }
-                    Utils.waitForABit(this.errorLogger(), 1000); // check every 1 second
+                    Utils.waitForABit(this.errorLogger(), this.m_wait_on_dispatch_group_ms); 
                 }
                 if (count <= 0) {
                     finished = true;

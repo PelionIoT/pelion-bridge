@@ -37,7 +37,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import com.mbed.lwm2m.LWM2MResource;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
-import java.lang.Thread.State;
 import java.util.ArrayList;
 
 /**
@@ -56,13 +55,13 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private static final int DEFAULT_MAX_SHADOW_CREATE_THREADS = 100;          // 100 creates at a time...
     
     // defaulted number of webhook retries
-    private static final int PELION_WEBHOOK_RETRIES = 20;                      // 20 retries
+    private static final int PELION_WEBHOOK_RETRIES = 25;                      // 25 retries
     
     // webhook retry wait time in ms..
-    private static final int PELION_WEBHOOK_RETRY_WAIT_MS = 5000;              // 5 seconds
+    private static final int PELION_WEBHOOK_RETRY_WAIT_MS = 2500;              // 2.5 seconds
     
     // amount of time to wait on boot before device discovery
-    private static final int DEVICE_DISCOVERY_DELAY_MS = 10000;                // 10 seconds
+    private static final int DEVICE_DISCOVERY_DELAY_MS = 7000;                 // 7 seconds
     
     // default endpoint type
     public static String DEFAULT_ENDPOINT_TYPE = "default";                    // default endpoint type
@@ -530,36 +529,49 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     public String getWebhook() {
         String url = null;
         String headers = null;
+        boolean success = false;
 
         // create the dispatch URL
         String dispatch_url = this.createWebhookDispatchURL();
+        
+        // loop through a few times and try
+        for(int i=0;i<this.m_webook_num_retries && success == false;++i) {
+            // Issue GET and look at the response
+            String json = this.httpsGet(dispatch_url);
+            int http_code = this.getLastResponseCode();
+            try {
+                if (json != null && json.length() > 0) {
+                    // Callback API used: parse the JSON
+                    Map parsed = (Map) this.parseJson(json);
+                    url = (String) parsed.get("url");
 
-        // Issue GET and look at the response
-        String json = this.httpsGet(dispatch_url);
-        try {
-            if (json != null && json.length() > 0) {
-                // Callback API used: parse the JSON
-                Map parsed = (Map) this.parseJson(json);
-                url = (String) parsed.get("url");
+                    // headers are optional...
+                    try {
+                        headers = (String) parsed.get("headers");
+                    }
+                    catch (Exception json_ex) {
+                        headers = "";
+                    }
 
-                // headers are optional...
-                try {
-                    headers = (String) parsed.get("headers");
+                    // DEBUG
+                    this.orchestrator().errorLogger().info("PelionProcessor: received url: " + url + " headers: " + headers + " from pelion callback dispatch: " + dispatch_url + " CODE: " + http_code);
+                    
+                    // success!!
+                    success = true;
                 }
-                catch (Exception json_ex) {
-                    headers = "";
+                else {
+                    // no response received back from mbed Cloud
+                    this.orchestrator().errorLogger().warning("PelionProcessor: ERROR: no response from pelion callback dispatch: " + dispatch_url + " CODE: " + http_code + " (may need to re-create API Key if using long polling previously...)");
                 }
-
-                // DEBUG
-                this.orchestrator().errorLogger().info("PelionProcessor: received url: " + url + " headers: " + headers + " from pelion callback dispatch: " + dispatch_url + " http response code: " + this.getLastResponseCode());
             }
-            else {
-                // no response received back from mbed Cloud
-                this.orchestrator().errorLogger().warning("PelionProcessor: ERROR: no response from pelion callback dispatch: " + dispatch_url + " http response code: " + this.getLastResponseCode() + " (may need to re-create API Key if using long polling previously...)");
+            catch (Exception ex) {
+                this.orchestrator().errorLogger().warning("PelionProcessor: ERROR exception during pelion callback dispatch: " + dispatch_url + " message: " + ex.getMessage() + " CODE: " + http_code + " JSON: " + json);
             }
-        }
-        catch (Exception ex) {
-            this.orchestrator().errorLogger().warning("PelionProcessor: ERROR exception during pelion callback dispatch: " + dispatch_url + " message: " + ex.getMessage() + " http response code: " + this.getLastResponseCode() + " JSON: " + json);
+            
+            // if unsuccessful... wait a bit
+            if (success == false) {
+                Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
+            }
         }
 
         return url;

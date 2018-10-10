@@ -511,11 +511,8 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
     }
 
     // get a given device's details...
-    private HashMap<String, Serializable> getDeviceDetails(String device) {
-        HashMap<String, Serializable> ep = this.getEndpointDetails(device);
-
-        // return our endpoint details
-        return ep;
+    public HashMap<String, Serializable> getDeviceDetails(String device_id) {
+        return this.m_endpoint_details.get(device_id);
     }
 
     // Parse the AddDevice result and capture key elements 
@@ -540,15 +537,10 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
     // save device details
     public void saveDeviceDetails(String ep_name, HashMap<String, Serializable> entry) {
         // don't overwrite an existing entry..
-        if (this.getEndpointDetails(ep_name) == null) {
+        if (this.getDeviceDetails(ep_name) == null) {
             // save off the endpoint details
             this.m_endpoint_details.put(ep_name, entry);
         }
-    }
-
-    // get our endpoint details
-    public HashMap<String, Serializable> getEndpointDetails(String ep_name) {
-        return this.m_endpoint_details.get(ep_name);
     }
     
     // get the orchestrator
