@@ -24,6 +24,7 @@ package com.arm.pelion.bridge.coordinator.processors.aws;
 
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
+import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ConnectionCreator;
@@ -327,7 +328,7 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         }
         else {
             // replace with "default"
-            cust_topic = cust_topic.replace("__DEVICE_TYPE__", "default");
+            cust_topic = cust_topic.replace("__DEVICE_TYPE__", PelionProcessor.DEFAULT_ENDPOINT_TYPE);
             
             // WARN
             this.errorLogger().warning("AWSIoT Customized Topic (EPT UNK): " + cust_topic);

@@ -86,7 +86,7 @@ public class SAMPLEProcessor extends GenericConnectablePeerProcessor implements 
         this.m_device_type_prefix = manager.preferences().valueOf("SAMPLE_device_prefix",this.m_suffix);
         
         // HTTP content type for SAMPLE
-        this.m_content_type = manager.preferences().valueOf("SAMPLE_content_type",this.m_suffix);;
+        this.m_content_type = manager.preferences().valueOf("SAMPLE_content_type",this.m_suffix);
         
         // get the SAMPLE auth token 
         this.m_auth_token = this.prefValue("SAMPLE_auth_token");
