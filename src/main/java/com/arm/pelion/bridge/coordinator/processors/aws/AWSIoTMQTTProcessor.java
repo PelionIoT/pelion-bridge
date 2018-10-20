@@ -116,9 +116,6 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
                     String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
                     String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
 
-                    // ensure we have the endpoint type
-                    this.setEndpointTypeFromEndpointName(device_id, device_type);
-
                     // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
                     this.retrieveEndpointAttributes(endpoint,this);
                 }
@@ -458,15 +455,12 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
             String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
             String device_id = Utils.valueFromValidKey(message, "id", "ep");
             
-            // save off the endpoint type/ep name
-            this.setEndpointTypeFromEndpointName(device_id,device_type);
-
             // create the device in AWSIoT
             Boolean success = this.m_device_manager.registerNewDevice(message);
 
             // if successful, validate (i.e. add...) an MQTT Connection
             if (success == true) {
-                this.validateMQTTConnection(this,device_id, device_type, null);
+                this.validateMQTTConnection(this, device_id, device_type, null);
             }
 
             // return status

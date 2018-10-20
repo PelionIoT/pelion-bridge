@@ -300,9 +300,6 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                     String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
                     String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
 
-                    // ensure we have the endpoint type
-                    this.setEndpointTypeFromEndpointName(device_id,device_type);
-
                     // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
                     this.retrieveEndpointAttributes(endpoint,this);
                 }
@@ -657,9 +654,6 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             // DEBUG
             this.errorLogger().info("GoogleCloudIOT: Registering new device: " + device_id + " type: " + device_type);
             
-            // save off the endpoint type/ep name
-            this.setEndpointTypeFromEndpointName(device_id,device_type);
-
             // create the device in GoogleCloud
             Boolean success = this.m_device_manager.registerNewDevice(message);
 

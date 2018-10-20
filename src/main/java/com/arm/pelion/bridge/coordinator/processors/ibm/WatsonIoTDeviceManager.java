@@ -496,9 +496,6 @@ public class WatsonIoTDeviceManager extends DeviceManager {
 
         // build out the POST payload
         String payload = this.createAddDeviceJSON(message);
-
-        // aggressively save the endpoint type - this keeps from creating devices of type "mbed-generic" in Watson
-        this.m_processor.setEndpointTypeFromEndpointName(device_id,device_type);
             
         // DEBUG
         this.errorLogger().info("Watson IoT: registerNewDevice: URL: " + url + " DATA: " + payload + " USER: " + this.m_watson_iot_gw_key + " PW: " + this.m_watson_iot_gw_auth_token);
@@ -512,16 +509,25 @@ public class WatsonIoTDeviceManager extends DeviceManager {
             // DEBUG
             this.errorLogger().info("Watson IoT: registerNewDevice: SUCCESS. RESULT: " + result);
             status = true;
+            
+            // aggressively save the endpoint type - this keeps from creating devices of type "mbed-generic" in Watson
+            this.m_processor.setEndpointTypeFromEndpointName(device_id,device_type);
         }
         else if (http_code == 409) {
             // DEBUG
             this.errorLogger().info("Watson IoT: registerNewDevice: SUCCESS (already registered)");
             status = true;
+            
+            // aggressively save the endpoint type - this keeps from creating devices of type "mbed-generic" in Watson
+            this.m_processor.setEndpointTypeFromEndpointName(device_id,device_type);
         }
         else if (http_code == 400 || http_code == 404) {
             // DEBUG
             this.errorLogger().info("Watson IoT: registerNewDevice: SUCCESS.");
             status = true;
+            
+            // aggressively save the endpoint type - this keeps from creating devices of type "mbed-generic" in Watson
+            this.m_processor.setEndpointTypeFromEndpointName(device_id,device_type);
         }
         else {
             // DEBUG

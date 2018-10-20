@@ -167,9 +167,6 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
                     String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
                     String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
 
-                    // ensure we have the endpoint type
-                    this.setEndpointTypeFromEndpointName(device_id,device_type);
-
                     // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
                     this.retrieveEndpointAttributes(endpoint,this);
                 }

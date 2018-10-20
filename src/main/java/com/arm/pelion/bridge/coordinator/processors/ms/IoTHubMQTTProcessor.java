@@ -277,9 +277,6 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                     String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
                     String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
 
-                    // ensure we have the endpoint type
-                    this.setEndpointTypeFromEndpointName(device_id, device_type);
-
                     // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
                     this.retrieveEndpointAttributes(endpoint,this);
                 }
@@ -833,9 +830,6 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                 // get the device ID and device Type
                 String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
                 String device_id = Utils.valueFromValidKey(message, "id", "ep");
-
-                this.setEndpointTypeFromEndpointName(device_id, device_type);
-
                 // IOTHUB DeviceID Prefix
                 String iothub_ep_name = this.addDeviceIDPrefix(device_id);
 
