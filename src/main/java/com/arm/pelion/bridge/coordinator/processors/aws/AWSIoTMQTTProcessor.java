@@ -160,25 +160,49 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
     // OVERRIDE: process a deregistration (deletion TEST)
     @Override
     public String[] processDeregistrations(Map parsed) {        
+        // process the base class...
+        String deletions[] = this.processDeregistrationsBase(parsed);
+            
         // TEST: We can actually DELETE the device on deregistration to test device-delete before the device-delete message goes live
         if (this.orchestrator().deviceRemovedOnDeRegistration() == true) {
             // processing deregistration as device deletion
             this.errorLogger().info("AWSIoT: processing de-registration as device deletion (OK).");
-            return this.processDeviceDeletions(parsed,true);
+            
+             // delete the device shadows...
+            for (int i = 0; deletions != null && i < deletions.length; ++i) {
+                if (deletions[i] != null && deletions[i].length() > 0) {
+                    // Unsubscribe... 
+                    this.unsubscribe(deletions[i]);
+                    
+                    // Disconnect MQTT *and* Delete the device shadow...
+                    this.deleteDevice(deletions[i]);
+                    
+                    // remove type
+                    this.removeEndpointTypeFromEndpointName(deletions[i]);
+                }
+            }
         }
         else {
-            // not processing deregistration as a deletion
+            // not processing deregistration as a device deletion
             this.errorLogger().info("AWSIoT: Not processing de-registration as device deletion (OK).");
+            
+            // just disconnect from MQTT
+            for (int i = 0; deletions != null && i < deletions.length; ++i) {
+                if (deletions[i] != null && deletions[i].length() > 0) {
+                    // Unsubscribe...
+                    this.unsubscribe(deletions[i]);
+
+                    // Disconnect MQTT *only*
+                    this.disconnectDeviceFromMQTT(deletions[i]);
+
+                    // remove type
+                    this.removeEndpointTypeFromEndpointName(deletions[i]);
+                }
+            }
         }
         
-        // always by default...
+        // return a default 
         return super.processDeregistrations(parsed);
-    }
-    
-    // OVERRIDE: handle device deletions AWSIOT
-    @Override
-    public String[] processDeviceDeletions(Map parsed) {
-        return this.processDeviceDeletions(parsed,false);
     }
     
     // OVERRIDE: process a registrations-expired 
@@ -188,30 +212,21 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
        return this.processDeregistrations(parsed);
     }
     
-    // handle device deletions AWSIOT
-    private String[] processDeviceDeletions(Map parsed,boolean use_deregistration) {
-        String[] deletions = null;
-        
+    // OVERRIDE: handle device deletions Google Cloud
+    @Override
+    public String[] processDeviceDeletions(Map parsed) {
         // complete processing in base class...
-        if (use_deregistration == true) {
-            deletions = this.processDeregistrationsBase(parsed);
-        }
-        else {
-            deletions = this.processDeviceDeletionsBase(parsed);
-        }
+        String[] deletions = this.processDeviceDeletionsBase(parsed);
         
         // delete the device shadows...
         for (int i = 0; deletions != null && i < deletions.length; ++i) {
             if (deletions[i] != null && deletions[i].length() > 0) {
-                // DEBUG
-                this.errorLogger().info("AWSIOT: processing device deletion for device: " + deletions[i]);
-
-                // AWSIOT add-on... 
+                // Unsubscribe... 
                 this.unsubscribe(deletions[i]);
 
-                // Remove from AWSIOT
+                // Disconnect from MQTT *and* delete the device shadow...
                 this.deleteDevice(deletions[i]);
-                
+
                 // remove type
                 this.removeEndpointTypeFromEndpointName(deletions[i]);
             }
@@ -468,20 +483,32 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         }
         return false;
     }
+    
+     // disconnect the device from MQTT
+    private void disconnectDeviceFromMQTT(String device) {
+        // DEBUG
+        this.errorLogger().warning("AWSIoT: Disconnecting MQTT for device: " + device + "...");
+
+        // stop the listener thread for this device
+        this.stopListenerThread(device);
+
+        // disconnect MQTT for this device
+        this.disconnect(device);
+        
+         // DEBUG
+        this.errorLogger().warning("AWSIoT: Disconnected MQTT for device: " + device + " SUCCESSFULLY.");
+    }
 
     // process device de-registration
     @Override
     protected synchronized Boolean deleteDevice(String device_id) {
         boolean deleted = true;
         if (this.m_device_manager != null && device_id != null && device_id.length() > 0) {
+            // remove the MQTT transport instance
+            this.disconnectDeviceFromMQTT(device_id);
+            
             // DEBUG
-            this.errorLogger().info("AWSIoT: deregistering device: " + device_id);
-
-            // disconnect, remove the threaded listener... 
-            this.stopListenerThread(device_id);
-
-            // also remove MQTT Transport instance too...
-            this.disconnect(device_id);
+            this.errorLogger().info("AWSIoT: deleting device shadow: " + device_id);
 
             // remove the device from AWSIoT
             deleted = this.m_device_manager.deleteDevice(device_id);
@@ -489,7 +516,12 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         
         // DEBUG
         if (deleted == false && device_id != null && device_id.length() > 0) {
-            this.errorLogger().warning("AWSIoT: WARNING: Unable to fully delete device: " + device_id + " from AWSIoT...");
+            // unable to delete the device shadow from IoTHub
+            this.errorLogger().warning("AWSIoT: WARNING: Unable to delete device " + device_id + " from IoTHub!");
+        }
+        else {
+            // successfully deleted the device shadow from Google CloudIoT
+            this.errorLogger().warning("AWSIoT: Device " + device_id + " deleted from IoTHub SUCCESSFULLY.");
         }
         
         // return the deletion status

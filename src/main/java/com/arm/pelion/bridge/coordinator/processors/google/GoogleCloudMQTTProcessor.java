@@ -393,10 +393,8 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     // OVERRIDE: handle device deletions Google Cloud
     @Override
     public String[] processDeviceDeletions(Map parsed) {
-        String[] deletions = null;
-        
         // complete processing in base class...
-        deletions = this.processDeviceDeletionsBase(parsed);
+        String[] deletions = this.processDeviceDeletionsBase(parsed);
         
         // delete the device shadows...
         for (int i = 0; deletions != null && i < deletions.length; ++i) {

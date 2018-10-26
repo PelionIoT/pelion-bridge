@@ -321,26 +321,50 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
     // OVERRIDE: process a deregistration (deletion TEST)
     @Override
-    public String[] processDeregistrations(Map parsed) {        
+    public String[] processDeregistrations(Map parsed) {
+        // process the base class...
+        String deletions[] = this.processDeregistrationsBase(parsed);
+        
         // TEST: We can actually DELETE the device on deregistration to test device-delete before the device-delete message goes live
         if (this.orchestrator().deviceRemovedOnDeRegistration() == true) {
             // processing deregistration as device deletion
             this.errorLogger().info("IoTHub: processing de-registration as device deletion (OK).");
-            this.processDeviceDeletions(parsed, true);
+            
+             // delete the device shadows...
+            for (int i = 0; deletions != null && i < deletions.length; ++i) {
+                if (deletions[i] != null && deletions[i].length() > 0) {
+                    // Unsubscribe... 
+                    this.unsubscribe(deletions[i]);
+                    
+                    // Disconnect MQTT *and* Delete the device shadow...
+                    this.deleteDevice(deletions[i]);
+                    
+                    // remove type
+                    this.removeEndpointTypeFromEndpointName(deletions[i]);
+                }
+            }
         }
         else {
-            // not processing deregistration as a deletion
+            // not processing deregistration as a device deletion
             this.errorLogger().info("IoTHub: Not processing de-registration as device deletion (OK).");
+            
+            // just disconnect from MQTT
+            for (int i = 0; deletions != null && i < deletions.length; ++i) {
+                if (deletions[i] != null && deletions[i].length() > 0) {
+                    // Unsubscribe...
+                    this.unsubscribe(deletions[i]);
+
+                    // Disconnect MQTT *only*
+                    this.disconnectDeviceFromMQTT(deletions[i]);
+
+                    // remove type
+                    this.removeEndpointTypeFromEndpointName(deletions[i]);
+                }
+            }
         }
         
         // always by default...
         return super.processDeregistrations(parsed);
-    }
-    
-    // OVERRIDE: handle device deletions IoTHub
-    @Override
-    public String[] processDeviceDeletions(Map parsed) {
-        return this.processDeviceDeletions(parsed,false);
     }
     
     // OVERRIDE: process a registrations-expired 
@@ -350,30 +374,21 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
        return this.processDeregistrations(parsed);
     }
     
-    // handle device deletions IoTHub
-    private String[] processDeviceDeletions(Map parsed,boolean use_deregistration) {
-        String[] deletions = null;
-        
+    // OVERRIDE: handle device deletions IoTHub
+    @Override
+    public String[] processDeviceDeletions(Map parsed) {
         // complete processing in base class...
-        if (use_deregistration == true) {
-            deletions = this.processDeregistrationsBase(parsed);
-        }
-        else {
-            deletions = this.processDeviceDeletionsBase(parsed);
-        }
+        String[] deletions = this.processDeviceDeletionsBase(parsed);
         
         // delete the device shadows...
         for (int i = 0; deletions != null && i < deletions.length; ++i) {
             if (deletions[i] != null && deletions[i].length() > 0) {
-                // DEBUG
-                this.errorLogger().info("IoTHub: processing device deletion for device: " + deletions[i]);
-                
-                // IoTHub add-on... 
+                // Unsubscribe... 
                 this.unsubscribe(deletions[i]);
 
-                // Remove from IoTHub
+                // Disconnect from MQTT *and* delete the device shadow...
                 this.deleteDevice(deletions[i]);
-                
+
                 // remove type
                 this.removeEndpointTypeFromEndpointName(deletions[i]);
             }
@@ -845,35 +860,55 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         return false;
     }
 
+    // disconnect the device from MQTT
+    private void disconnectDeviceFromMQTT(String device) {
+        // IOTHUB DeviceID Prefix
+        String iothub_ep_name = this.addDeviceIDPrefix(device);
+        
+        // DEBUG
+        this.errorLogger().warning("IoTHub: Disconnecting MQTT for device: " + device + "...");
+
+        // stop the listener thread for this device
+        this.stopListenerThread(device);
+
+        // disconnect MQTT for this device
+        this.disconnect(device);
+        this.remove(iothub_ep_name);
+        
+        // remove the device's MQTT thread listener 
+        if (this.m_mqtt_thread_list.get(iothub_ep_name) != null) {
+            try {
+                this.m_mqtt_thread_list.get(iothub_ep_name).disconnect();
+            }
+            catch (Exception ex) {
+                // note but continue...
+                this.errorLogger().warning("IoTHub: Exception during device MQTT disconnection: " + ex.getMessage());
+            }
+            this.m_mqtt_thread_list.remove(iothub_ep_name);
+        }
+        
+         // DEBUG
+        this.errorLogger().warning("IoTHub: Disconnected MQTT for device: " + device + " SUCCESSFULLY.");
+    }
+    
     // IoTHub Specific: process device deletion
     @Override
     protected synchronized Boolean deleteDevice(String ep_name) {
         if (this.m_device_manager != null && ep_name != null && ep_name.length() > 0) {
-            // IOTHUB DeviceID Prefix
-            String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
-
+            // remove the MQTT transport instance
+            this.disconnectDeviceFromMQTT(ep_name);
+            
             // DEBUG
             this.errorLogger().info("IoTHub: deleting device shadow: " + ep_name);
 
-            // remove the MQTT transport instance
-            this.disconnect(ep_name);
-            this.remove(iothub_ep_name);
-            
-            // remove the device's MQTT thread listener 
-            if (this.m_mqtt_thread_list.get(iothub_ep_name) != null) {
-                try {
-                    this.m_mqtt_thread_list.get(iothub_ep_name).disconnect();
-                }
-                catch (Exception ex) {
-                    // note but continue...
-                    this.errorLogger().warning("IoTHub: Exception during device shadow MQTT disconnection: " + ex.getMessage());
-                }
-                this.m_mqtt_thread_list.remove(iothub_ep_name);
-            }
-
             // remove the device from IoTHub
             if (this.m_device_manager.deleteDevice(ep_name) == false) {
-                this.errorLogger().warning("IoTHub: WARNING: Unable to delete device shadow from IoTHub...");
+                // unable to delete the device shadow from IoTHub
+                this.errorLogger().warning("IoTHub: WARNING: Unable to delete device " + ep_name + " from IoTHub!");
+            }
+            else {
+                // successfully deleted the device shadow from Google CloudIoT
+                this.errorLogger().warning("IoTHub: Device " + ep_name + " deleted from IoTHub SUCCESSFULLY.");
             }
             
             // remove type from the type list
@@ -1206,8 +1241,6 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         
         // if connected, disconnect MQTT handle...
         if (this.isConnected(ep_name) == true) {
-            // DEBUG
-            this.errorLogger().warning("IoTHub: Disconnecting MQTT for device: " + ep_name + "...");
             this.mqtt(iothub_ep_name).disconnect(true);
         }
         
