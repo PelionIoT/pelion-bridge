@@ -34,6 +34,7 @@ import java.util.Queue;
  * @author Brian Daniels
  */
 public class LoggerTracker implements Runnable {
+    private static final int RECHECK_INTERVAL_MS = 1000;            // sleep interval for draining log queue
     private static final LoggerTracker me = new LoggerTracker();
     private static Thread me_thread = new Thread(me);
     private boolean is_running = true;
@@ -97,8 +98,8 @@ public class LoggerTracker implements Runnable {
             
             // if we have drained our queue... sleep
             do {
-                // Sleep for 10 seconds and recheck
-                Utils.waitForABit(null, 10000);
+                // Sleep a bit and recheck
+                Utils.waitForABit(null, RECHECK_INTERVAL_MS);
             }
             while (this.getMessageCount() == 0);
         }
