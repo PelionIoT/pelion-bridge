@@ -853,7 +853,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
 
             // DEBUG
-            this.errorLogger().warning("IoTHub: deleting device: " + ep_name);
+            this.errorLogger().info("IoTHub: deleting device shadow: " + ep_name);
 
             // remove the MQTT transport instance
             this.disconnect(ep_name);
@@ -866,14 +866,14 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                 }
                 catch (Exception ex) {
                     // note but continue...
-                    this.errorLogger().warning("IoTHub: exception during device deletion", ex);
+                    this.errorLogger().warning("IoTHub: Exception during device shadow MQTT disconnection: " + ex.getMessage());
                 }
                 this.m_mqtt_thread_list.remove(iothub_ep_name);
             }
 
             // remove the device from IoTHub
             if (this.m_device_manager.deleteDevice(ep_name) == false) {
-                this.errorLogger().warning("IoTHub: unable to de-register device from IoTHub...");
+                this.errorLogger().warning("IoTHub: WARNING: Unable to delete device shadow from IoTHub...");
             }
             
             // remove type from the type list
