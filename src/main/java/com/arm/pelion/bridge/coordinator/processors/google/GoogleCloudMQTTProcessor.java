@@ -337,26 +337,50 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     
     // OVERRIDE: process a deregistration (deletion TEST)
     @Override
-    public String[] processDeregistrations(Map parsed) {        
+    public String[] processDeregistrations(Map parsed) {      
+        // process the base class...
+        String deletions[] = this.processDeregistrationsBase(parsed);
+            
         // TEST: We can actually DELETE the device on deregistration to test device-delete before the device-delete message goes live
         if (this.orchestrator().deviceRemovedOnDeRegistration() == true) {
             // processing deregistration as device deletion
             this.errorLogger().info("GoogleCloudIOT: processing de-registration as device deletion (OK).");
-            return this.processDeviceDeletions(parsed, true);
+            
+             // delete the device shadows...
+            for (int i = 0; deletions != null && i < deletions.length; ++i) {
+                if (deletions[i] != null && deletions[i].length() > 0) {
+                    // Unsubscribe... 
+                    this.unsubscribe(deletions[i]);
+                    
+                    // Disconnect MQTT *and* Delete the device shadow...
+                    this.deleteDevice(deletions[i]);
+                    
+                    // remove type
+                    this.removeEndpointTypeFromEndpointName(deletions[i]);
+                }
+            }
         }
         else {
-            // not processing deregistration as a deletion
+            // not processing deregistration as a device deletion
             this.errorLogger().info("GoogleCloudIOT: Not processing de-registration as device deletion (OK).");
+            
+            // just disconnect from MQTT
+            for (int i = 0; deletions != null && i < deletions.length; ++i) {
+                if (deletions[i] != null && deletions[i].length() > 0) {
+                    // Unsubscribe...
+                    this.unsubscribe(deletions[i]);
+
+                    // Disconnect MQTT *only*
+                    this.disconnectDeviceFromMQTT(deletions[i]);
+
+                    // remove type
+                    this.removeEndpointTypeFromEndpointName(deletions[i]);
+                }
+            }
         }
         
         // return a default 
         return super.processDeregistrations(parsed);
-    }
-    
-    // OVERRIDE: handle device deletions Google Cloud
-    @Override
-    public String[] processDeviceDeletions(Map parsed) {
-        return this.processDeviceDeletions(parsed,false);
     }
     
     // OVERRIDE: process a registrations-expired 
@@ -366,28 +390,21 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
        return this.processDeregistrations(parsed);
     }
     
-    // handle device deletions Google Cloud
-    private String[] processDeviceDeletions(Map parsed,boolean use_deregistration) {
+    // OVERRIDE: handle device deletions Google Cloud
+    @Override
+    public String[] processDeviceDeletions(Map parsed) {
         String[] deletions = null;
         
         // complete processing in base class...
-        if (use_deregistration == true) {
-            deletions = this.processDeregistrationsBase(parsed);
-        }
-        else {
-            deletions = this.processDeviceDeletionsBase(parsed);
-        }
+        deletions = this.processDeviceDeletionsBase(parsed);
         
         // delete the device shadows...
         for (int i = 0; deletions != null && i < deletions.length; ++i) {
             if (deletions[i] != null && deletions[i].length() > 0) {
-                // DEBUG
-                this.errorLogger().info("GoogleCloudIOT: processing device deletion for device: " + deletions[i]);
-
-                // GoogleCloud add-on... 
+                // Unsubscribe... 
                 this.unsubscribe(deletions[i]);
 
-                // Remove from GoogleCloud
+                // Disconnect from MQTT *and* delete the device shadow...
                 this.deleteDevice(deletions[i]);
 
                 // remove type
@@ -667,6 +684,24 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         }
         return false;
     }
+    
+    // disconnect the device from MQTT
+    private void disconnectDeviceFromMQTT(String device) {
+        // DEBUG
+        this.errorLogger().warning("GoogleCloudIOT: Disconnecting MQTT for device: " + device + "...");
+
+        // stop the refresher thread
+        this.stopJwTRefresherThread(device);
+
+        // stop the listener thread for this device
+        this.stopListenerThread(device);
+
+        // disconnect MQTT for this device
+        this.disconnect(device);
+        
+         // DEBUG
+        this.errorLogger().warning("GoogleCloudIOT: Disconnected MQTT for device: " + device + " SUCCESSFULLY.");
+    }
 
     /**
      * process device deletion
@@ -676,22 +711,21 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     @Override
     protected synchronized Boolean deleteDevice(String device) {
         if (this.m_device_manager != null && device != null && device.length() > 0) {
-            // DEBUG
-            this.errorLogger().info("GoogleCloudIOT: deleting device: " + device);
-
-            // stop the refresher thread
-            this.stopJwTRefresherThread(device);
-           
-            // stop the listener thread for this device
-            this.stopListenerThread(device);
+            // disconnect from MQTT
+            this.disconnectDeviceFromMQTT(device);
             
-            // disconnect MQTT for this device
-            this.disconnect(device);
+             // DEBUG
+            this.errorLogger().info("GoogleCloudIOT: deleting device: " + device + " from Google CloudIoT...");
             
             // remove the device from GoogleCloud
             if (this.m_device_manager.deleteDevice(device) == false) {
-                this.errorLogger().warning("GoogleCloudIOT: unable to delete device from GoogleCloud...");
-            }            
+                // unable to delete the device shadow from Google CloudIoT
+                this.errorLogger().warning("GoogleCloudIOT: WARNING: Unable to delete device " + device + " from Google CloudIoT!");
+            }    
+            else {
+                // successfully deleted the device shadow from Google CloudIoT
+                this.errorLogger().warning("GoogleCloudIOT: Device " + device + " deleted from Google CloudIoT SUCCESSFULLY.");
+            }
         }
         
         // aggressive deletion
