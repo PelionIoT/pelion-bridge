@@ -95,7 +95,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     private int m_shadow_count = 0;
 
     // our HTTP transport interface
-    private HttpTransport m_http = null;
+    //private HttpTransport m_http = null;
 
     // JSON support
     private JSONGeneratorFactory m_json_factory = null;
@@ -157,11 +157,8 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         // create the JSON Parser
         this.m_json_parser = this.m_json_factory.newJsonParser();
 
-        // build out the HTTP transport
-        this.m_http = new HttpTransport(this.m_error_logger, this.m_preference_manager);
-
         // We always create the Pelion processor (1 only)
-        this.m_pelion_processor = new PelionProcessor(this, this.m_http);
+        this.m_pelion_processor = new PelionProcessor(this, new HttpTransport(this.m_error_logger, this.m_preference_manager));
       
         // initialize our peer processors... (n-way... but default is just 1...)
         this.initPeerProcessorList();
@@ -249,34 +246,34 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         if (this.ibmPeerEnabled()) {
             // IBM WatsonIoT/MQTT
             this.errorLogger().info("Orchestrator: Adding IBM WatsonIoT MQTT Processor");
-            this.m_peer_processor_list.add(WatsonIoTPeerProcessorFactory.createPeerProcessor(this, this.m_http));
+            this.m_peer_processor_list.add(WatsonIoTPeerProcessorFactory.createPeerProcessor(this, new HttpTransport(this.m_error_logger, this.m_preference_manager)));
         }
         if (this.msPeerEnabled()) {
             // MS IoTHub/MQTT
             this.errorLogger().info("Orchestrator: Adding MS IoTHub MQTT Processor");
-            this.m_peer_processor_list.add(MSIoTHubPeerProcessorFactory.createPeerProcessor(this, this.m_http));
+            this.m_peer_processor_list.add(MSIoTHubPeerProcessorFactory.createPeerProcessor(this, new HttpTransport(this.m_error_logger, this.m_preference_manager)));
         }
         if (this.awsPeerEnabled()) {
             // Amazon AWSIoT/MQTT
             this.errorLogger().info("Orchestrator: Adding AWSIoT MQTT Processor");
-            this.m_peer_processor_list.add(AWSIoTPeerProcessorFactory.createPeerProcessor(this, this.m_http));
+            this.m_peer_processor_list.add(AWSIoTPeerProcessorFactory.createPeerProcessor(this, new HttpTransport(this.m_error_logger, this.m_preference_manager)));
         }
         if (this.googleCloudPeerEnabled()) {
             // Google CloudIoT/MQTT
             this.errorLogger().info("Orchestrator: Adding Google CloudIoT MQTT Processor");
-            this.m_peer_processor_list.add(GoogleCloudPeerProcessorFactory.createPeerProcessor(this, this.m_http));
+            this.m_peer_processor_list.add(GoogleCloudPeerProcessorFactory.createPeerProcessor(this, new HttpTransport(this.m_error_logger, this.m_preference_manager)));
         }
         if (this.genericMQTTPeerEnabled()) {
             // Generic MQTT
             this.errorLogger().info("Orchestrator: Adding Generic MQTT Processor");
-            this.m_peer_processor_list.add(GenericMQTTPeerProcessorFactory.createPeerProcessor(this, this.m_http));
+            this.m_peer_processor_list.add(GenericMQTTPeerProcessorFactory.createPeerProcessor(this, new HttpTransport(this.m_error_logger, this.m_preference_manager)));
         }
         
         // TEMPLATE FOR SAMPLE Peer
         if (this.SAMPLEPeerEnabled()) {
             // SAMPLE
             this.errorLogger().info("Orchestrator: Adding SAMPLE Processor");
-            this.m_peer_processor_list.add(SAMPLEPeerProcessorFactory.createPeerProcessor(this, this.m_http));
+            this.m_peer_processor_list.add(SAMPLEPeerProcessorFactory.createPeerProcessor(this, new HttpTransport(this.m_error_logger, this.m_preference_manager)));
         }
     }
     

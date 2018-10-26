@@ -34,7 +34,7 @@ import java.util.Queue;
  * @author Brian Daniels
  */
 public class LoggerTracker implements Runnable {
-    private static final int RECHECK_INTERVAL_MS = 1000;            // sleep interval for draining log queue
+    private static final int RECHECK_INTERVAL_MS = 800;            // sleep interval for draining log queue
     private static final LoggerTracker me = new LoggerTracker();
     private static Thread me_thread = new Thread(me);
     private boolean is_running = true;
