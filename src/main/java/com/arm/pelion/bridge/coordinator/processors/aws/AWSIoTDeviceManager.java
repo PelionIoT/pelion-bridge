@@ -290,7 +290,7 @@ public class AWSIoTDeviceManager extends DeviceManager {
             this.m_endpoint_details.remove(device);
 
             // DEBUG
-            this.errorLogger().info("AWSIoT: deleteDevice: device: " + device + " deletion RESULT: " + result);
+            this.errorLogger().warning("AWSIoT: deleteDevice: device: " + device + " deletion SUCCESS");
             
             // return status
             return true;

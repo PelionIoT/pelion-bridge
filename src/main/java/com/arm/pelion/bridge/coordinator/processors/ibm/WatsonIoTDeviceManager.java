@@ -540,6 +540,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
 
     // process device deletion
     public Boolean deleteDevice(String device_id,String device_type) {
+        boolean status = true;
         if (device_id != null && device_id.length() > 0 && device_type != null && device_type.length() > 0) {
             // create the URL
             String url = this.createDevicesURL(device_type);
@@ -559,9 +560,14 @@ public class WatsonIoTDeviceManager extends DeviceManager {
                 // DEBUG
                 this.errorLogger().warning("Watson IoT: deleted device: " + device_id + " Type: " + device_type + "  SUCCESS. Code: " + http_code);
             }
+            else if (http_code == 404) {
+                // DEBUG
+                this.errorLogger().warning("Watson IoT: delete device: " + device_id + " Type: " + device_type + " SUCCESS(not found). Code: " + http_code);
+            }
             else {
                 // DEBUG
                 this.errorLogger().warning("Watson IoT: delete device: " + device_id + " Type: " + device_type + " FAILURE. Code: " + http_code + " RESULT: " + result);
+                status = false;
             }
 
             // remove our device if successful
@@ -569,6 +575,6 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         }
         
         // return our status
-        return true;
+        return status;
     }
 }

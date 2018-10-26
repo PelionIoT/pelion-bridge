@@ -492,18 +492,18 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                 this.m_endpoint_details.remove(ep_name);
 
                 // DEBUG
-                this.errorLogger().info("GoogleCloudIOT: deleteDevice: device: " + ep_name + " deletion SUCCESSFUL");
+                this.errorLogger().warning("GoogleCloudIOT: deleteDevice: device: " + ep_name + " deletion SUCCESS");
 
                 // success
                 return true;
             }
             catch (IOException ex) {
                 // unable to delete the device
-                this.errorLogger().warning("GoogleCloudIOT: deleteDevice: WARNING:  Unable to delete device: " + ep_name + " Error: " + ex.getMessage());
+                this.errorLogger().warning("GoogleCloudIOT: deleteDevice: WARNING:  Unable to delete device: " + ep_name + " Exception: " + ex.getMessage());
             }
         }
         else {
-            this.errorLogger().info("GoogleCloudIOT: deleteDevice: WARNING: device name is NULL. Nothing deleted");
+            this.errorLogger().warning("GoogleCloudIOT: deleteDevice: WARNING: device name is NULL. Nothing deleted");
         }
         
         // error
