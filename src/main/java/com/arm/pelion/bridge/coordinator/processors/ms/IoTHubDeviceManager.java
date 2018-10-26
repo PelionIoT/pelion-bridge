@@ -211,11 +211,11 @@ public class IoTHubDeviceManager extends DeviceManager {
         int http_code = this.m_http.getLastResponseCode();
         if (Utils.httpResponseCodeOK(http_code)) {
             // DEBUG
-            this.errorLogger().info("IoTHub: deleteDevice: device: " + ep_name + " deletion SUCCESS");
+            this.errorLogger().warning("IoTHub: deleteDevice: device: " + ep_name + " deletion SUCCESS");
         }
         else if (http_code == 404) {
             // DEBUG
-            this.errorLogger().info("IoTHub: ddeleteDevice: device: " + ep_name + " deletion SUCCES(not found)");
+            this.errorLogger().warning("IoTHub: ddeleteDevice: device: " + ep_name + " deletion SUCCES(not found)");
         }
         else {
             // DEBUG
