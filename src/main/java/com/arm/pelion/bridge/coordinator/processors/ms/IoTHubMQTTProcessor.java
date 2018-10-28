@@ -447,7 +447,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
             // send to IoTHub...
             if (this.mqtt(iothub_ep_name) != null) {
-                boolean status = this.mqtt(iothub_ep_name).sendMessage(this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, ep_name, null), iot_event_hub_coap_json, QoS.AT_MOST_ONCE);
+                boolean status = this.mqtt(iothub_ep_name).sendMessage(this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name), iot_event_hub_coap_json, QoS.AT_MOST_ONCE);
                 if (status == true) {
                     // not connected
                     this.errorLogger().info("IoTHub: CoAP notification sent. SUCCESS");
@@ -630,14 +630,13 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
         // parse the topic to get the endpoint
         // format: devices/__IOTHUB_EPNAME__/messages/devicebound/#
-        // IOTHUB DevicIDPrefix
+        // IOTHUB DeviceIDPrefix
         String iothub_ep_name = this.getEndpointNameFromTopic(topic);
-        String ep_name = removeDeviceIDPrefix(iothub_ep_name);
         
         // process any API requests...
         if (this.isApiRequest(message)) {
             // process the message
-            String reply_topic = this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, ep_name, null);
+            String reply_topic = this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name);
             reply_topic = reply_topic.replace(this.m_observation_key,this.m_api_response_key);
             this.sendApiResponse(iothub_ep_name,reply_topic,this.processApiRequestOperation(message));
             
@@ -707,7 +706,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
 
                 // send the observation (GET reply)...
                 if (this.mqtt(iothub_ep_name) != null) {
-                    String reply_topic = this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, ep_name, null);
+                    String reply_topic = this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name);
                     reply_topic = reply_topic.replace(this.m_observation_key, this.m_cmd_response_key);
                     boolean status = this.mqtt(iothub_ep_name).sendMessage(reply_topic, observation, QoS.AT_MOST_ONCE);
                     if (status == true) {
@@ -1038,7 +1037,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             // IOTHUB DeviceID Prefix
             String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
 
-            topic_string_list[0] = this.customizeTopic(this.m_iot_hub_coap_cmd_topic_base, iothub_ep_name, ep_name, ep_type);
+            topic_string_list[0] = this.customizeTopic(this.m_iot_hub_coap_cmd_topic_base, iothub_ep_name);
             for (int i = 0; i < m_num_coap_topics; ++i) {
                 list[i] = new Topic(topic_string_list[i], QoS.AT_LEAST_ONCE);
             }
@@ -1054,27 +1053,12 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     public String getReplyTopic(String ep_name, String ep_type, String def) {
         // IOTHUB DeviceID Prefix
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
-        return this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name, ep_name, ep_type).replace(this.m_observation_key, this.m_cmd_response_key);
+        return this.customizeTopic(this.m_iot_hub_observe_notification_topic, iothub_ep_name).replace(this.m_observation_key, this.m_cmd_response_key);
     }
 
     // final customization of a MQTT Topic...
-    private String customizeTopic(String topic, String iothub_ep_name, String ep_name, String ep_type) {
-        String cust_topic = topic.replace("__EPNAME__", iothub_ep_name);
-        if (ep_type == null) {
-            ep_type = this.getEndpointTypeFromEndpointName(ep_name);
-        }
-        if (ep_type != null) {
-            cust_topic = cust_topic.replace("__DEVICE_TYPE__", ep_type);
-            this.errorLogger().info("IoTHub Customized Topic: " + cust_topic);
-        }
-        else {
-            // replace with "default"
-            cust_topic = cust_topic.replace("__DEVICE_TYPE__", "default");
-            
-            // WARN
-            this.errorLogger().warning("IoTHub Customized Topic (EPT UNK): " + cust_topic);
-        }
-        return cust_topic;
+    private String customizeTopic(String topic, String iothub_ep_name) {
+        return topic.replace("__EPNAME__", iothub_ep_name);
     }
     
     // OVERRIDE stop the listener thread
