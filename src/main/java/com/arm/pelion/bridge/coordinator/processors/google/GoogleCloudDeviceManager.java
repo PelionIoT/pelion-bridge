@@ -516,7 +516,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                 String keystore = (String)device.get("keystore");
                 if (keystore != null) {
                     // DEBUG
-                    this.errorLogger().warning("GoogleCloudIoT: Deleting keystore: " + keystore + "...");
+                    this.errorLogger().info("GoogleCloudIoT: Deleting keystore: " + keystore + "...");
                     
                     // remove the keystore
                     Utils.deleteKeystore(this.errorLogger(), keystore, ep_name);
