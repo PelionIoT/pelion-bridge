@@ -407,6 +407,21 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         credlist.add(cred);
         return credlist;
     }
+    
+    // check whether we have valid RSA creds in a keystore for a given device's shadow
+    private boolean haveDeviceShadowCredentials(String ep_name) {
+        boolean have_creds = false;
+        
+        // try to read the private key from the keystore file
+        byte[] pkey  = Utils.readRSAKeyforDevice(this.errorLogger(), this.m_keystore_rootdir, ep_name, true);
+        if (pkey != null && pkey.length > 10) {
+            // we have creds
+            have_creds = true;
+        }
+        
+        // return our status
+        return have_creds;
+    }
 
     // create and register a new device
     private boolean createAndRegisterNewDevice(Map message,boolean cache_device) {
@@ -419,6 +434,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         // create the Google Device
         try {
             if (this.googleDeviceExists(ep_name) == false) {
+                // device does not exist in Google CloudIoT... so we have to build it...
                 Device device = new Device();
 
                 // map to endpoint name - we preface with the endpoint_type
@@ -457,9 +473,19 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                     this.errorLogger().warning("GoogleCloudIOT: registerNewDevice: key creation FAILED. Unable to create device.");
                 }
             }
+            else if (this.haveDeviceShadowCredentials(ep_name) == false) {
+                // device exists in Google CloudIoT... but we no longer have creds for it...
+                this.errorLogger().warning("GoogleCloudIoT: device exists in cloud but we no longer have shadow creds. Re-creating shadow...");
+                
+                // First, we delete the old device in CloudIoT
+                this.deleteDevice(ep_name); 
+                
+                // then we recurse into this method and try again
+                created = this.createAndRegisterNewDevice(message, cache_device);
+            }
             else if (cache_device == true) {
                 // device already exists in google... so just add it here...
-                this.errorLogger().info("GoogleCloudIOT: registerNewDevice: device already exists... (OK). Caching device details...");
+                this.errorLogger().info("GoogleCloudIOT: registerNewDevice: device already exists with creds... (OK). Caching device details...");
 
                 // save off device details... (empty result)
                 this.saveAddDeviceDetails(ep_name, ep_type);
