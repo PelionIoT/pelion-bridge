@@ -458,7 +458,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                             this.errorLogger().info("GoogleCloudIOT: registerNewDevice: device created!  Now saving off device details...");
 
                             // save off device details... (empty result)
-                            this.saveAddDeviceDetails(ep_name, ep_type);
+                            this.saveAddDeviceDetails(ep_name, ep_type, keystore);
                             created = true;
                         }
                         else {
@@ -488,7 +488,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                 this.errorLogger().info("GoogleCloudIOT: registerNewDevice: device already exists with creds... (OK). Caching device details...");
 
                 // save off device details... (empty result)
-                this.saveAddDeviceDetails(ep_name, ep_type);
+                this.saveAddDeviceDetails(ep_name, ep_type, null);
                 created = true;
             }
             else {
@@ -505,35 +505,58 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         // return our status
         return created;
     }
+    
+    // remove the device shadow's keystore
+    private void removeKeystoreForDeviceShadow(String ep_name) {
+        if (ep_name != null && ep_name.length() > 0) {
+            // Get the endpoint device details
+            Map device = this.m_endpoint_details.get(ep_name);
+            if (device != null && device.isEmpty() == false) {
+                // get the keystore filename
+                String keystore = (String)device.get("keystore");
+                if (keystore != null) {
+                    // DEBUG
+                    this.errorLogger().warning("GoogleCloudIoT: Deleting keystore: " + keystore + "...");
+                    
+                    // remove the keystore
+                    Utils.deleteKeystore(this.errorLogger(), keystore, ep_name);
+                }
+            }
+        }
+    }
 
     // process device deletion
     public boolean deleteDevice(String ep_name) {
+        boolean deleted = false;
         if (ep_name != null && ep_name.length() > 0) {
             try {
                 // remove the device from Google
                 String device_path = this.buildDevicePath(this.mbedDeviceIDToGoogleDeviceID(ep_name));
                 this.m_cloud_iot.projects().locations().registries().devices().delete(device_path).execute();
 
-                // remove the endpoint details
-                this.m_endpoint_details.remove(ep_name);
-
                 // DEBUG
                 this.errorLogger().warning("GoogleCloudIOT: deleteDevice: device: " + ep_name + " deletion SUCCESS");
 
                 // success
-                return true;
+                deleted = true;
             }
             catch (IOException ex) {
                 // unable to delete the device
-                this.errorLogger().warning("GoogleCloudIOT: deleteDevice: WARNING:  Unable to delete device: " + ep_name + " Exception: " + ex.getMessage());
+                this.errorLogger().warning("GoogleCloudIOT: deleteDevice: WARNING:  Unable to delete device: " + ep_name + " from Google CloudIoT. Exception: " + ex.getMessage());
             }
         }
         else {
             this.errorLogger().warning("GoogleCloudIOT: deleteDevice: WARNING: device name is NULL. Nothing deleted");
         }
         
+        // remove the keystore for this device
+        this.removeKeystoreForDeviceShadow(ep_name);
+        
+        // remove the endpoint details
+        this.m_endpoint_details.remove(ep_name);
+        
         // error
-        return false;
+        return deleted;
     }
 
     // get a given device's details...
@@ -542,7 +565,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
     }
 
     // Parse the AddDevice result and capture key elements 
-    private void saveAddDeviceDetails(String ep_name, String ep_type) {
+    private void saveAddDeviceDetails(String ep_name, String ep_type,String keystore) {
         SerializableHashMap entry = null;
         
         // create our cache entry
@@ -555,6 +578,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         entry.put("project",this.m_project_id);
         entry.put("registry_path",this.m_registry_path);
         entry.put("registry_name",this.m_registry_name);
+        entry.put("keystore",keystore);
         
         // save off
         this.m_endpoint_details.put(ep_name,entry.map());
