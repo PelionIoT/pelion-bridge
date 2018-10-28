@@ -215,11 +215,11 @@ public class IoTHubDeviceManager extends DeviceManager {
         }
         else if (http_code == 404) {
             // DEBUG
-            this.errorLogger().warning("IoTHub: ddeleteDevice: device: " + ep_name + " deletion SUCCES(not found)");
+            this.errorLogger().warning("IoTHub: deleteDevice: device: " + ep_name + " deletion SUCCESS (not found)");
         }
         else {
             // DEBUG
-            this.errorLogger().warning("IoTHub: deleteDevice: FAILURE: " + this.m_http.getLastResponseCode() + " RESULT: " + result);
+            this.errorLogger().warning("IoTHub: deleteDevice: device: " + ep_name + " CODE: " + this.m_http.getLastResponseCode() + " FAILURE");
         }
 
         // remove the endpoint details
