@@ -38,7 +38,7 @@ public abstract class BaseValidatorClass extends BaseClass implements Runnable {
     protected String m_description = null;
     protected boolean m_running = false;
     protected int m_validator_interval_ms = 0;
-    private boolean m_override_check_interval = true;  // true: nail to default, false: from config file
+    private boolean m_override_check_interval = false;  // true: nail to default, false: from config file
     
     // constructor with  optional qualifier
     public BaseValidatorClass(HealthCheckServiceInterface provider,String key,String qualifier) {

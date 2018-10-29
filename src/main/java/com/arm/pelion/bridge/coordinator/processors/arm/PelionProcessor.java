@@ -26,6 +26,7 @@ import com.arm.pelion.bridge.coordinator.processors.core.LongPollProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.core.HttpProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.ShadowDeviceThreadDispatcher;
+import com.arm.pelion.bridge.coordinator.processors.core.WebhookValidator;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.core.Utils;
@@ -58,10 +59,10 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private static final int PELION_WEBHOOK_RETRIES = 25;                      // 25 retries
     
     // webhook retry wait time in ms..
-    private static final int PELION_WEBHOOK_RETRY_WAIT_MS = 2500;              // 2.5 seconds
+    private static final int PELION_WEBHOOK_RETRY_WAIT_MS = 10000;             // 10 seconds
     
     // amount of time to wait on boot before device discovery
-    private static final int DEVICE_DISCOVERY_DELAY_MS = 7000;                 // 7 seconds
+    private static final int DEVICE_DISCOVERY_DELAY_MS = 15000;                // 15 seconds
     
     // default endpoint type
     public static String DEFAULT_ENDPOINT_TYPE = "default";                    // default endpoint type
@@ -90,6 +91,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private String m_long_poll_uri = null;
     private String m_long_poll_url = null;
     private LongPollProcessor m_long_poll_processor = null;
+    private WebhookValidator m_webhook_validator = null;
     
     // maximum number of grouped device shadow create threads
     private int m_mds_max_shadow_create_threads = DEFAULT_MAX_SHADOW_CREATE_THREADS;
@@ -199,14 +201,26 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         
         // finalize long polling setup if enabled
         if (this.longPollEnabled()) {
-            // DEBUG
-            this.errorLogger().warning("PelionProcessor: Long Polling ENABLED. Webhook usage DISABLED.");
+            // using long polling... so construct the long poll URL and start long polling (if API KEY is set...)
+            this.errorLogger().warning("PelionProcessor: Long Polling ENABLED. Webhook usage DISABLED. Starting long polling...");
 
             // override use of long polling vs webhooks for notifications
             this.m_long_poll_url = this.constructLongPollURL();
 
-            // start the Long polling thread...
+            // start the Long polling thread... (will check if API KEY is set or not...)
             this.startLongPolling();
+        }
+        else {
+            // using webhooks. Start webhook validator if API key is set...
+            if (this.isConfiguredAPIKey() == true) {
+                // start the webhook validator thread....
+                this.errorLogger().warning("PelionProcessor: Webhook usage ENABLED. Long Polling DISABLED. Starting webhook validator...");
+                this.m_webhook_validator = new WebhookValidator(this);
+            }
+            else {
+                // No API Key set
+                this.errorLogger().warning("PelionProcessor: Webhook validator not started. API KEY not set (OK)");
+            }
         }
     }
     
@@ -289,7 +303,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // remove the mbed Cloud Connector Notification Callback webhook
     @Override
-    public void removeWebhook() {
+    public synchronized void removeWebhook() {
         // create the dispatch URL
         String dispatch_url = this.createWebhookDispatchURL();
 
@@ -315,7 +329,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
 
     // set our mbed Cloud Notification Callback URL (with device discovery option)
-    private boolean setWebhook(boolean do_discovery) {
+    private synchronized boolean setWebhook(boolean do_discovery) {
         boolean ok = false;
         boolean do_restart = true;
         
@@ -495,31 +509,55 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
     // determine if our callback URL has already been set
     private boolean webhookSet(String target_url, boolean skip_check) {
+        // get the current webhook
         String current_url = this.getWebhook();
-        this.errorLogger().info("PelionProcessor: current_url: " + current_url + " target_url: " + target_url);
-        boolean is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
-        if (is_set == true && skip_check == false) {
-            // for Connector, lets ensure that we always have the expected Auth Header setup. So, while the same, lets delete and re-install...
-            this.errorLogger().info("PelionProcessor: Deleting existing webhook URL...");
-            this.removeWebhook();
-            this.errorLogger().info("PelionProcessor: Re-establishing webhook URL...");
-            is_set = this.setWebhook(target_url, skip_check); // skip_check, go ahead and assume we need to set it...
-            if (is_set) {
-                // SUCCESS
-                this.errorLogger().info("PelionProcessor: Re-checking that webhook URL is properly set...");
-                current_url = this.getWebhook();
-                is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
-            }
-            else {
-                // ERROR
-                this.errorLogger().info("PelionProcessor: Re-checking that webhook URL is properly set...");
-            }
+        
+        // Display the current webhook
+        if (current_url != null && current_url.length() > 0) {
+            // webhook previously set
+            this.errorLogger().info("PelionProcessor: current_url: " + current_url + " target_url: " + target_url);
+        }
+        else {
+            // no webhook set
+            this.errorLogger().info("PelionProcessor: no webhook set yet");
         }
         
-        // Not set... so confirm by delete
-        if (current_url == null) {
-            this.errorLogger().warning("PelionProcessor: No response. Deleting existing webhook to reset and retry...");
-            this.removeWebhook();
+        // determine if we have a properly setup webhook already...
+        boolean is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
+        
+        // now, if setup and we want to validate the auth header... lets delete and re-create the webhook
+        if (is_set == true) {
+            if (skip_check == false) {
+                // webhook is set... but we want to to reset it to ensure we have the proper auth header...
+                this.errorLogger().info("PelionProcessor: Webhook(auth reset) is set: " + current_url);
+                
+                // lets ensure that we always have the expected Auth Header setup. So, while the same, lets delete it...
+                this.errorLogger().info("PelionProcessor: Webhook auth reset: Deleting existing webhook...");
+                this.removeWebhook();
+
+                // ... and reinstall it with the proper auth header... 
+                this.errorLogger().info("PelionProcessor: Webhook auth reset: Re-establishing webhook with current auth header...");
+                is_set = this.setWebhook(target_url, skip_check); // skip_check, go ahead and assume we need to set it...
+                if (is_set == true) {
+                    // SUCCESS
+                    this.errorLogger().info("PelionProcessor: Webhook auth reset: Re-checking that webhook is properly set...");
+                    current_url = this.getWebhook();
+                    is_set = (target_url != null && current_url != null && target_url.equalsIgnoreCase(current_url));
+                }
+                else {
+                    // webhook no longer set properly
+                    this.errorLogger().info("PelionProcessor: Webhook auth reset: Webhook no longer setup correctly... resetting...");
+                }
+            }
+            else {
+                // webhook is set. Skipping auth header reset...
+                this.errorLogger().info("PelionProcessor: No auth reset: Webhook is set: " + current_url);
+            }
+        }
+        else {
+            // Not set or incorrectly set... so reset it... 
+            this.errorLogger().warning("PelionProcessor: Webhook has not been set yet.");
+            is_set = false;
         }
         
         return is_set;
@@ -559,6 +597,16 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     // success!!
                     success = true;
                 }
+                else if (http_code == 404) {
+                    // no webhook record found
+                    this.orchestrator().errorLogger().warning("PelionProcessor: no webhook record found (404)");
+                    
+                    // DEBUG
+                    Utils.whereAmI(this.errorLogger());
+                    
+                    // lets wait for a bit... 
+                    success = false;
+                } 
                 else {
                     // no response received back from mbed Cloud
                     this.orchestrator().errorLogger().warning("PelionProcessor: ERROR: no response from pelion callback dispatch: " + dispatch_url + " CODE: " + http_code + " (may need to re-create API Key if using long polling previously...)");
@@ -589,7 +637,8 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // we must check to see if we want to check that the URL is already set...
         if (check_url_set == true) {
             // go see if the URL is already set.. 
-            webhook_set_ok = this.webhookSet(target_url);
+            String url = this.getWebhook();
+            webhook_set_ok = (url != null && target_url != null && url.length() > 0 && url.equalsIgnoreCase(target_url));
         }
 
         // proceed to set the URL if its not already set.. 
@@ -620,16 +669,18 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             this.httpsPut(dispatch_url, json);
 
             // check that it succeeded
-            if (!this.webhookSet(target_url, !check_url_set)) {
+            String url = this.getWebhook();
+            boolean is_set = (url != null && target_url != null && url.length() > 0 && url.equalsIgnoreCase(target_url));
+            if (is_set == false) {
                 // DEBUG
-                this.errorLogger().warning("PelionProcessor: ERROR: unable to set callback URL to: " + target_url);
+                this.errorLogger().warning("PelionProcessor: ERROR: unable to set webhook to: " + target_url);
                 
                 // not set...
                 webhook_set_ok = false;
             }
             else {
                 // DEBUG
-                this.errorLogger().info("PelionProcessor: Notification URL set to: " + target_url + " (SUCCESS)");
+                this.errorLogger().info("PelionProcessor: Webhook set to: " + target_url + " (SUCCESS)");
                 
                 // SUCCESS
                 webhook_set_ok = true;
@@ -637,7 +688,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         else {
             // DEBUG
-            this.errorLogger().info("PelionProcessor: Notification URL already set to: " + target_url + " (OK)");
+            this.errorLogger().info("PelionProcessor: Webhook already set to: " + target_url + " (OK)");
             
             // SUCCESS
             webhook_set_ok = true;
@@ -1395,22 +1446,28 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
     // start the long polling thread
     private void startLongPolling() {
-        // setup bulk subscriptions
-        this.errorLogger().warning("PelionProcessor: Enabling bulk subscriptions...");
-        boolean ok = this.setupBulkSubscriptions();
-        if (ok == true) {
-            // success
-            this.errorLogger().info("PelionProcessor: bulk subscriptions enabled SUCCESS");
+        if (this.isConfiguredAPIKey() == true) {
+            // setup bulk subscriptions
+            this.errorLogger().warning("PelionProcessor: Enabling bulk subscriptions...");
+            boolean ok = this.setupBulkSubscriptions();
+            if (ok == true) {
+                // success
+                this.errorLogger().info("PelionProcessor: bulk subscriptions enabled SUCCESS");
+            }
+            else {
+                // failure
+                this.errorLogger().info("PelionProcessor: bulk subscriptions enabled FAILED");
+            }
+
+            // now begin to long poll Pelion
+            if (this.m_long_poll_processor == null) {
+                this.m_long_poll_processor = new LongPollProcessor(this);
+                this.m_long_poll_processor.startPolling();
+            }
         }
         else {
-            // failure
-            this.errorLogger().info("PelionProcessor: bulk subscriptions enabled FAILED");
-        }
-        
-        // now begin to long poll Pelion
-        if (this.m_long_poll_processor == null) {
-            this.m_long_poll_processor = new LongPollProcessor(this);
-            this.m_long_poll_processor.startPolling();
+            // API key is not configured... so no long polling
+            this.errorLogger().warning("PelionProcessor: Stopping long polling. API Key not configured (OK)");
         }
     }
     
@@ -1503,13 +1560,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         try {
             String url = createWebhookURL();
             String webhook = this.getWebhook();
-            if (url.equalsIgnoreCase(webhook) == true) {
+            if (webhook != null && webhook.length() > 0 && url.equalsIgnoreCase(webhook) == true) {
                 // webhook is OK
                 return true;
-            }
-            else {
-                // webhook is NOT OK... so reset it and retry...
-                return this.resetWebhook();
             }
         }
         catch (Exception ex) {

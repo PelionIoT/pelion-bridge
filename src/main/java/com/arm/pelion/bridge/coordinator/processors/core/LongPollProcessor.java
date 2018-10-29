@@ -135,8 +135,14 @@ public class LongPollProcessor extends Thread {
      */
     private void pollingLooper() {
         while (this.m_running == true) {
-            // validate the webhook and subscriptions
-            this.poll();
+            try {
+                // validate the webhook and subscriptions
+                this.poll();
+            }
+            catch (Exception ex) {
+                // note but keep going...
+                this.errorLogger().warning("LongPoll: Exception caught: " + ex.getMessage() + ". Continuing...");
+            }
         }
     }
 }
