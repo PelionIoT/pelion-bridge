@@ -601,9 +601,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     // no webhook record found
                     this.orchestrator().errorLogger().warning("PelionProcessor: no webhook record found (404)");
                     
-                    // DEBUG
-                    Utils.whereAmI(this.errorLogger());
-                    
                     // lets wait for a bit... 
                     success = false;
                 } 
