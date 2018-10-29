@@ -173,7 +173,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // get the device attributes content type
         this.m_device_attributes_content_type = orchestrator.preferences().valueOf("mds_device_attributes_content_type");
 
-        // initialize the default type of URI for contacting mbed Cloud
+        // initialize the default type of URI for contacting Pelion
         this.setupPelionCloudURI();
        
         // configure the callback type based on the version of mDS (only if not using long polling)
@@ -288,7 +288,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 // record the "last" message
                 this.m_last_message = json;
                 
-                // process and route the mbed Cloud message
+                // process and route the Pelion message
                 this.processDeviceServerMessage(json, request);
             }
             else {
@@ -297,11 +297,11 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
         }
         
-        // ALWAYS send the response back as an ACK to mbed Cloud
+        // ALWAYS send the response back as an ACK to Pelion
         this.sendResponseToPelion("application/json;charset=utf-8", request, response, "", "{}");
     }
     
-    // remove the mbed Cloud Connector Notification Callback webhook
+    // remove the Pelion webhook
     @Override
     public synchronized void removeWebhook() {
         // create the dispatch URL
@@ -311,7 +311,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         this.httpsDelete(dispatch_url);
     }
 
-    // reset the mbed Cloud Notification Callback URL
+    // reset the Pelion Notification Callback URL
     @Override
     public boolean resetWebhook() {        
         // delete the webhook
@@ -321,14 +321,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         return setWebhook(false);
     }
     
-    // set our mbed Cloud Notification Callback URL
+    // set our Pelion Notification Callback URL
     @Override
     public boolean setWebhook() {
         // external interface will invoke device discovery...
         return this.setWebhook(true);
     }
 
-    // set our mbed Cloud Notification Callback URL (with device discovery option)
+    // set our Pelion Notification Callback URL (with device discovery option)
     private synchronized boolean setWebhook(boolean do_discovery) {
         boolean ok = false;
         boolean do_restart = true;
@@ -338,7 +338,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             if (this.isConfiguredAPIKey() == true) {
                 // API Key has been set... so lets try to setup the webhook now...
                 for(int i=0;i<this.m_webook_num_retries && ok == false;++i) {
-                    this.errorLogger().warning("PelionProcessor: Setting up webhook to mbed Cloud...");
+                    this.errorLogger().warning("PelionProcessor: Setting up webhook to Pelion...");
                     
                     // create the dispatch URL
                     String target_url = this.createWebhookURL();
@@ -349,7 +349,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     // if OK, lets set bulk subscriptions...
                     if (ok) {
                         // bulk subscriptions enabled
-                        this.errorLogger().warning("PelionProcessor: Webhook to mbed Cloud set. Enabling bulk subscriptions.");
+                        this.errorLogger().warning("PelionProcessor: Webhook to Pelion set. Enabling bulk subscriptions.");
                         ok = this.setupBulkSubscriptions();
                         if (ok) {
                             if (do_discovery == true) {
@@ -605,7 +605,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     success = false;
                 } 
                 else {
-                    // no response received back from mbed Cloud
+                    // no response received back from Pelion
                     this.orchestrator().errorLogger().warning("PelionProcessor: ERROR: no response from pelion callback dispatch: " + dispatch_url + " CODE: " + http_code + " (may need to re-create API Key if using long polling previously...)");
                 }
             }
@@ -622,12 +622,12 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         return url;
     }
 
-    // set our mbed Cloud Notification Callback URL
+    // set our Pelion Notification Callback URL
     private boolean setWebhook(String target_url) {
         return this.setWebhook(target_url, true); // default is to check if the URL is already set... 
     }
 
-    // set our mbed Cloud Notification Callback URL
+    // set our Pelion Notification Callback URL
     private boolean setWebhook(String target_url, boolean check_url_set) {
         boolean webhook_set_ok = false; // assume default is that the URL is NOT set... 
 
@@ -722,7 +722,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         return this.m_pelion_cloud_uri + local_ip + ":" + local_port + notify_uri;
     }
 
-    // mbed Cloud: create the dispatch URL for changing the notification webhook URL
+    // Pelion: create the dispatch URL for changing the notification webhook URL
     private String createWebhookDispatchURL() {
         return this.createBaseURL() + "/notification/callback";
     }
@@ -763,12 +763,12 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         return false;
     }
 
-    // process and route the mbed Cloud message to the appropriate peer method
+    // process and route the Pelion message to the appropriate peer method
     public void processDeviceServerMessage(String json, HttpServletRequest request) {
         // DEBUG
         this.orchestrator().errorLogger().info("PelionProcessor: Received message from Pelion: " + json);
 
-        // tell the orchestrator to call its peer processors with this mbed Cloud message
+        // tell the orchestrator to call its peer processors with this Pelion message
         try {
             if (json != null && json.length() > 0 && json.equalsIgnoreCase("{}") == false) {
                 Map parsed = (Map) this.parseJson(json);
@@ -845,7 +845,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
 
         if (verb != null && verb.length() > 0) {
-            // dispatch the mbed Cloud REST based on CoAP verb received
+            // dispatch the Pelion REST based on CoAP verb received
             if (verb.equalsIgnoreCase(("get"))) {
                 this.errorLogger().info("PelionProcessor: Invoking GET: " + url);
                 json = this.httpsGet(url);
@@ -1026,7 +1026,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         return endpoint;
     }
     
-    // pull the initial device metadata from mbed Cloud.. add it to the device endpoint map
+    // pull the initial device metadata from Pelion.. add it to the device endpoint map
     @Override
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {
         // Get the DeviceID and DeviceType
@@ -1161,7 +1161,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         this.run();
     }
     
-    // setup initial Device Shadows (mbed Cloud only...)
+    // setup initial Device Shadows from Pelion
     private void setupExistingDeviceShadows() {
         // DEBUG
         this.errorLogger().warning("PelionProcessor: Starting the device discovery thread dispatcher...");
@@ -1196,7 +1196,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // DEBUG
         this.errorLogger().warning("PelionProcessor: Discovered Pelion device with ID: " + device_id + " Type: " + device_type);
             
-        // now, query mbed Cloud again for each device and get its resources
+        // now, query Pelion again for each device and get its resources
         List resources = this.discoverDeviceResources(device_id);
         
         // if we have resources, add them to the record
@@ -1225,7 +1225,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // create the Device Resource Discovery URL 
     private String createDeviceResourceDiscoveryURL(String device) {
-        // build out the URL for mbed Cloud Device Resource discovery...
+        // build out the URL for Pelion Device Resource discovery...
         String url = this.createBaseURL("/v" + this.m_connect_api_version) + "/endpoints/" +  device;
 
         // DEBUG
@@ -1400,12 +1400,12 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         return null;
     }
     
-    // create the base URL for mbed Cloud operations
+    // create the base URL for Pelion operations
     private String createBaseURL() {
         return this.createBaseURL("/v" + this.m_connect_api_version);
     }
     
-    // create the base URL for mbed Cloud operations
+    // create the base URL for Pelion operations
     private String createBaseURL(String version) {
         return this.m_pelion_cloud_uri + this.m_pelion_api_hostname + ":" + this.m_pelion_api_port + version;
     }
