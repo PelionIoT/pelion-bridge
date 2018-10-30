@@ -566,7 +566,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // get the currently configured callback URL (public, used by webhook validator)
     public String getWebhook() {
         String url = null;
-        String headers = null;
         boolean success = false;
         String json = null;
         int http_code = 0;
@@ -584,10 +583,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     // Callback API used: parse the JSON
                     Map parsed = (Map) this.parseJson(json);
                     url = (String) parsed.get("url");
-                    headers = (String) parsed.get("headers");
 
                     // DEBUG
-                    this.orchestrator().errorLogger().info("PelionProcessor: received url: " + url + " headers: " + headers + " from pelion callback dispatch: " + dispatch_url + " CODE: " + http_code);
+                    this.orchestrator().errorLogger().info("PelionProcessor: received url: " + url + " from pelion callback dispatch: " + dispatch_url + " CODE: " + http_code);
                     
                     // success!!
                     success = true;
