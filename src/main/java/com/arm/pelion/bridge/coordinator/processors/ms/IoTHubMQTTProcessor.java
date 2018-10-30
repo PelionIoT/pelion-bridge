@@ -1267,7 +1267,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
     // IoTHub Specific: we have to override the creation of the authentication hash.. it has to be dependent on a given endpoint name
     @Override
     public String createAuthenticationHash() {
-        return Utils.createHash(this.m_iot_hub_sas_token);
+        return Utils.createHash(this.m_iot_hub_connect_string);
     }
 
     // OVERRIDE: initListener() needs to accomodate a MQTT connection for each endpoint
