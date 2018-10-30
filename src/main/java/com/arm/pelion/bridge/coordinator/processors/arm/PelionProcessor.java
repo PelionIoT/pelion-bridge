@@ -568,28 +568,23 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String url = null;
         String headers = null;
         boolean success = false;
+        String json = null;
+        int http_code = 0;
 
         // create the dispatch URL
         String dispatch_url = this.createWebhookDispatchURL();
         
         // loop through a few times and try
         for(int i=0;i<this.m_webook_num_retries && success == false;++i) {
-            // Issue GET and look at the response
-            String json = this.httpsGet(dispatch_url);
-            int http_code = this.getLastResponseCode();
             try {
+                // Issue GET and look at the response
+                json = this.httpsGet(dispatch_url);
+                http_code = this.getLastResponseCode();
                 if (json != null && json.length() > 0) {
                     // Callback API used: parse the JSON
                     Map parsed = (Map) this.parseJson(json);
                     url = (String) parsed.get("url");
-
-                    // headers are optional...
-                    try {
-                        headers = (String) parsed.get("headers");
-                    }
-                    catch (Exception json_ex) {
-                        headers = "";
-                    }
+                    headers = (String) parsed.get("headers");
 
                     // DEBUG
                     this.orchestrator().errorLogger().info("PelionProcessor: received url: " + url + " headers: " + headers + " from pelion callback dispatch: " + dispatch_url + " CODE: " + http_code);
@@ -604,13 +599,27 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     // lets wait for a bit... 
                     success = false;
                 } 
+                else if (http_code == 200) {
+                    // no response received back from Pelion - but success code given
+                    this.orchestrator().errorLogger().warning("PelionProcessor no response received from webhook query: " + dispatch_url + " CODE: " + http_code + "... retrying...");
+                
+                    // wait for a bit...
+                    success = false;
+                }
                 else {
-                    // no response received back from Pelion
-                    this.orchestrator().errorLogger().warning("PelionProcessor: ERROR: no response from pelion callback dispatch: " + dispatch_url + " CODE: " + http_code + " (may need to re-create API Key if using long polling previously...)");
+                    // no response received back from Pelion - with an unexpected error code
+                    this.orchestrator().errorLogger().warning("PelionProcessor: ERROR: no response received from webhook query: " + dispatch_url + " CODE: " + http_code + " (may need to re-create API Key if using long polling previously...)");
+                    
+                    // wait for a bit
+                    success = false;
                 }
             }
             catch (Exception ex) {
-                this.orchestrator().errorLogger().warning("PelionProcessor: ERROR exception during pelion callback dispatch: " + dispatch_url + " message: " + ex.getMessage() + " CODE: " + http_code + " JSON: " + json);
+                // exception caught
+                this.orchestrator().errorLogger().warning("PelionProcessor: Exception during webhook query: " + dispatch_url + " message: " + ex.getMessage() + " CODE: " + http_code + " JSON: " + json);
+                
+                // wait for a bit
+                success = false;
             }
             
             // if unsuccessful... wait a bit
@@ -619,6 +628,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
         }
 
+        // return the URL only...
         return url;
     }
 
