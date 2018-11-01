@@ -24,11 +24,12 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.ms.IoTHubMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.ms.IoTHubHTTPProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
+import com.arm.pelion.bridge.coordinator.processors.ms.IoTHubMQTTProcessor;
 
 /**
  * MS IoTHub Peer Processor Manager: Factory for initiating a peer processor for MS IoTHub
@@ -36,18 +37,36 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInte
  * @author Doug Anson
  */
 public class MSIoTHubPeerProcessorFactory extends BasePeerProcessorFactory implements Transport.ReceiveListener, PeerProcessorInterface {
-
+    
     // Factory method for initializing the MS IoTHub MQTT collection orchestrator
     public static MSIoTHubPeerProcessorFactory createPeerProcessor(Orchestrator manager, HttpTransport http) {
+        // default is to use MQTT
+        boolean use_mqtt = true;
+        
+        // determine whether we use MQTT or HTTP
+        String iothub_transport = manager.preferences().valueOf("iot_event_hub_transport");
+        if (iothub_transport != null && iothub_transport.equalsIgnoreCase("http")) {
+            use_mqtt = false;
+        }
+        
         // create me
         MSIoTHubPeerProcessorFactory me = new MSIoTHubPeerProcessorFactory(manager, http);
 
         // initialize me
         boolean iot_event_hub_enabled = manager.preferences().booleanValueOf("enable_iot_event_hub_addon");
         if (iot_event_hub_enabled == true) {
-            manager.errorLogger().info("Registering MS IoTHub MQTT processor...");
-            GenericConnectablePeerProcessor p = new IoTHubMQTTProcessor(manager, null, http);
-            me.addProcessor(p);
+            if (use_mqtt == true) {
+                // use MQTT-based IoTHub processor
+                manager.errorLogger().info("Registering MS IoTHub MQTT processor...");
+                GenericConnectablePeerProcessor p = new IoTHubMQTTProcessor(manager, null, http);
+                me.addProcessor(p);
+            }
+            else {
+                // use HTTP-based IoTHub processor
+                manager.errorLogger().info("Registering MS IoTHub HTTP processor...");
+                GenericConnectablePeerProcessor p = new IoTHubHTTPProcessor(manager, null, http);
+                me.addProcessor(p);
+            }
         }
 
         // return me

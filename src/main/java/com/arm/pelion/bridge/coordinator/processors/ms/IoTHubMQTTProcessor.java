@@ -81,7 +81,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
         super(manager, mqtt, suffix, http);
 
         // IoTHub Processor Announce
-        this.errorLogger().info("Azure IoTHub Processor ENABLED.");
+        this.errorLogger().warning("Azure IoTHub Processor ENABLED. (MQTT)");
         
         // get the max shadows override
         this.m_max_shadows = manager.preferences().intValueOf("iot_event_hub_max_shadows",this.m_suffix);
@@ -305,17 +305,8 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             // IOTHUB Prefix
             String iothub_ep_name = this.addDeviceIDPrefix(device_id);
 
-            // DEBUG
-            // this.errorLogger().info("IoTHub : CoAP re-registration: " + entry);
-            if (this.hasSubscriptions(iothub_ep_name) == false) {
-                // no subscriptions - so process as a new registration
-                this.errorLogger().info("IoTHub: CoAP re-registration: no subscriptions.. processing as new registration...");
-                this.processRegistration(data, "reg-updates");
-            }
-            else {
-                // already subscribed (OK)
-                this.errorLogger().info("IoTHub: CoAP re-registration: already subscribed (OK)");
-            }
+            // process as a new registration
+            this.processRegistration(data, "reg-updates");
         }
     }
 
@@ -663,11 +654,18 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             // optionally pull the CoAP verb from the MQTT Topic (SECONDARY)
             coap_verb = this.getCoAPVerbFromTopic(topic);
         }
-
+        
+        // Get the payload
+        // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
+        String payload = this.getCoAPPayload(message);
+        
+        // get the endpoint name
+        String ep_name = this.getCoAPEndpointName(message);
+        
         // if the ep_name is wildcarded... get the endpoint name from the JSON payload
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
         if (iothub_ep_name == null || iothub_ep_name.length() <= 0 || iothub_ep_name.equalsIgnoreCase("+")) {
-            iothub_ep_name = this.addDeviceIDPrefix(this.getCoAPEndpointName(message));
+            iothub_ep_name = this.addDeviceIDPrefix(ep_name);
         }
 
         // if there are mDC/mDS REST options... lets add them
@@ -687,7 +685,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                 // CoAP GET and PUT provides AsyncResponses...
                 if (coap_verb.equalsIgnoreCase("get") == true || coap_verb.equalsIgnoreCase("put") == true) {
                     // its an AsyncResponse.. so record it...
-                    this.recordAsyncResponse(response, coap_verb, this.mqtt(iothub_ep_name), this, topic, this.getReplyTopic(iothub_ep_name, this.getEndpointTypeFromEndpointName(iothub_ep_name), uri), message, iothub_ep_name, uri);
+                    this.recordAsyncResponse(response, coap_verb, this.mqtt(iothub_ep_name), this, topic, this.getReplyTopic(iothub_ep_name, this.getEndpointTypeFromEndpointName(iothub_ep_name), uri), message, ep_name, uri);
                 }
                 else {
                     // we ignore AsyncResponses to PUT,POST,DELETE
@@ -699,7 +697,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
                 this.errorLogger().info("IoTHub: Response: " + response + " from GET... creating observation...");
 
                 // we have to format as an observation...
-                String observation = this.createObservation(coap_verb, iothub_ep_name, uri, response);
+                String observation = this.createObservation(coap_verb, ep_name, uri, payload, value);
 
                 // DEBUG
                 this.errorLogger().info("IoTHub: Sending Observation(GET): " + observation);
@@ -725,115 +723,7 @@ public class IoTHubMQTTProcessor extends GenericConnectablePeerProcessor impleme
             }
         }
     }
-
-    // IoTHub Specific: default formatter for AsyncResponse replies (IoTHub specific - ADD DEVICE PREFIX to the message...) 
-    @Override
-    public String formatAsyncResponseAsReply(Map async_response, String verb) {
-        // DEBUG
-        this.errorLogger().info("IoTHub(" + verb + ") AsyncResponse: " + async_response);
-
-        if (verb != null && verb.equalsIgnoreCase("GET") == true) {
-            try {
-                // DEBUG
-                this.errorLogger().info("IoTHub: CoAP AsyncResponse for GET: " + async_response);
-
-                // get the payload from the ith entry
-                String payload = (String) async_response.get("payload");
-                if (payload != null) {
-                    // trim 
-                    payload = payload.trim();
-
-                    // parse if present
-                    if (payload.length() > 0) {
-                        // Base64 decode
-                        String value = Utils.decodeCoAPPayload(payload);
-
-                        // build out the response
-                        String uri = this.getURIFromAsyncID((String) async_response.get("id"));
-                        String ep_name = this.getEndpointNameFromAsyncID((String) async_response.get("id"));
-
-                        // IOTHUB DeviceID Prefix
-                        String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
-
-                        // build out the observation
-                        String message = this.createObservation(verb, iothub_ep_name, uri, value);
-
-                        // DEBUG
-                        this.errorLogger().info("IoTHub: Created(" + verb + ") GET observation: " + message);
-
-                        // return the message
-                        return message;
-                    }
-                }
-            }
-            catch (Exception ex) {
-                // Error in creating the observation message from the AsyncResponse GET reply... 
-                this.errorLogger().warning("IoTHub: Exception in formatAsyncResponseAsReply(): ", ex);
-            }
-        }
-
-        // Handle AsyncReplies that are CoAP PUTs
-        if (verb != null && verb.equalsIgnoreCase("PUT") == true) {
-            try {
-                // check to see if we have a payload or not... 
-                String payload = (String) async_response.get("payload");
-                if (payload != null) {
-                    // trim 
-                    payload = payload.trim();
-
-                    // parse if present
-                    if (payload.length() > 0) {
-                        // Base64 decode
-                        String value = Utils.decodeCoAPPayload(payload);
-
-                        // build out the response
-                        String uri = this.getURIFromAsyncID((String) async_response.get("id"));
-                        String ep_name = this.getEndpointNameFromAsyncID((String) async_response.get("id"));
-
-                        // IOTHUB DeviceID Prefix
-                        String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
-
-                        // build out the observation
-                        String message = this.createObservation(verb, iothub_ep_name, uri, value);
-
-                        // DEBUG
-                        this.errorLogger().info("IoTHub: Created(" + verb + ") PUT Observation: " + message);
-
-                        // return the message
-                        return message;
-                    }
-                }
-                else {
-                    // no payload... so we simply return the async-id
-                    String value = (String) async_response.get("async-id");
-
-                    // build out the response
-                    String uri = this.getURIFromAsyncID((String) async_response.get("id"));
-                    String ep_name = this.getEndpointNameFromAsyncID((String) async_response.get("id"));
-
-                    // IOTHUB DeviceID Prefix
-                    String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
-
-                    // build out the observation
-                    String message = this.createObservation(verb, iothub_ep_name, uri, value);
-
-                    // DEBUG
-                    this.errorLogger().info("IoTHub: Created(" + verb + ") PUT Observation: " + message);
-
-                    // return message
-                    return message;
-                }
-            }
-            catch (Exception ex) {
-                // Error in creating the observation message from the AsyncResponse PUT reply... 
-                this.errorLogger().warning("IoTHub: Exception in formatAsyncResponseAsReply(): ", ex);
-            }
-        }
-
-        // return null message
-        return null;
-    }
-
+    
     // IoTHub Specific: process new device registration
     @Override
     protected synchronized Boolean registerNewDevice(Map message) {

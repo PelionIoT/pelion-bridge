@@ -76,7 +76,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
         super(manager, mqtt, suffix, http);
 
         // WatsonIoT Processor Announce
-        this.errorLogger().info("IBM Watson IoT Processor ENABLED.");
+        this.errorLogger().warning("IBM Watson IoT Processor ENABLED.");
 
         // get our defaults
         this.m_watson_iot_org_id = this.orchestrator().preferences().valueOf("iotf_org_id", this.m_suffix);
@@ -530,7 +530,14 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
         // pull the CoAP URI and Payload from the message itself... its JSON... 
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
         String uri = this.getCoAPURI(message);
+        
+        // Get the value
+        // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
         String value = this.getCoAPValue(message);
+        
+        // Get the payload
+        // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
+        String payload = this.getCoAPPayload(message);
 
         // pull the CoAP verb from the message itself... its JSON... (PRIMARY)
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
@@ -575,7 +582,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
                 this.errorLogger().info("Watson IoT: Response: " + response + " from GET... creating observation...");
 
                 // we have to format as an observation...
-                String observation = this.createObservation(coap_verb, ep_name, uri, response);
+                String observation = this.createObservation(coap_verb, ep_name, uri, payload, value);
 
                 // DEBUG
                 this.errorLogger().info("Watson IoT: Sending Observation(GET): " + observation);
@@ -604,9 +611,9 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
 
     // Watson IoT Specific: create an observation JSON as a response to a GET request...
     @Override
-    protected String createObservation(String verb, String ep_name, String uri, String value) {
+    protected String createObservation(String verb, String ep_name, String uri, String payload, String value) {
         // use the base class to create the observation
-        String base_observation_json = super.createObservation(verb, ep_name, uri, value);
+        String base_observation_json = super.createObservation(verb, ep_name, uri, payload, value);
         
         // encapsulate into a Watson IoT compatible observation...
         String iotf_coap_json = base_observation_json;

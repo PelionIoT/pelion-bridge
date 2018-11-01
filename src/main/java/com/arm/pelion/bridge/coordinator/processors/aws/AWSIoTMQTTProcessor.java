@@ -70,7 +70,7 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         super(manager, mqtt, suffix, http);
 
         // AWSIoT Processor Announce
-        this.errorLogger().info("Amazon AWSIoT Processor ENABLED.");
+        this.errorLogger().warning("Amazon AWSIoT Processor ENABLED.");
         
         // get the max shadows override
         this.m_max_shadows = manager.preferences().intValueOf("aws_iot_max_shadows",this.m_suffix);
@@ -388,6 +388,10 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
         // pull the CoAP Payload from the message itself... its JSON... 
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
         String value = this.getCoAPValue(message);
+        
+        // Get the payload
+        // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
+        String payload = this.getCoAPPayload(message);
 
         // pull the CoAP verb from the message itself... its JSON... (PRIMARY)
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
@@ -432,7 +436,7 @@ public class AWSIoTMQTTProcessor extends GenericConnectablePeerProcessor impleme
                 this.errorLogger().info("AWSIoT: Response: " + response + " from GET... creating observation...");
 
                 // we have to format as an observation...
-                String observation = this.createObservation(coap_verb, ep_name, uri, response);
+                String observation = this.createObservation(coap_verb, ep_name, uri, payload, value);
 
                 // DEBUG
                 this.errorLogger().info("AWSIoT: Sending Observation(GET): " + observation);

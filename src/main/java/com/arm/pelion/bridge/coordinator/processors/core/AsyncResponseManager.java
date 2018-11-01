@@ -105,8 +105,8 @@ public class AsyncResponseManager {
     }
 
     // record an AsyncResponse
-    public void recordAsyncResponse(String response, String uri, Map ep, AsyncResponseProcessor processor) {
-        this.recordAsyncResponse(response, (String) ep.get("verb"), null, null, null, null, null, (String) ep.get("ep"), uri, processor, ep);
+    public void recordAsyncResponse(String response, String uri, Map orig_endpoint, AsyncResponseProcessor processor) {
+        this.recordAsyncResponse(response, (String) orig_endpoint.get("verb"), null, null, null, null, null, (String) orig_endpoint.get("ep"), uri, processor, orig_endpoint);
     }
 
     // record an AsyncResponse
@@ -187,7 +187,6 @@ public class AsyncResponseManager {
     }
 
     // process AsyncResponse
-    @SuppressWarnings("empty-statement")
     public void processAsyncResponse(Map response) {
         // get our AsyncResponse ID
         String id = this.id(response);

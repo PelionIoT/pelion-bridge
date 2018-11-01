@@ -297,7 +297,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     }
     
     // record an async response to process later (Peer Peer)
-    private void recordAsyncResponse(String response, String coap_verb, String response_topic, String message, String ep_name, String uri) {
+    protected void recordAsyncResponse(String response, String coap_verb, String response_topic, String message, String ep_name, String uri) {
         this.asyncResponseManager().recordAsyncResponse(response, coap_verb, this, this, response_topic, null, message, ep_name, uri);
     }
     
@@ -706,6 +706,24 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         return val;
     }
     
+    // get the resource payload from the message 
+    protected String getCoAPPayload(String message) {
+        // expected format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
+        //this.errorLogger().info("getCoAPValue: payload: " + message);
+        Map parsed = this.tryJSONParse(message);
+        String val = null;
+        if (parsed != null) {
+            val = (String) parsed.get("new_value");
+            if (val == null || val.length() == 0) {
+                val = (String) parsed.get("payload");
+                if (val != null) {
+                    return val;
+                }
+            }
+        }
+        return null;
+    }
+    
     // get the resource value from the message
     protected String getCoAPValue(String message) {
         // expected format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
@@ -792,11 +810,12 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     }
     
     // create the observation
-    private String createObservation(String verb, String ep_name, String uri, String value) {
+    protected String createObservation(String verb, String ep_name, String uri, String payload, String value) {
         Map notification = new HashMap<>();
 
         // needs to look like this:  {"path":"/303/0/5700","payload":"MjkuNzU\u003d","max-age":"60","ep":"350e67be-9270-406b-8802-dd5e5f20","value":"29.75"}    
         notification.put("value", this.fundamentalTypeDecoder().getFundamentalValue(value));
+        notification.put("payload",payload);
         notification.put("path", uri);
         notification.put("ep", ep_name);
 
@@ -805,7 +824,12 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
 
         // Unified Format?
         if (this.unifiedFormatEnabled() == true) {
-            notification.put("resourceId", uri);
+            if (uri != null && uri.charAt(0) == '/') {
+                notification.put("resourceId", uri.substring(1));
+            }
+            else {
+                notification.put("resourceId", uri);
+            }
             notification.put("deviceId", ep_name);
             notification.put("method", verb);
         }
@@ -839,32 +863,25 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                 if (payload != null) {
                     // trim 
                     payload = payload.trim();
-                    
-                    // empty value
-                    String value = "";
 
                     // parse if present
                     if (payload.length() > 0) {
                         // Base64 decode
-                        value = Utils.decodeCoAPPayload(payload);
-                    }
+                        String value = Utils.decodeCoAPPayload(payload);
                        
-                    // build out the response
-                    String uri = this.getURIFromAsyncID((String) async_response.get("id"));
-                    String ep_name = this.getEndpointNameFromAsyncID((String) async_response.get("id"));
+                        // build out the response
+                        String uri = this.getURIFromAsyncID((String) async_response.get("id"));
+                        String ep_name = this.getEndpointNameFromAsyncID((String) async_response.get("id"));
 
-                    // build out the observation
-                    String message = this.createObservation(verb, ep_name, uri, value);
+                        // build out the observation
+                        String message = this.createObservation(verb, ep_name, uri, payload, value);
 
-                    // DEBUG
-                    this.errorLogger().info("PeerProcessor: formatAsyncResponseAsReply: Created(" + verb + ") GET observation: " + message + " reply topic: " + async_response.get("reply_topic"));
+                        // DEBUG
+                        this.errorLogger().info("PeerProcessor: formatAsyncResponseAsReply: Created(" + verb + ") observation: " + message + " reply topic: " + async_response.get("reply_topic"));
 
-                    // return the message
-                    return message;
-                }
-                else {
-                    // GET should always have a payload
-                    this.errorLogger().warning("PeerProcessor: formatAsyncResponseAsReply (" + verb + "): GET Observation has NULL payload... Ignoring...");
+                        // return the message
+                        return message;
+                    }
                 }
             }
             catch (Exception ex) {
@@ -892,10 +909,10 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                         String ep_name = this.getEndpointNameFromAsyncID((String) async_response.get("id"));
 
                         // build out the observation
-                        String message = this.createObservation(verb, ep_name, uri, value);
+                        String message = this.createObservation(verb, ep_name, uri, payload, value);
 
                         // DEBUG
-                        this.errorLogger().info("PeerProcessor: formatAsyncResponseAsReply: Created(" + verb + ") PUT Observation: " + message);
+                        this.errorLogger().info("PeerProcessor: formatAsyncResponseAsReply: Created(" + verb + ") Observation: " + message);
 
                         // return the message
                         return message;
@@ -903,10 +920,17 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                 }
                 else {
                     // no payload... so we simply return the async-id
-                    String message = (String) async_response.get("async-id");
+                    String value = (String) async_response.get("async-id");
+
+                    // build out the response
+                    String uri = this.getURIFromAsyncID((String) async_response.get("id"));
+                    String ep_name = this.getEndpointNameFromAsyncID((String) async_response.get("id"));
+
+                    // build out the observation
+                    String message = this.createObservation(verb, ep_name, uri, payload, value);
 
                     // DEBUG
-                    this.errorLogger().info("PeerProcessor: formatAsyncResponseAsReply: Created(" + verb + ") PUT Observation: " + message);
+                    this.errorLogger().info("PeerProcessor: formatAsyncResponseAsReply Created(" + verb + ") Observation: " + message);
 
                     // return message
                     return message;

@@ -157,7 +157,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         super(manager, mqtt, suffix, http);
 
         // GoogleCloud Processor Announce
-        this.errorLogger().info("Google Cloud MQTT Processor ENABLED.");
+        this.errorLogger().warning("Google CloudIoT Processor ENABLED.");
         
         // get the max shadows override
         this.m_max_shadows = manager.preferences().intValueOf("google_cloud_max_shadows",this.m_suffix);
@@ -548,6 +548,10 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         // pull the CoAP Payload from the message itself... its JSON... 
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
         String value = this.getCoAPValue(message);
+        
+        // Get the payload
+        // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
+        String payload = this.getCoAPPayload(message);
 
         // pull the CoAP verb from the message itself... its JSON... (PRIMARY)
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
@@ -600,7 +604,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                 this.errorLogger().info("GoogleCloudIOT(CoAP Command): Response: " + response + " from GET... creating observation...");
 
                 // we have to format as an observation...
-                String observation = this.createObservation(coap_verb, ep_name, uri, response);
+                String observation = this.createObservation(coap_verb, ep_name, uri, payload, value);
 
                 // DEBUG
                 this.errorLogger().info("GoogleCloudIOT(CoAP Command): Sending Observation(GET): " + observation);
