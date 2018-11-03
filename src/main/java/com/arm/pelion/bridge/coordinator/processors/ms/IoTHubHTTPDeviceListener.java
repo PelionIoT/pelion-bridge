@@ -22,7 +22,6 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.ms;
 
-import com.arm.pelion.bridge.coordinator.processors.core.HttpProcessor;
 import com.arm.pelion.bridge.core.BaseClass;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -53,6 +52,11 @@ public class IoTHubHTTPDeviceListener extends BaseClass implements Runnable {
         catch(Exception ex) {
             this.errorLogger().warning("IoTHub: Unable to start device listner for: " + this.m_ep_name);
         }
+    }
+    
+    // get the HTTP instance for this listener
+    public HttpTransport http() {
+        return this.m_http;
     }
     
     // halt this process

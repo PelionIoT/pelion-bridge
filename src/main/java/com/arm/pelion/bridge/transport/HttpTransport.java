@@ -39,6 +39,8 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import org.apache.commons.codec.binary.Base64;
@@ -53,10 +55,11 @@ public class HttpTransport extends BaseClass {
     private static final int PELION_API_BACKOFF_MS = 250;       // 1/4 second for backoff
     
     private int m_last_response_code = 0;
+    private String m_last_etag_value = null;
     private String m_auth_qualifier_default = "Bearer";
     private String m_auth_qualifier = this.m_auth_qualifier_default;
     private String m_basic_auth_qualifier = "Basic";
-    private String m_etag_value = null;
+    private String m_etag_value = "";
     private String m_if_match_header_value = null;
     private String m_pelion_api_hostname = null;
     private int m_pelion_backoff_ms = PELION_API_BACKOFF_MS;
@@ -387,6 +390,19 @@ public class HttpTransport extends BaseClass {
     public int getLastResponseCode() {
         return this.m_last_response_code;
     }
+    
+    private void saveETagValue(Map<String,List<String>> fields) {
+        if (fields != null) {
+            List<String> etag_list = fields.get("ETag");
+            if (etag_list != null && etag_list.size() > 0) {
+                this.m_last_etag_value = etag_list.get(0).replace("\"","");
+            }
+        }
+    }
+    
+    public String getLastETagValue() {
+        return this.m_last_etag_value;
+    }
 
     // perform the HTTPS dispatch
     @SuppressWarnings("empty-statement")
@@ -560,9 +576,10 @@ public class HttpTransport extends BaseClass {
                     result = "";
                 }
 
-                // save off the HTTP response code...
+                // save off the HTTP response code & ETag if we have one...
                 this.saveResponseCode(((HttpsURLConnection) connection).getResponseCode());
-
+                this.saveETagValue(((HttpsURLConnection) connection).getHeaderFields());
+                
                 // DEBUG
                 this.errorLogger().info("HttpTransport(" + verb +"):  URL: " + url_str + " CODE: " + this.getLastResponseCode() + " DATA: " + data + " RESULT: " + result);
             }

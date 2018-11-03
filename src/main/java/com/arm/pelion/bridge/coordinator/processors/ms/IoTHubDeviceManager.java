@@ -199,7 +199,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         String url = this.m_device_id_url_template.replace("__EPNAME__", iothub_ep_name);
 
         // Get the ETag
-        String etag = this.getETagForDevice(iothub_ep_name);
+        String etag = this.getETagForDevice(ep_name);
 
         // DEBUG
         this.errorLogger().info("IoTHub: deleteDevice: URL: " + url);
@@ -312,7 +312,7 @@ public class IoTHubDeviceManager extends DeviceManager {
     }
 
     // Get the ETag value for the device
-    private String getETagForDevice(String ep_name) {
+    public String getETagForDevice(String ep_name) {
         HashMap<String, Serializable> ep = this.getEndpointDetails(ep_name);
         if (ep != null) {
             return (String)ep.get("etag");

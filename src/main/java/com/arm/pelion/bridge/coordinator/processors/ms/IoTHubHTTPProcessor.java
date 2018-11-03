@@ -78,6 +78,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     // URL templates for IoTHub/HTTP
     private String m_iot_event_hub_observe_notification_message_url_template = null;
     private String m_iot_event_hub_device_cmd_message_url_template = null;
+    private String m_iot_event_hub_device_cmd_ack_url_template = null;
     
     // constructor
     public IoTHubHTTPProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
@@ -100,10 +101,11 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
         // Get the IoTHub Connect String
         this.m_iot_hub_connect_string = this.orchestrator().preferences().valueOf("iot_event_hub_connect_string",this.m_suffix);
         
-        // HTTP templates
+        // HTTP URL templates
         this.m_iot_event_hub_observe_notification_message_url_template = this.orchestrator().preferences().valueOf("iot_event_hub_observe_notification_message_url",this.m_suffix);
         this.m_iot_event_hub_device_cmd_message_url_template = this.orchestrator().preferences().valueOf("iot_event_hub_device_cmd_message_url",this.m_suffix);
-        
+        this.m_iot_event_hub_device_cmd_ack_url_template = this.orchestrator().preferences().valueOf("iot_event_hub_device_cmd_ack_url",this.m_suffix);
+                
         // create the HTTP-based device listeners
         this.m_device_listeners = new HashMap<>();
         
@@ -305,6 +307,11 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
         return this.m_iot_event_hub_device_cmd_message_url_template.replace("__EPNAME__", ep_name).replace("__IOT_EVENT_HUB__",this.m_iot_hub_name).replace("__API_VERSION__",this.m_iot_hub_api_version);
     }
     
+    // create the device coap command ack URL
+    private String buildDeviceCommandACKURL(String ep_name,String etag) {
+        return this.m_iot_event_hub_device_cmd_ack_url_template.replace("__EPNAME__", ep_name).replace("__IOT_EVENT_HUB__",this.m_iot_hub_name).replace("__API_VERSION__",this.m_iot_hub_api_version).replace("__ETAG__", etag);
+    }
+    
     // get the endpoint name from the topic (notification topic sent) 
     // format: <topic_root>/notify/<ep_type>/<endpoint name>/<URI> POSITION SENSITIVE
     private String getEndpointNameFromNotificationTopic(String topic) {
@@ -322,31 +329,31 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
             // DEBUG
             this.errorLogger().info("IoTHub(sendMessage): TOPIC: " + topic + " MESSAGE: " + message);
             try {
-            // Get the endpoint name
-            String ep_name = this.getEndpointNameFromNotificationTopic(topic);
-            
-            // IOTHUB Prefix
-            String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
-            
-            // create the posting URL 
-            String url = this.buildDeviceObservationNotificationURL(iothub_ep_name);
-            
-            // DEBUG
-            this.errorLogger().info("IoTHub(sendMessage): URL: " + url + " MESSAGE: " + message);
-            
-            // post the message to IoTHub
-            this.httpsPost(url, message);
-            int http_code = this.m_http.getLastResponseCode();
-            
-            // DEBUG
-            if (Utils.httpResponseCodeOK(http_code)) {
-                // SUCCESS
-                this.errorLogger().info("IoTHub(sendMessage): message: " + message + " sent to device: " + ep_name + " SUCCESSFULLY. Code: " + http_code);
-            }
-            else {
-                // FAILURE
-                this.errorLogger().warning("IoTHub(sendMessage): message: " + message + " send to device: " + ep_name + " FAILED. Code: " + http_code);
-            }
+                // Get the endpoint name
+                String ep_name = this.getEndpointNameFromNotificationTopic(topic);
+
+                // IOTHUB Prefix
+                String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
+
+                // create the posting URL 
+                String url = this.buildDeviceObservationNotificationURL(iothub_ep_name);
+
+                // DEBUG
+                this.errorLogger().info("IoTHub(sendMessage): URL: " + url + " MESSAGE: " + message);
+
+                // post the message to IoTHub
+                this.httpsPost(url, message);
+                int http_code = this.m_http.getLastResponseCode();
+
+                // DEBUG
+                if (Utils.httpResponseCodeOK(http_code)) {
+                    // SUCCESS
+                    this.errorLogger().info("IoTHub(sendMessage): message: " + message + " sent to device: " + ep_name + " SUCCESSFULLY. Code: " + http_code);
+                }
+                else if (http_code != 404) {
+                    // FAILURE
+                    this.errorLogger().warning("IoTHub(sendMessage): message: " + message + " send to device: " + ep_name + " FAILED. Code: " + http_code);
+                }
             }
             catch (Exception ex) {
                 this.errorLogger().warning("IoTHub: Exception in sendMessage: " + ex.getMessage(),ex);
@@ -504,7 +511,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
         return true;
     }
 
-    // get the next message
+    // get the next message (these are device command messages from IoTHub --> Pelion)
     private String getNextMessage(HttpTransport http,String ep_name) {
         // IOTHUB Prefix
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
@@ -512,8 +519,41 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
         // create the URL
         String url = this.buildDeviceCommandURL(iothub_ep_name);
             
-        // dispatch the GET and return the result
-        return this.httpsGet(http,url);
+        // dispatch the GET and collect the result - with message ACK immediately to IoTHub
+        String message = this.httpsGet(http,url);
+        int http_code = http.getLastResponseCode();
+        String etag = http.getLastETagValue();
+        if (message != null && message.length() > 0) {
+            // DEBUG
+            this.errorLogger().info("ioTHub: getNextMessage: Acking Message: " + message + " CODE: " + http_code + " ETAG: " + etag);
+
+            // immediately ACK a message if we get one...
+            this.ackLastMessage(http,ep_name,etag);
+        }
+        
+        // return the message
+        return message;
+    }
+    
+    // ack a command message
+    private void ackLastMessage(HttpTransport http,String ep_name,String etag) {
+        try {
+            // IOTHUB Prefix
+            String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
+
+            // create the URL
+            String url = this.buildDeviceCommandACKURL(iothub_ep_name, etag);
+
+            // dispatch the ACK to dequeue the message within IoTHub
+            this.httpsDelete(http, url, etag);
+            int http_code = http.getLastResponseCode();
+
+            // DEBUG
+            this.errorLogger().info("IoTHub: URL: " + url + " EP: " + ep_name + " ETAG: " + etag + " CODE: " + http_code);
+        }
+        catch (Exception ex) {
+            this.errorLogger().warning("IoTHub: Exception in ackLastCommandMessage: " + ex.getMessage(),ex);
+        }
     }
     
     // poll for and process device command messages
@@ -692,7 +732,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     // GET specific data to a given URL 
     private String httpsGet(HttpTransport http,String url) {
         http.setAuthorizationQualifier(this.m_http_auth_qualifier);
-        this.errorLogger().info("IoTHub(httpsGet): SASToken: " + this.m_http_auth_token);
+        //this.errorLogger().info("IoTHub(httpsGet): SASToken: " + this.m_http_auth_token);
         String result = http.httpsGetApiTokenAuth(url, this.m_http_auth_token, null, "application/json");
         return result;
     }
@@ -700,7 +740,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     // PUT specific data to a given URL (with data)
     public String httpsPut(String url, String payload) {
         this.m_http.setAuthorizationQualifier(this.m_http_auth_qualifier);
-        this.errorLogger().info("IoTHub(httpsPut): SASToken: " + this.m_http_auth_token);
+        //this.errorLogger().info("IoTHub(httpsPut): SASToken: " + this.m_http_auth_token);
         String result = this.m_http.httpsPutApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
         return result;
     }
@@ -708,21 +748,30 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     // POST specific data to a given URL (with data)
     public String httpsPost(String url, String payload) {
         this.m_http.setAuthorizationQualifier(this.m_http_auth_qualifier);
-        this.errorLogger().info("IoTHub(httpsPost): SASToken: " + this.m_http_auth_token);
+        //this.errorLogger().info("IoTHub(httpsPost): SASToken: " + this.m_http_auth_token);
         String result = this.m_http.httpsPostApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
         return result;
     }
 
     // DELETE specific data to a given URL (with data)
     public String httpsDelete(String url, String etag) {
-        return this.httpsDelete(url, etag, null);
+        return this.httpsDelete(this.m_http, url, etag, null);
+    }
+    
+    // DELETE specific data to a given URL (with data)
+    public String httpsDelete(HttpTransport http,String url, String etag) {
+        return this.httpsDelete(http, url, etag, null);
     }
 
     public String httpsDelete(String url, String etag, String payload) {
-        this.m_http.setAuthorizationQualifier(this.m_http_auth_qualifier);
-        this.m_http.setETagValue(etag);             // ETag header required...
-        this.m_http.setIfMatchValue("*");           // If-Match header required... 
-        String result = this.m_http.httpsDeleteApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
+        return this.httpsDelete(this.m_http, url, etag, payload);
+    }
+    
+    public String httpsDelete(HttpTransport http, String url, String etag, String payload) {
+        http.setAuthorizationQualifier(this.m_http_auth_qualifier);
+        http.setETagValue(etag);             // ETag header required...
+        http.setIfMatchValue("*");           // If-Match header required... 
+        String result = http.httpsDeleteApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
         return result;
     }
     
