@@ -55,17 +55,17 @@ public class ShadowDeviceThreadDispatcher extends BaseClass implements Runnable 
     public void run() {
         if (this.m_pelion_processor != null) {
             // DEBUG
-            this.errorLogger().warning("ShadowDeviceThreadDispatcher: Quering Pelion for existing devices in our organization...");
+            this.errorLogger().warning("ShadowDeviceThreadDispatcher: Quering Pelion for existing devices in your organization...");
 
             // query mbed Cloud for the current list of Registered devices
             List devices = this.m_pelion_processor.discoverRegisteredDevices();
             
             // DEBUG
             if (devices != null) {
-                this.errorLogger().warning("ShadowDeviceThreadDispatcher: Pelion indicates " + devices.size() + " devices in our organization.");
+                this.errorLogger().warning("ShadowDeviceThreadDispatcher: Pelion indicates " + devices.size() + " devices in your organization.");
             }
             else {
-                this.errorLogger().warning("ShadowDeviceThreadDispatcher: Pelion indicates 0 devices in our organization.");
+                this.errorLogger().warning("ShadowDeviceThreadDispatcher: Pelion indicates 0 devices in your organization.");
             }
         
             // see what we got in response...
