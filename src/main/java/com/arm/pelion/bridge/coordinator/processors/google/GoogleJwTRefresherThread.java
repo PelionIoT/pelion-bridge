@@ -22,6 +22,7 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.google;
 
+import com.arm.pelion.bridge.coordinator.processors.google.mqtt.GoogleCloudMQTTProcessor;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
 
@@ -38,7 +39,7 @@ public class GoogleJwTRefresherThread extends Thread {
     private long m_wait_for_lock = 0;
     
     // Constructor
-    GoogleJwTRefresherThread(GoogleCloudMQTTProcessor processor,String ep_name) {
+    public GoogleJwTRefresherThread(GoogleCloudMQTTProcessor processor,String ep_name) {
         this.m_processor = processor;
         this.m_ep_name = ep_name;
         this.m_wait_between_refresh_ms = this.m_processor.getJwTRefreshIntervalInSeconds() * 1000;

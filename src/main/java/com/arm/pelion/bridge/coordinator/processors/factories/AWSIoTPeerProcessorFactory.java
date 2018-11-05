@@ -24,7 +24,7 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.aws.AWSIoTMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.aws.mqtt.AWSIoTMQTTProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;

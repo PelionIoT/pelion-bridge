@@ -24,6 +24,7 @@ package com.arm.pelion.bridge.coordinator.processors.ms;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.DeviceManagerToPeerProcessorInterface;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.data.SerializableHashMap;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -41,21 +42,19 @@ public class IoTHubDeviceManager extends DeviceManager {
     private String m_api_version = null;
     private String m_iot_event_hub_name = null;
     private String m_iot_event_hub_add_device_json = null;
-    private String m_iot_event_hub_sas_token = null;
-    private String m_iot_event_hub_auth_qualifier = "SharedAccessSignature";
-    private IoTHubMQTTProcessor m_processor = null;
+    private DeviceManagerToPeerProcessorInterface m_processor = null;
 
     // IoTHub Device ID prefixing...
     private boolean m_iot_event_hub_enable_device_id_prefix = false;
     private String m_iot_event_hub_device_id_prefix = null;
 
     // constructor
-    public IoTHubDeviceManager(HttpTransport http, IoTHubMQTTProcessor processor, String hub_name, String sas_token) {
+    public IoTHubDeviceManager(DeviceManagerToPeerProcessorInterface processor, HttpTransport http, String hub_name, String sas_token) {
         this(null, http, processor, hub_name, sas_token);
     }
 
     // constructor
-    public IoTHubDeviceManager(String suffix, HttpTransport http, IoTHubMQTTProcessor processor, String hub_name,String sas_token) {
+    public IoTHubDeviceManager(String suffix, HttpTransport http, DeviceManagerToPeerProcessorInterface processor, String hub_name,String sas_token) {
         super(processor.errorLogger(), processor.preferences(),suffix,http,processor.orchestrator());
         this.m_processor = processor;
 
@@ -70,9 +69,6 @@ public class IoTHubDeviceManager extends DeviceManager {
 
         // Add device JSON template
         this.m_iot_event_hub_add_device_json = this.preferences().valueOf("iot_event_hub_add_device_json", this.m_suffix);
-
-        // IoTHub SAS Token (take out the qualifier if present...)
-        this.m_iot_event_hub_sas_token = sas_token.replace("SharedAccessSignature ", "").trim();
 
         // Enable prefixing of mbed Cloud names for IoTHub
         this.m_iot_event_hub_enable_device_id_prefix = this.prefBoolValue("iot_event_hub_enable_device_id_prefix", this.m_suffix);
@@ -282,35 +278,6 @@ public class IoTHubDeviceManager extends DeviceManager {
         return ep;
     }
 
-    // GET specific data to a given URL 
-    private String httpsGet(String url) {
-        this.m_http.setAuthorizationQualifier(this.m_iot_event_hub_auth_qualifier);
-        this.errorLogger().info("httpsGet: SASToken: " + this.m_iot_event_hub_sas_token);
-        String result = this.m_http.httpsGetApiTokenAuth(url, this.m_iot_event_hub_sas_token, null, "application/json");
-        return result;
-    }
-
-    // PUT specific data to a given URL (with data)
-    private String httpsPut(String url, String payload) {
-        this.m_http.setAuthorizationQualifier(this.m_iot_event_hub_auth_qualifier);
-        this.errorLogger().info("httpsPut: SASToken: " + this.m_iot_event_hub_sas_token);
-        String result = this.m_http.httpsPutApiTokenAuth(url, this.m_iot_event_hub_sas_token, payload, "application/json");
-        return result;
-    }
-
-    // DELETE specific data to a given URL (with data)
-    private String httpsDelete(String url, String etag) {
-        return this.httpsDelete(url, etag, null);
-    }
-
-    private String httpsDelete(String url, String etag, String payload) {
-        this.m_http.setAuthorizationQualifier(this.m_iot_event_hub_auth_qualifier);
-        this.m_http.setETagValue(etag);             // ETag header required...
-        this.m_http.setIfMatchValue("*");           // If-Match header required... 
-        String result = this.m_http.httpsDeleteApiTokenAuth(url, this.m_iot_event_hub_sas_token, payload, "application/json");
-        return result;
-    }
-
     // Get the ETag value for the device
     public String getETagForDevice(String ep_name) {
         HashMap<String, Serializable> ep = this.getEndpointDetails(ep_name);
@@ -452,10 +419,28 @@ public class IoTHubDeviceManager extends DeviceManager {
             this.m_endpoint_details.put(iothub_ep_name, entry);
         }
     }
+    
+    // GET specific data to a given URL 
+    private String httpsGet(String url) {
+        return this.m_processor.httpsGet(url);
+    }
 
-    // create a MQTT Password for a given device
-    public String createMQTTPassword(String device) {
-        // use the IoTHub SAS Token + the original signature qualifier
-        return this.m_iot_event_hub_auth_qualifier + " " + this.m_iot_event_hub_sas_token;
+    // PUT specific data to a given URL (with data)
+    private String httpsPut(String url, String payload) {
+        return this.m_processor.httpsPut(url, payload);
+    }
+    
+    // POST specific data to a given URL (with data)
+    private String httpsPost(String url, String payload) {
+        return this.m_processor.httpsPost(url, payload);
+    }
+
+    // DELETE specific data to a given URL (with data)
+    private String httpsDelete(String url, String etag) {
+        return this.httpsDelete(url, etag, null);
+    }
+
+    private String httpsDelete(String url, String etag, String payload) {
+        return this.m_processor.httpsDelete(url, etag, payload);
     }
 }

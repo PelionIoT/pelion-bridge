@@ -24,12 +24,10 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.ms.IoTHubHTTPProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
-import com.arm.pelion.bridge.coordinator.processors.ms.IoTHubMQTTProcessor;
 
 /**
  * MS IoTHub Peer Processor Manager: Factory for initiating a peer processor for MS IoTHub
@@ -58,13 +56,13 @@ public class MSIoTHubPeerProcessorFactory extends BasePeerProcessorFactory imple
             if (use_mqtt == true) {
                 // use MQTT-based IoTHub processor
                 manager.errorLogger().info("Registering MS IoTHub MQTT processor...");
-                GenericConnectablePeerProcessor p = new IoTHubMQTTProcessor(manager, null, http);
+                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.ms.mqtt.IoTHubProcessor(manager, null, http);
                 me.addProcessor(p);
             }
             else {
                 // use HTTP-based IoTHub processor
                 manager.errorLogger().info("Registering MS IoTHub HTTP processor...");
-                GenericConnectablePeerProcessor p = new IoTHubHTTPProcessor(manager, null, http);
+                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.ms.http.IoTHubProcessor(manager, null, http);
                 me.addProcessor(p);
             }
         }

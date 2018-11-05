@@ -22,9 +22,11 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.google;
 
+import com.arm.pelion.bridge.coordinator.processors.google.mqtt.GoogleCloudMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
+import com.arm.pelion.bridge.coordinator.processors.google.mqtt.GoogleCloudMQTTProcessor;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.data.SerializableHashMap;
 import com.arm.pelion.bridge.transport.HttpTransport;

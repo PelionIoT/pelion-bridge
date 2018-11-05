@@ -1,6 +1,6 @@
 /**
- * @file IoTHubHTTPDeviceListener.java
- * @brief MS IoTHub Device Listener for the MS IoTHub HTTP Peer Processor
+ * @file HTTPDeviceListener.java
+ * @brief Device Listener for HTTP Peer Processors
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -20,19 +20,20 @@
  * limitations under the License.
  *
  */
-package com.arm.pelion.bridge.coordinator.processors.ms;
+package com.arm.pelion.bridge.coordinator.processors.core;
 
+import com.arm.pelion.bridge.coordinator.processors.interfaces.HTTPDeviceListenerInterface;
 import com.arm.pelion.bridge.core.BaseClass;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.transport.HttpTransport;
 
 /**
- * HTTP-based device listener for IoTHub
+ * HTTP-based device listener for HTTP-based peer processors
  * @author Doug Anson
  */
-public class IoTHubHTTPDeviceListener extends BaseClass implements Runnable {
+public class HTTPDeviceListener extends BaseClass implements Runnable {
     private static final int DEFAULT_LISTENER_WAIT_TIME_MS = 1000;              // 1 second
-    private IoTHubHTTPProcessor m_processor = null;
+    private HTTPDeviceListenerInterface m_processor = null;
     private HttpTransport m_http = null;
     private boolean m_running = true;
     private String m_ep_name = null;
@@ -40,7 +41,7 @@ public class IoTHubHTTPDeviceListener extends BaseClass implements Runnable {
     private int m_listener_wait_time_ms = DEFAULT_LISTENER_WAIT_TIME_MS;
     
     // constructor
-    public IoTHubHTTPDeviceListener(IoTHubHTTPProcessor processor,HttpTransport http,String ep_name) {
+    public HTTPDeviceListener(HTTPDeviceListenerInterface processor,HttpTransport http,String ep_name) {
         super(processor.errorLogger(),processor.preferences());
         this.m_ep_name = ep_name;
         this.m_processor = processor;
@@ -50,7 +51,7 @@ public class IoTHubHTTPDeviceListener extends BaseClass implements Runnable {
             this.m_thread.start();
         }
         catch(Exception ex) {
-            this.errorLogger().warning("IoTHub: Unable to start device listner for: " + this.m_ep_name);
+            this.errorLogger().warning("HTTPDeviceListener: Unable to start device listner for: " + this.m_ep_name);
         }
     }
     
@@ -66,7 +67,7 @@ public class IoTHubHTTPDeviceListener extends BaseClass implements Runnable {
 
     @Override
     public void run() {
-        this.errorLogger().warning("IoTHub: Device Listener for " + this.m_ep_name + " has started.");
+        this.errorLogger().warning("HTTPDeviceListener: Device Listener for " + this.m_ep_name + " has started.");
         Utils.waitForABit(this.errorLogger(), 4*this.m_listener_wait_time_ms);
         while(this.m_running) {
             try {
@@ -74,9 +75,9 @@ public class IoTHubHTTPDeviceListener extends BaseClass implements Runnable {
                 this.m_processor.pollAndProcessDeviceMessages(this.m_http,this.m_ep_name);
             }
             catch(Exception ex) {
-                this.errorLogger().warning("IoTHub: Exception in Device Listener: " + ex.getMessage());
+                this.errorLogger().warning("HTTPDeviceListener: Exception in Device Listener: " + ex.getMessage());
             }
         }
-        this.errorLogger().warning("IoTHub: Device Listener for " + this.m_ep_name + " has halted (OK)");
+        this.errorLogger().warning("HTTPDeviceListener: Device Listener for " + this.m_ep_name + " has halted (OK)");
     }
 }

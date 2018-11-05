@@ -24,7 +24,7 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.google.GoogleCloudMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.google.mqtt.GoogleCloudMQTTProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;

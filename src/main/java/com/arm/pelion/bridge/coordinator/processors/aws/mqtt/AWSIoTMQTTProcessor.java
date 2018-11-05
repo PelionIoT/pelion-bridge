@@ -20,8 +20,9 @@
  * limitations under the License.
  *
  */
-package com.arm.pelion.bridge.coordinator.processors.aws;
+package com.arm.pelion.bridge.coordinator.processors.aws.mqtt;
 
+import com.arm.pelion.bridge.coordinator.processors.aws.AWSIoTDeviceManager;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;

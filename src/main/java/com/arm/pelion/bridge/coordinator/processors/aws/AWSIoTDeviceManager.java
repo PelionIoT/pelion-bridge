@@ -23,6 +23,7 @@
 package com.arm.pelion.bridge.coordinator.processors.aws;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
+import com.arm.pelion.bridge.coordinator.processors.aws.mqtt.AWSIoTMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.data.SerializableHashMap;

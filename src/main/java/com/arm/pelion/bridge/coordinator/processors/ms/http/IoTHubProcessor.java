@@ -1,6 +1,6 @@
 /**
  * @file IoTHubProcessor.java
- * @brief IoTHub Peer Processor
+ * @brief IoTHub Peer Processor (HTTP-based)
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -20,14 +20,18 @@
  * limitations under the License.
  *
  */
-package com.arm.pelion.bridge.coordinator.processors.ms;
+package com.arm.pelion.bridge.coordinator.processors.ms.http;
 
+import com.arm.pelion.bridge.coordinator.processors.core.HTTPDeviceListener;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.DeviceManagerToPeerProcessorInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.HTTPDeviceListenerInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ReconnectionInterface;
+import com.arm.pelion.bridge.coordinator.processors.ms.IoTHubDeviceManager;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -40,11 +44,11 @@ import java.util.Map;
 import org.fusesource.mqtt.client.Topic;
 
 /**
- * IoTHub Processor: This can be a MQTT-based processor or a HTTP-based processor... its derived from GenericConnectablePeerProcessor.
- *
+ * MS IoTHub peer processor based on HTTP
+ * 
  * @author Doug Anson
  */
-public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor implements Runnable, PeerProcessorInterface, GenericSender,Transport.ReceiveListener, ReconnectionInterface, AsyncResponseProcessor {    
+public class IoTHubProcessor extends GenericConnectablePeerProcessor implements Runnable, DeviceManagerToPeerProcessorInterface, HTTPDeviceListenerInterface, PeerProcessorInterface, GenericSender,Transport.ReceiveListener, ReconnectionInterface, AsyncResponseProcessor {    
     private static final String IOTHUB_DEVICE_PREFIX_SEPARATOR = "-";                       // device prefix separator (if used...)... cannot be an "_"
     private static final long SAS_TOKEN_VALID_TIME_MS = 365 * 24 * 60 * 60 * 1000;          // SAS Token created for 1 year expiration
     private static final long SAS_TOKEN_RECREATE_INTERVAL_MS = 360 * 24 * 60 * 60 * 1000;   // number of days to wait before re-creating the SAS Token
@@ -57,7 +61,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     private boolean m_iot_hub_sas_token_initialized = false;
     private String m_iot_hub_connect_string = null;
     private String m_iot_hub_password_template = null;
-    private IoTHubDeviceManagerForHTTPProcessor m_device_manager = null;
+    private IoTHubDeviceManager m_device_manager = null;
     private boolean m_iot_event_hub_enable_device_id_prefix = false;
     private String m_iot_event_hub_device_id_prefix = null;
     private String m_iot_hub_api_version = null;
@@ -68,12 +72,11 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     private boolean m_configured = false;
     
     // HTTP specific configuration for IoTHub
-    private HttpTransport m_http = null;
     private String m_http_auth_qualifier = "SharedAccessSignature";
     private String m_http_auth_token = null;
     
     // HTTP listeners for our device shadows
-    private HashMap<String,IoTHubHTTPDeviceListener> m_device_listeners = null;
+    private HashMap<String,HTTPDeviceListener> m_device_listeners = null;
     
     // URL templates for IoTHub/HTTP
     private String m_iot_event_hub_observe_notification_message_url_template = null;
@@ -81,12 +84,12 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     private String m_iot_event_hub_device_cmd_ack_url_template = null;
     
     // constructor
-    public IoTHubHTTPProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
+    public IoTHubProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
         this(manager, mqtt, http, null);
     }
 
     // constructor
-    public IoTHubHTTPProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http, String suffix) {
+    public IoTHubProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http, String suffix) {
         super(manager, mqtt, suffix, http);
         
         // Http processor 
@@ -130,7 +133,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
             this.m_iot_hub_coap_cmd_topic_base = this.orchestrator().preferences().valueOf("iot_event_hub_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "#");
 
             // IoTHub Device Manager - will initialize and upsert our IoTHub bindings/metadata
-            this.m_device_manager = new IoTHubDeviceManagerForHTTPProcessor(this.m_suffix, http, this, this.m_iot_hub_name, this.m_iot_hub_sas_token);
+            this.m_device_manager = new IoTHubDeviceManager(this.m_suffix, http, this, this.m_iot_hub_name, this.m_iot_hub_sas_token);
 
             // set the MQTT password template
             this.m_iot_hub_password_template = this.orchestrator().preferences().valueOf("iot_event_hub_mqtt_password", this.m_suffix).replace("__IOT_EVENT_HUB__", this.m_iot_hub_name);
@@ -149,7 +152,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
         }
         else {
             // unconfigured
-            this.errorLogger().warning("IoTHub: IoTHub Connection String is UNCONFIGURED. Pausing...");
+            this.errorLogger().warning("IoTHub(HTTP): IoTHub Connection String is UNCONFIGURED. Pausing...");
         }
     }
     
@@ -170,7 +173,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
         }
         
         // DEBUG
-        this.errorLogger().info("IoTHub: Resource URIs: " + uri_list);
+        this.errorLogger().info("IoTHub(HTTP): Resource URIs: " + uri_list);
         
         // return the array of resource URIs
         return uri_list;
@@ -194,7 +197,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
                         this.m_iot_hub_sas_token_refresh_thread.start();
                     }
                     catch (Exception ex) {
-                        this.errorLogger().warning("IoTHub: Exception caught while starting SAS Token refresher: " + ex.getMessage());
+                        this.errorLogger().warning("IoTHub(HTTP): Exception caught while starting SAS Token refresher: " + ex.getMessage());
                         this.m_iot_hub_sas_token_refresh_thread = null;
                     }
                 }
@@ -211,7 +214,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     private void refreshSASToken() {
         if (this.m_iot_hub_sas_token_initialized == true) {
             // DEBUG
-            this.errorLogger().warning("IoTHub: Refreshing SAS Token...");
+            this.errorLogger().warning("IoTHub(HTTP): Refreshing SAS Token...");
             
             // XXX disconnect
             
@@ -286,11 +289,11 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
         // DEBUG
         if (map != null) {
             // we have a good connection string
-            this.errorLogger().info("IoTHub: Parsed Connection String: " + map);
+            this.errorLogger().info("IoTHub(HTTP): Parsed Connection String: " + map);
         }
         else {
             // we dont have a connection string... compatibility with older configs
-            this.errorLogger().warning("IoTHub: No Connection String supplied. SASToken/HubName required in configuration (OK)");
+            this.errorLogger().warning("IoTHub(HTTP): No Connection String supplied. SASToken/HubName required in configuration (OK)");
         }
         
         // return the map
@@ -356,7 +359,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
                 }
             }
             catch (Exception ex) {
-                this.errorLogger().warning("IoTHub: Exception in sendMessage: " + ex.getMessage(),ex);
+                this.errorLogger().warning("IoTHub(HTTP): Exception in sendMessage: " + ex.getMessage(),ex);
             }
         }
         else {
@@ -414,12 +417,12 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
             }
             else {
                 // exceeded the maximum number of device shadows
-                this.errorLogger().warning("IoTHub: Exceeded maximum number of device shadows. Limit: " + this.getMaxNumberOfShadows());
+                this.errorLogger().warning("IoTHub(HTTP): Exceeded maximum number of device shadows. Limit: " + this.getMaxNumberOfShadows());
             }
         }
         else {
             // nothing to shadow
-            this.errorLogger().info("IoTHub: Nothing to shadow (OK).");
+            this.errorLogger().info("IoTHub(HTTP): Nothing to shadow (OK).");
         }
     }
     
@@ -482,16 +485,16 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
             this.removeDeviceListener(ep_name);
             
             // DEBUG
-            this.errorLogger().info("IoTHub: deleting device shadow: " + ep_name);
+            this.errorLogger().info("IoTHub(HTTP): deleting device shadow: " + ep_name);
 
             // remove the device from IoTHub
             if (this.m_device_manager.deleteDevice(ep_name) == false) {
                 // unable to delete the device shadow from IoTHub
-                this.errorLogger().warning("IoTHub: WARNING: Unable to delete device " + ep_name + " from IoTHub!");
+                this.errorLogger().warning("IoTHub(HTTP): WARNING: Unable to delete device " + ep_name + " from IoTHub!");
             }
             else {
                 // successfully deleted the device shadow from Google CloudIoT
-                this.errorLogger().warning("IoTHub: Device " + ep_name + " deleted from IoTHub SUCCESSFULLY.");
+                this.errorLogger().warning("IoTHub(HTTP): Device " + ep_name + " deleted from IoTHub SUCCESSFULLY.");
             }
             
             // remove type from the type list
@@ -549,27 +552,28 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
             int http_code = http.getLastResponseCode();
 
             // DEBUG
-            this.errorLogger().info("IoTHub: URL: " + url + " EP: " + ep_name + " ETAG: " + etag + " CODE: " + http_code);
+            this.errorLogger().info("IoTHub(HTTP): URL: " + url + " EP: " + ep_name + " ETAG: " + etag + " CODE: " + http_code);
         }
         catch (Exception ex) {
-            this.errorLogger().warning("IoTHub: Exception in ackLastCommandMessage: " + ex.getMessage(),ex);
+            this.errorLogger().warning("IoTHub(HTTP): Exception in ackLastCommandMessage: " + ex.getMessage(),ex);
         }
     }
     
     // poll for and process device command messages
+    @Override
     public void pollAndProcessDeviceMessages(HttpTransport http,String ep_name) {
         // Get the next message
         String message = this.getNextMessage(http,ep_name);
         if (message != null && message.length() > 0) {
             // DEBUG
-            this.errorLogger().info("IoTHub: DEVICE: " + ep_name + " MESSAGE: " + message);
+            this.errorLogger().info("IoTHub(HTTP): DEVICE: " + ep_name + " MESSAGE: " + message);
 
             // parse and process the message
             this.onMessageReceive(ep_name, message);
         }
         else {
             // No message to process... OK
-            this.errorLogger().info("IoTHub: DEVICE: " + ep_name + " No message to process. (OK)");
+            this.errorLogger().info("IoTHub(HTTP): DEVICE: " + ep_name + " No message to process. (OK)");
         }
     }
     
@@ -633,14 +637,14 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
         // examine the response
         if (response != null && response.length() > 0) {
             // SYNC: We only process AsyncResponses from GET verbs... we dont sent HTTP status back through IoTHub.
-            this.errorLogger().info("IoTHub: Response: " + response);
+            this.errorLogger().info("IoTHub(HTTP): Response: " + response);
 
             // AsyncResponse detection and recording...
             if (this.isAsyncResponse(response) == true) {
                 // CoAP GET and PUT provides AsyncResponses...
                 if (coap_verb.equalsIgnoreCase("get") == true || coap_verb.equalsIgnoreCase("put") == true) {
                     // DEBUG
-                    this.errorLogger().info("IoTHub: Recording ASYNC RESPONSE: " + response);
+                    this.errorLogger().info("IoTHub(HTTP): Recording ASYNC RESPONSE: " + response);
                     
                     // its an AsyncResponse.. so record it...
                     String topic = this.createFudgedTopic(ep_name);
@@ -648,18 +652,18 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
                 }
                 else {
                     // we ignore AsyncResponses to PUT,POST,DELETE
-                    this.errorLogger().info("IoTHub: Ignoring AsyncResponse for " + coap_verb + " (OK).");
+                    this.errorLogger().info("IoTHub(HTTP): Ignoring AsyncResponse for " + coap_verb + " (OK).");
                 }
             }
             else if (coap_verb.equalsIgnoreCase("get")) {
                 // not an AsyncResponse... so just emit it immediately... only for GET...
-                this.errorLogger().info("IoTHub: Response: " + response + " from GET... creating observation...");
+                this.errorLogger().info("IoTHub(HTTP): Response: " + response + " from GET... creating observation...");
 
                 // we have to format as an observation...
                 String observation = this.createObservation(coap_verb, iothub_ep_name, uri, payload, value);
 
                 // DEBUG
-                this.errorLogger().info("IoTHub: Sending Observation (GET): " + observation);
+                this.errorLogger().info("IoTHub(HTTP): Sending Observation (GET): " + observation);
 
                 // send the observation (GET reply)...
                 String topic = this.createFudgedTopic(ep_name);
@@ -672,7 +676,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     private void createDeviceListener(String ep_name) {
         if (ep_name != null && ep_name.length() > 0) {
             if (this.m_device_listeners.get(ep_name) == null) {
-                this.m_device_listeners.put(ep_name, new IoTHubHTTPDeviceListener(this,new HttpTransport(this.errorLogger(),this.preferences()),ep_name));
+                this.m_device_listeners.put(ep_name, new HTTPDeviceListener(this,new HttpTransport(this.errorLogger(),this.preferences()),ep_name));
             }
         }
     }
@@ -680,7 +684,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     // remove our HTTP-based device listener
     private void removeDeviceListener(String ep_name) {
         if (ep_name != null && ep_name.length() > 0) {
-        IoTHubHTTPDeviceListener doomed = this.m_device_listeners.get(ep_name);
+        HTTPDeviceListener doomed = this.m_device_listeners.get(ep_name);
             if (doomed != null) {
                 doomed.halt();
                 this.m_device_listeners.remove(ep_name);
@@ -725,6 +729,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     }
     
     // GET specific data to a given URL 
+    @Override
     public String httpsGet(String url) {
         return this.httpsGet(this.m_http,url);
     }
@@ -738,6 +743,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     }
 
     // PUT specific data to a given URL (with data)
+    @Override
     public String httpsPut(String url, String payload) {
         this.m_http.setAuthorizationQualifier(this.m_http_auth_qualifier);
         //this.errorLogger().info("IoTHub(httpsPut): SASToken: " + this.m_http_auth_token);
@@ -746,6 +752,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
     }
     
     // POST specific data to a given URL (with data)
+    @Override
     public String httpsPost(String url, String payload) {
         this.m_http.setAuthorizationQualifier(this.m_http_auth_qualifier);
         //this.errorLogger().info("IoTHub(httpsPost): SASToken: " + this.m_http_auth_token);
@@ -763,6 +770,7 @@ public class IoTHubHTTPProcessor extends GenericConnectablePeerProcessor impleme
         return this.httpsDelete(http, url, etag, null);
     }
 
+    @Override
     public String httpsDelete(String url, String etag, String payload) {
         return this.httpsDelete(this.m_http, url, etag, payload);
     }

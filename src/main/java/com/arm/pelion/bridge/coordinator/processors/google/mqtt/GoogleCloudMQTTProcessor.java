@@ -20,11 +20,13 @@
  * limitations under the License.
  *
  */
-package com.arm.pelion.bridge.coordinator.processors.google;
+package com.arm.pelion.bridge.coordinator.processors.google.mqtt;
 
+import com.arm.pelion.bridge.coordinator.processors.google.GoogleCloudDeviceManager;
 import com.arm.pelion.bridge.transport.RetryHttpInitializerWrapper;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
+import com.arm.pelion.bridge.coordinator.processors.google.GoogleJwTRefresherThread;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ConnectionCreator;
