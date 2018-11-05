@@ -24,7 +24,6 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.google.mqtt.GoogleCloudMQTTProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
@@ -39,15 +38,31 @@ public class GoogleCloudPeerProcessorFactory extends BasePeerProcessorFactory im
 
     // Factory method for initializing the AWS IotHub MQTT collection orchestrator
     public static GoogleCloudPeerProcessorFactory createPeerProcessor(Orchestrator manager, HttpTransport http) {
+        // default is to use MQTT
+        boolean use_mqtt = true;
+        
+        // determine whether we use MQTT or HTTP
+        String google_transport = manager.preferences().valueOf("google_cloud_transport");
+        if (google_transport != null && google_transport.equalsIgnoreCase("http")) {
+            use_mqtt = false;
+        }
+        
         // create me
         GoogleCloudPeerProcessorFactory me = new GoogleCloudPeerProcessorFactory(manager, http);
 
         // initialize me
         boolean google_cloud_gw_enabled = manager.preferences().booleanValueOf("enable_google_cloud_addon");
         if (google_cloud_gw_enabled == true) {
-            manager.errorLogger().info("Registering Google Cloud MQTT processor...");
-            GenericConnectablePeerProcessor p = new GoogleCloudMQTTProcessor(manager, null, http);
-            me.addProcessor(p);
+            if (use_mqtt == true) {
+                manager.errorLogger().info("Registering Google Cloud HTTP processor...");
+                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.google.http.GoogleCloudProcessor(manager, null, http);
+                me.addProcessor(p);
+            }
+            else {
+                manager.errorLogger().info("Registering Google Cloud MQTT processor...");
+                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.google.mqtt.GoogleCloudProcessor(manager, null, http);
+                me.addProcessor(p);
+            }
         }
 
         // return me

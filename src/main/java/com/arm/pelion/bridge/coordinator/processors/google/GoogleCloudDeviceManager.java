@@ -22,11 +22,10 @@
  */
 package com.arm.pelion.bridge.coordinator.processors.google;
 
-import com.arm.pelion.bridge.coordinator.processors.google.mqtt.GoogleCloudMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
-import com.arm.pelion.bridge.coordinator.processors.google.mqtt.GoogleCloudMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.DeviceManagerToPeerProcessorInterface;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.data.SerializableHashMap;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -75,15 +74,15 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
     private String m_google_cloud_key_convert_cmd_template = null;
     private String m_keystore_rootdir = null;
     private int m_num_days = 0;
-    private GoogleCloudMQTTProcessor m_processor = null;
+    private DeviceManagerToPeerProcessorInterface m_processor = null;
     
     // constructor
-    public GoogleCloudDeviceManager(HttpTransport http,GoogleCloudMQTTProcessor processor,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key) {
+    public GoogleCloudDeviceManager(HttpTransport http,DeviceManagerToPeerProcessorInterface processor,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key) {
         this(null,http,processor,project_id,region,cloud_iot,pub_sub,obs_key,cmd_key);
     }
 
     // defaulted constructor
-    public GoogleCloudDeviceManager(String suffix, HttpTransport http,GoogleCloudMQTTProcessor processor,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key) {
+    public GoogleCloudDeviceManager(String suffix, HttpTransport http,DeviceManagerToPeerProcessorInterface processor,String project_id,String region,CloudIot cloud_iot,Pubsub pub_sub,String obs_key,String cmd_key) {
         super(processor.errorLogger(),processor.preferences(),suffix,http,processor.orchestrator());
         this.m_processor = processor;
         

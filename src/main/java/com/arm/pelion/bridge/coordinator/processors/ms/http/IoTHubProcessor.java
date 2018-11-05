@@ -315,16 +315,6 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         return this.m_iot_event_hub_device_cmd_ack_url_template.replace("__EPNAME__", ep_name).replace("__IOT_EVENT_HUB__",this.m_iot_hub_name).replace("__API_VERSION__",this.m_iot_hub_api_version).replace("__ETAG__", etag);
     }
     
-    // get the endpoint name from the topic (notification topic sent) 
-    // format: <topic_root>/notify/<ep_type>/<endpoint name>/<URI> POSITION SENSITIVE
-    private String getEndpointNameFromNotificationTopic(String topic) {
-        String[] items = topic.split("/");
-        if (items.length >= 4 && items[3].trim().length() > 0) { // POSITION SENSITIVE
-            return items[3].trim();                              // POSITION SENSITIVE
-        }
-        return null;
-    }
-    
     // GenericSender Implementation: send a message
     @Override
     public void sendMessage(String topic, String message) {
@@ -528,7 +518,7 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         String etag = http.getLastETagValue();
         if (message != null && message.length() > 0) {
             // DEBUG
-            this.errorLogger().info("ioTHub: getNextMessage: Acking Message: " + message + " CODE: " + http_code + " ETAG: " + etag);
+            this.errorLogger().info("IoTHub(HTTP): getNextMessage: Acking Message: " + message + " CODE: " + http_code + " ETAG: " + etag);
 
             // immediately ACK a message if we get one...
             this.ackLastMessage(http,ep_name,etag);
@@ -581,13 +571,6 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     private void sendApiResponse(String topic, ApiResponse response) {
         // publish via sendMessage()
         this.sendMessage(topic, response.createResponseJSON());
-    }
-    
-    // create a fudged topic (since we dont use mqtt...)
-    private String createFudgedTopic(String ep_name) {
-        // we can fudge the topic... it really wont be needed for anything other than the EP_NAME
-        // the format is: <topic_root>/<verb>/<ept>/<ep>/
-        return "dontcare/dontcare/dontcare/" + ep_name + "/";
     }
     
     // process a message to send to Pelion...

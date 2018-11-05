@@ -1,6 +1,6 @@
 /**
- * @file GoogleCloudMQTTProcessor.java
- * @brief Google Cloud MQTT Peer Processor
+ * @file GoogleCloudProcessor.java
+ * @brief Google Cloud Peer Processor (MQTT)
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -26,10 +26,12 @@ import com.arm.pelion.bridge.coordinator.processors.google.GoogleCloudDeviceMana
 import com.arm.pelion.bridge.transport.RetryHttpInitializerWrapper;
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.google.GoogleJwTRefresherThread;
+import com.arm.pelion.bridge.coordinator.processors.core.JwTRefresherThread;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ConnectionCreator;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.DeviceManagerToPeerProcessorInterface;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.JwTRefresherResponderInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ReconnectionInterface;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -64,11 +66,14 @@ import org.fusesource.mqtt.client.QoS;
 import org.fusesource.mqtt.client.Topic;
 
 /**
- * Google CloudioT peer processor based on MQTT
+ * Google CloudIoT peer processor based on MQTT
  *
  * @author Doug Anson
  */
-public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor implements ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {
+public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implements JwTRefresherResponderInterface, DeviceManagerToPeerProcessorInterface, ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {
+    // Google Auth Token Qualifer
+    public static final String GOOGLE_AUTH_QUALIFIER = "bearer";
+    
     // maximum number of google device shadows per worker
     private static final int MAX_GOOGLE_DEVICE_SHADOWS = 25000;     // limitation: # ephemeral ports
     
@@ -147,26 +152,26 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     private long m_jwt_expiration_secs = (23 * 60 * 60);   // JwT token max expiration : 23 hours
     
     // JwT refresher Thread
-    private HashMap<String,GoogleJwTRefresherThread> m_jwt_refesher_thread_list = null;
+    private HashMap<String,JwTRefresherThread> m_jwt_refesher_thread_list = null;
 
     // constructor (singleton)
-    public GoogleCloudMQTTProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
+    public GoogleCloudProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
         this(manager, mqtt, null, http);
     }
 
     // constructor (with suffix for preferences)
-    public GoogleCloudMQTTProcessor(Orchestrator manager, MQTTTransport mqtt, String suffix, HttpTransport http) {
+    public GoogleCloudProcessor(Orchestrator manager, MQTTTransport mqtt, String suffix, HttpTransport http) {
         super(manager, mqtt, suffix, http);
 
         // GoogleCloud Processor Announce
-        this.errorLogger().warning("Google CloudIoT Processor ENABLED.");
+        this.errorLogger().warning("Google CloudIoT Processor ENABLED (MQTT)");
         
         // get the max shadows override
         this.m_max_shadows = manager.preferences().intValueOf("google_cloud_max_shadows",this.m_suffix);
         if (this.m_max_shadows <= 0) {
             this.m_max_shadows = MAX_GOOGLE_DEVICE_SHADOWS;
         }
-        this.errorLogger().warning("GoogleCloudIoT: Google CloudIoT Max Shadows (OVERRIDE) Limit: " + this.getMaxNumberOfShadows() + " devices");
+        this.errorLogger().warning("GoogleCloudIoT(MQTT): Google CloudIoT Max Shadows (OVERRIDE) Limit: " + this.getMaxNumberOfShadows() + " devices");
                 
         // keystore root directory
         this.m_keystore_rootdir = this.orchestrator().preferences().valueOf("mqtt_keystore_basedir",this.m_suffix);
@@ -217,6 +222,9 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
 
             // Required Google Cloud format: State Tag redefinition
             this.m_cmd_response_key = GOOGLE_CLOUDIOT_STATE_TAG;
+            
+            // HTTP Auth Qualifier
+            this.m_http_auth_qualifier = GOOGLE_AUTH_QUALIFIER;
 
             // WaitForLock
             this.m_lock_wait_ms = this.orchestrator().preferences().intValueOf("google_wait_for_lock_ms",this.m_suffix);
@@ -249,7 +257,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         }
         else {
             // unconfigured
-            this.errorLogger().warning("GoogleCloudIOT: AUTH JSON is UNCONFIGURED. Pausing bridge...");
+            this.errorLogger().warning("GoogleCloudIOT(MQTT): AUTH JSON is UNCONFIGURED. Pausing bridge...");
         }
     }
     
@@ -260,11 +268,13 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     }
     
     // get the WaitForLock time
+    @Override
     public long waitForLockTime() {
         return this.m_lock_wait_ms;
     }
     
     // get the JwT refresh interval in seconds
+    @Override
     public long getJwTRefreshIntervalInSeconds() {
         return this.m_jwt_refresh_interval;
     }
@@ -308,12 +318,12 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             }
             else {
                 // exceeded the maximum number of device shadows
-                this.errorLogger().warning("GoogleCloudIOT: Exceeded maximum number of device shadows. Limit: " + this.getMaxNumberOfShadows());
+                this.errorLogger().warning("GoogleCloudIOT(MQTT): Exceeded maximum number of device shadows. Limit: " + this.getMaxNumberOfShadows());
             }
         }
         else {
             // nothing to shadow
-            this.errorLogger().info("GoogleCloudIOT: Nothing to shadow (OK).");
+            this.errorLogger().info("GoogleCloudIOT(MQTT): Nothing to shadow (OK).");
         }
     }
 
@@ -327,12 +337,12 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             // this.errorLogger().info("GoogleCloud : CoAP re-registration: " + entry);
             if (this.hasSubscriptions((String) entry.get("ep")) == false) {
                 // no subscriptions - so process as a new registration
-                this.errorLogger().info("GoogleCloudIOT: CoAP re-registration: no subscriptions.. processing as new registration...");
+                this.errorLogger().info("GoogleCloudIOT(MQTT): CoAP re-registration: no subscriptions.. processing as new registration...");
                 this.processRegistration(data, "reg-updates");
             }
             else {
                 // already subscribed (OK)
-                this.errorLogger().info("GoogleCloudIOT: CoAP re-registration: already subscribed (OK)");
+                this.errorLogger().info("GoogleCloudIOT(MQTT): CoAP re-registration: already subscribed (OK)");
             }
         }
     }
@@ -346,7 +356,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         // TEST: We can actually DELETE the device on deregistration to test device-delete before the device-delete message goes live
         if (this.orchestrator().deviceRemovedOnDeRegistration() == true) {
             // processing deregistration as device deletion
-            this.errorLogger().info("GoogleCloudIOT: processing de-registration as device deletion (OK).");
+            this.errorLogger().info("GoogleCloudIOT(MQTT): processing de-registration as device deletion (OK).");
             
              // delete the device shadows...
             for (int i = 0; deletions != null && i < deletions.length; ++i) {
@@ -364,7 +374,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         }
         else {
             // not processing deregistration as a device deletion
-            this.errorLogger().info("GoogleCloudIOT: Not processing de-registration as device deletion (OK).");
+            this.errorLogger().info("GoogleCloudIOT(MQTT): Not processing de-registration as device deletion (OK).");
             
             // just disconnect from MQTT
             for (int i = 0; deletions != null && i < deletions.length; ++i) {
@@ -458,13 +468,13 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             String ep_name = Utils.valueFromValidKey(notification, "id", "ep");
 
             // get our endpoint type
-            String ep_type = this.getTypeFromEndpointName(ep_name);
+            String ep_type = this.getEndpointTypeFromEndpointName(ep_name);
 
             // encapsulate into a coap/device packet...
             String google_cloud_gw_coap_json = coap_json_stripped;
 
             // DEBUG
-            this.errorLogger().info("GoogleCloudIOT: CoAP notification (STR): " + google_cloud_gw_coap_json);
+            this.errorLogger().info("GoogleCloudIOT(MQTT): CoAP notification (STR): " + google_cloud_gw_coap_json);
 
             // send to GoogleCloud...
             if (this.mqtt(ep_name) != null) {                
@@ -472,22 +482,22 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                 String topic = this.customizeTopic(this.m_google_cloud_observe_notification_topic,ep_name);
                 
                 // DEBUG
-                this.errorLogger().info("GoogleCloudIOT: CoAP notification: SENDING Topic: " + topic + " Message: " + google_cloud_gw_coap_json);
+                this.errorLogger().info("GoogleCloudIOT(MQTT): CoAP notification: SENDING Topic: " + topic + " Message: " + google_cloud_gw_coap_json);
                 
                 // send the observation...
-                boolean status = this.mqtt(ep_name).sendMessage(topic, google_cloud_gw_coap_json, GoogleCloudMQTTProcessor.GOOGLE_QoS);
+                boolean status = this.mqtt(ep_name).sendMessage(topic, google_cloud_gw_coap_json, GoogleCloudProcessor.GOOGLE_QoS);
                 if (status == true) {
                     // not connected
-                    this.errorLogger().info("GoogleCloudIOT: CoAP notification sent. SUCCESS");
+                    this.errorLogger().info("GoogleCloudIOT(MQTT): CoAP notification sent. SUCCESS");
                 }
                 else {
                     // send failed
-                    this.errorLogger().warning("GoogleCloudIOT: CoAP notification not sent. SEND FAILED.");
+                    this.errorLogger().warning("GoogleCloudIOT(MQTT): CoAP notification not sent. SEND FAILED.");
                 }
             }
             else {
                 // not connected
-                this.errorLogger().info("GoogleCloudIOT: CoAP notification not sent. NOT CONNECTED");
+                this.errorLogger().info("GoogleCloudIOT(MQTT): CoAP notification not sent. NOT CONNECTED");
             }
         }
     }
@@ -499,14 +509,14 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         // publish
         if(this.mqtt(ep_name) != null) {
             // DEBUG
-            this.errorLogger().info("GoogleCloudIOT: sending API response. TOPIC: " + topic + " EPNAME: " + ep_name + " REPLY: " + reply);
+            this.errorLogger().info("GoogleCloudIOT(MQTT): sending API response. TOPIC: " + topic + " EPNAME: " + ep_name + " REPLY: " + reply);
             
             // send the response
-            this.mqtt(ep_name).sendMessage(topic, reply, GoogleCloudMQTTProcessor.GOOGLE_QoS);
+            this.mqtt(ep_name).sendMessage(topic, reply, GoogleCloudProcessor.GOOGLE_QoS);
         }
         else {
             // no MQTT handle
-            this.errorLogger().warning("GoogleCloudIOT: unable to send API response. MQTT(" + ep_name +") is NULL");
+            this.errorLogger().warning("GoogleCloudIOT(MQTT): unable to send API response. MQTT(" + ep_name +") is NULL");
         }
     }
     
@@ -514,19 +524,19 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     @Override
     public void onMessageReceive(String topic, String message) {
         // DEBUG
-        this.errorLogger().info("GoogleCloudIOT: CoAP Command message to process: Topic: " + topic + " message: " + message);
+        this.errorLogger().info("GoogleCloudIOT(MQTT): CoAP Command message to process: Topic: " + topic + " message: " + message);
         
          // parse the topic to get the endpoint
         // format: mbed/__DEVICE_TYPE__/__EPNAME__/coap/__COMMAND_TYPE__/#
         String ep_name = this.getEndpointNameFromTopic(topic);
 
         // parse the topic to get the endpoint type
-        String ep_type = this.getTypeFromEndpointName(ep_name);
+        String ep_type = this.getEndpointTypeFromEndpointName(ep_name);
         
         // process any API requests...
         if (this.isApiRequest(message)) {
             // DEBUG
-            this.errorLogger().info("GoogleCloudIOT: processing API Request...EPNAME: " + ep_name + " EPTYPE: " + ep_type + " TOPIC: " + topic);
+            this.errorLogger().info("GoogleCloudIOT(MQTT): processing API Request...EPNAME: " + ep_name + " EPTYPE: " + ep_type + " TOPIC: " + topic);
             
             // GoogleCloud Specific: we publish this to the EVENT change topic in Google... 
             String reply_topic = this.customizeTopic(this.m_google_cloud_observe_notification_topic,ep_name); 
@@ -537,7 +547,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         }
         
         // DEBUG
-        this.errorLogger().info("GoogleCloudIOT: NOT an API request... continuing...");
+        this.errorLogger().info("GoogleCloudIOT(MQTT): NOT an API request... continuing...");
 
         // pull the CoAP Path URI from the message itself... its JSON... 
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
@@ -579,7 +589,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         }
         
         // DEBUG
-        this.errorLogger().info("GoogleCloudIOT: GOT LOCK... ");
+        this.errorLogger().info("GoogleCloudIOT(MQTT): GOT LOCK... ");
         
         // dispatch the CoAP resource operation request to mbed Cloud
         String response = this.orchestrator().processEndpointResourceOperation(coap_verb, ep_name, uri, value, options);
@@ -615,7 +625,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                 if (this.mqtt(ep_name) != null) {
                     // GoogleCloud Specific: we publish this to the STATE change topic in Google... 
                     String reply_topic = this.customizeTopic(this.m_google_cloud_coap_state_topic,ep_name);
-                    boolean status = this.mqtt(ep_name).sendMessage(reply_topic, observation, GoogleCloudMQTTProcessor.GOOGLE_QoS);
+                    boolean status = this.mqtt(ep_name).sendMessage(reply_topic, observation, GoogleCloudProcessor.GOOGLE_QoS);
                     if (status == true) {
                         // success
                         this.errorLogger().info("GoogleCloudIOT(CoAP Command): CoAP observation(get) sent. SUCCESS");
@@ -633,7 +643,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         }
         
         // DEBUG
-        this.errorLogger().info("GoogleCloudIOT: RELEASING LOCK... ");
+        this.errorLogger().info("GoogleCloudIOT(MQTT): RELEASING LOCK... ");
         
         // UNLOCK
         this.operationStop();
@@ -649,7 +659,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             // config topic is the only one to listen on for Google
             Topic[] list = new Topic[1];
             String[] config_topic_str = { this.customizeTopic(this.m_google_cloud_coap_config_topic,ep_name) };
-            list[0] = new Topic(config_topic_str[0], GoogleCloudMQTTProcessor.GOOGLE_QoS);
+            list[0] = new Topic(config_topic_str[0], GoogleCloudProcessor.GOOGLE_QoS);
             topic_data = new HashMap<>();
             topic_data.put("topic_list", list);
             topic_data.put("topic_string_list", config_topic_str);
@@ -673,7 +683,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             String device_id = Utils.valueFromValidKey(message, "id", "ep");
             
             // DEBUG
-            this.errorLogger().info("GoogleCloudIOT: Registering new device: " + device_id + " type: " + device_type);
+            this.errorLogger().info("GoogleCloudIOT(MQTT): Registering new device: " + device_id + " type: " + device_type);
             
             // create the device in GoogleCloud
             Boolean success = this.m_device_manager.registerNewDevice(message);
@@ -692,7 +702,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     // disconnect the device from MQTT
     private void disconnectDeviceFromMQTT(String device) {
         // DEBUG
-        this.errorLogger().warning("GoogleCloudIOT: Disconnecting MQTT for device: " + device + "...");
+        this.errorLogger().warning("GoogleCloudIOT(MQTT): Disconnecting MQTT for device: " + device + "...");
 
         // stop the refresher thread
         this.stopJwTRefresherThread(device);
@@ -704,7 +714,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         this.disconnect(device);
         
          // DEBUG
-        this.errorLogger().warning("GoogleCloudIOT: Disconnected MQTT for device: " + device + " SUCCESSFULLY.");
+        this.errorLogger().warning("GoogleCloudIOT(MQTT): Disconnected MQTT for device: " + device + " SUCCESSFULLY.");
     }
 
     /**
@@ -719,16 +729,16 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             this.disconnectDeviceFromMQTT(device);
             
              // DEBUG
-            this.errorLogger().info("GoogleCloudIOT: deleting device: " + device + " from Google CloudIoT...");
+            this.errorLogger().info("GoogleCloudIOT(MQTT): deleting device: " + device + " from Google CloudIoT...");
             
             // remove the device from GoogleCloud
             if (this.m_device_manager.deleteDevice(device) == false) {
                 // unable to delete the device shadow from Google CloudIoT
-                this.errorLogger().warning("GoogleCloudIOT: WARNING: Unable to delete device " + device + " from Google CloudIoT!");
+                this.errorLogger().warning("GoogleCloudIOT(MQTT): WARNING: Unable to delete device " + device + " from Google CloudIoT!");
             }    
             else {
                 // successfully deleted the device shadow from Google CloudIoT
-                this.errorLogger().warning("GoogleCloudIOT: Device " + device + " deleted from Google CloudIoT SUCCESSFULLY.");
+                this.errorLogger().warning("GoogleCloudIOT(MQTT): Device " + device + " deleted from Google CloudIoT SUCCESSFULLY.");
             }
         }
         
@@ -757,12 +767,12 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             }
             else {
                 // invalid key read
-                this.errorLogger().warning("GoogleCloudIOT: WARNING: input key is null or has length 1");
+                this.errorLogger().warning("GoogleCloudIOT(MQTT): WARNING: input key is null or has length 1");
             }
         }
         catch (InvalidKeySpecException | NoSuchAlgorithmException ex) {
             // error creating JWT
-            this.errorLogger().critical("GoogleCloudIOT: Exception in creating JWT: " + ex.getMessage());
+            this.errorLogger().critical("GoogleCloudIOT(MQTT): Exception in creating JWT: " + ex.getMessage());
         }
         return null;
     }
@@ -773,20 +783,20 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         // create the endpoint shadow
         if (this.m_device_manager != null) {
             // re-register the device
-            this.errorLogger().info("GoogleCloudIOT: Re-registering device shadow...");
+            this.errorLogger().info("GoogleCloudIOT(MQTT): Re-registering device shadow...");
             HashMap<String,Serializable> ep = new HashMap<>();
             ep.put("ep",ep_name);
             ep.put("ept", ep_type);
             boolean registered = this.m_device_manager.registerNewDevice(ep);
             if (registered) {
                 // refresh the JwT... that will reset the MQTT connection
-                this.errorLogger().info("GoogleCloudIOT: Refreshing JwT (MQTT restart)...");
+                this.errorLogger().info("GoogleCloudIOT(MQTT): Refreshing JwT (MQTT restart)...");
                 
                 // simply refresh the JwT... that will rebuild our connection...
                 this.refreshJwTForEndpoint(ep_name);
                 
                 // DEBUG
-                this.errorLogger().info("GoogleCloudIOT: startReconnection: re-connected SUCCESS!");
+                this.errorLogger().info("GoogleCloudIOT(MQTT): startReconnection: re-connected SUCCESS!");
             }
         }
         
@@ -795,12 +805,13 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     }
     
     // Refresh the JwT for a given endpoint
+    @Override
     public void refreshJwTForEndpoint(String ep_name) {
         try {
             // refresh the Google devices' JwT via CloudIoT API
             if (this.mqtt(ep_name) != null) {
                 // DEBUG
-                this.errorLogger().info("GoogleCloudIOT: Disconnecting MQTT... JwT refresh starting...");
+                this.errorLogger().info("GoogleCloudIOT(MQTT): Disconnecting MQTT... JwT refresh starting...");
                 
                 // disconnect the MATT transport from the listener thread
                 this.stopListenerThread(ep_name);
@@ -818,13 +829,13 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                 boolean connected = false;
                 for(int i=0;i<this.m_max_retries && connected == false;++i) {
                     // DEBUG
-                    this.errorLogger().info("GoogleCloudIOT: Creating new MQTT Connection with new JwT...waiting a bit...");
+                    this.errorLogger().info("GoogleCloudIOT(MQTT): Creating new MQTT Connection with new JwT...waiting a bit...");
                     
                     // Sleep a bit
                     Utils.waitForABit(this.errorLogger(), this.m_jwt_refresh_wait_ms);
                         
                     // DEBUG
-                    this.errorLogger().info("GoogleCloudIOT: Creating new MQTT Connection with new JwT...connecting...");
+                    this.errorLogger().info("GoogleCloudIOT(MQTT): Creating new MQTT Connection with new JwT...connecting...");
                     
                     // create a new MQTT connection
                     MQTTTransport mqtt = new MQTTTransport(this.errorLogger(), this.preferences(), this);
@@ -839,31 +850,31 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                         connected = this.connect(ep_name,client_id,jwt);
                         if (connected == true) {
                             // success! new JwT active...
-                            this.errorLogger().info("GoogleCloudIOT: reconnected with new JwT (SUCCESS)");
+                            this.errorLogger().info("GoogleCloudIOT(MQTT): reconnected with new JwT (SUCCESS)");
                                                         
                             // re-subscribe to topics
-                            this.errorLogger().info("GoogleCloudIOT: connected to MQTT. Re-subscribing to Google topics...");
+                            this.errorLogger().info("GoogleCloudIOT(MQTT): connected to MQTT. Re-subscribing to Google topics...");
                             this.subscribeToGoogleTopics(ep_name,this.getEndpointTypeFromEndpointName(ep_name));     
                             
                             // update the listener thread with the new mqtt transport
-                            this.errorLogger().info("GoogleCloudIOT: connected to MQTT. re-connecting to the listener thread...");
+                            this.errorLogger().info("GoogleCloudIOT(MQTT): connected to MQTT. re-connecting to the listener thread...");
                             this.startListenerThread(ep_name,mqtt);
                         }
                         else if (i < (this.m_max_retries -1)) {
                             // failure to reconnect
-                            this.errorLogger().warning("GoogleCloudIOT: FAILED to reconnect with new JwT!! Retrying (" + (i+1) + " of " + this.m_max_retries + ")...");
+                            this.errorLogger().warning("GoogleCloudIOT(MQTT): FAILED to reconnect with new JwT!! Retrying (" + (i+1) + " of " + this.m_max_retries + ")...");
 
                             // remove from the list...
                             this.disconnect(ep_name);
                         }
                         else {
                             // failure to reconnect
-                            this.errorLogger().critical("GoogleCloudIOT: FAILED to reconnect with new JwT!! (Giving up).");
+                            this.errorLogger().critical("GoogleCloudIOT(MQTT): FAILED to reconnect with new JwT!! (Giving up).");
                         }
                     }
                     else {
                         // failure to create new MQTT endpoint
-                        this.errorLogger().critical("GoogleCloudIOT: Unable to create new MQTT endpoint!! (Giving up).");
+                        this.errorLogger().critical("GoogleCloudIOT(MQTT): Unable to create new MQTT endpoint!! (Giving up).");
                     }
                 }
             }
@@ -878,13 +889,13 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                 boolean connected = false;
                 for(int i=0;i<this.m_max_retries && connected == false;++i) {
                     // DEBUG
-                    this.errorLogger().info("GoogleCloudIOT: Creating new MQTT Connection with new JwT...waiting a bit...");
+                    this.errorLogger().info("GoogleCloudIOT(MQTT): Creating new MQTT Connection with new JwT...waiting a bit...");
                     
                     // Sleep a bit
                     Utils.waitForABit(this.errorLogger(),this.m_jwt_refresh_wait_ms);
                         
                     // DEBUG
-                    this.errorLogger().info("GoogleCloudIOT: Creating new MQTT Connection with new JwT...connecting...");
+                    this.errorLogger().info("GoogleCloudIOT(MQTT): Creating new MQTT Connection with new JwT...connecting...");
                     
                     // create a new MQTT connection
                     MQTTTransport mqtt = new MQTTTransport(this.errorLogger(), this.preferences(), this);
@@ -899,38 +910,38 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                         connected = this.connect(ep_name,client_id,jwt);
                         if (connected == true) {
                             // success! new JwT active...
-                            this.errorLogger().info("GoogleCloudIOT: reconnected with new JwT (SUCCESS)");
+                            this.errorLogger().info("GoogleCloudIOT(MQTT): reconnected with new JwT (SUCCESS)");
                             
                             // re-subscribe to topics
-                            this.errorLogger().info("GoogleCloudIOT: connected to MQTT. Re-subscribing to Google topics...");
+                            this.errorLogger().info("GoogleCloudIOT(MQTT): connected to MQTT. Re-subscribing to Google topics...");
                             this.subscribeToGoogleTopics(ep_name,this.getEndpointTypeFromEndpointName(ep_name));
                             
                             // start a listener thread...
-                            this.errorLogger().info("GoogleCloudIOT: connected to MQTT. Starting new listener thread...");
+                            this.errorLogger().info("GoogleCloudIOT(MQTT): connected to MQTT. Starting new listener thread...");
                             this.startListenerThread(ep_name, mqtt);
                         }
                         else if (i < (this.m_max_retries -1)) {
                             // failure to reconnect
-                            this.errorLogger().warning("GoogleCloudIOT: FAILED to reconnect with new JwT!! Retrying (" + (i+1) + " of " + this.m_max_retries + ")...");
+                            this.errorLogger().warning("GoogleCloudIOT(MQTT): FAILED to reconnect with new JwT!! Retrying (" + (i+1) + " of " + this.m_max_retries + ")...");
 
                             // remove from the list...
                             this.remove(ep_name);
                         }
                         else {
                             // failure to reconnect
-                            this.errorLogger().critical("GoogleCloudIOT: FAILED to reconnect with new JwT!! (Giving up).");
+                            this.errorLogger().critical("GoogleCloudIOT(MQTT): FAILED to reconnect with new JwT!! (Giving up).");
                         }
                     }
                     else {
                         // failure to create new MQTT endpoint
-                        this.errorLogger().critical("GoogleCloudIOT: Unable to create new MQTT endpoint!! (Giving up).");
+                        this.errorLogger().critical("GoogleCloudIOT(MQTT): Unable to create new MQTT endpoint!! (Giving up).");
                     }
                 }
             }
         }
         catch(IOException ex) {
             // error creating JWT
-            this.errorLogger().critical("GoogleCloudIOT: Exception in refreshing JWT: " + ex.getMessage());
+            this.errorLogger().critical("GoogleCloudIOT(MQTT): Exception in refreshing JWT: " + ex.getMessage());
         }
     }
     
@@ -940,17 +951,17 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         this.stopJwTRefresherThread(ep_name);
         
         // start a JwT refresher thread...
-        GoogleJwTRefresherThread jwt_refresher = new GoogleJwTRefresherThread(this,ep_name);
+        JwTRefresherThread jwt_refresher = new JwTRefresherThread(this,ep_name);
         this.m_jwt_refesher_thread_list.put(ep_name,jwt_refresher);
         jwt_refresher.start();
     }
     
     // End the JwT refresher thread
     public void stopJwTRefresherThread(String ep_name) {
-        GoogleJwTRefresherThread doomed = this.m_jwt_refesher_thread_list.get(ep_name);
+        JwTRefresherThread doomed = this.m_jwt_refesher_thread_list.get(ep_name);
         if (doomed != null) {
             // DEBUG
-            this.errorLogger().warning("GoogleCloudIOT: Stopping JwT Refresher for: " + ep_name);
+            this.errorLogger().warning("GoogleCloudIOT(MQTT): Stopping JwT Refresher for: " + ep_name);
             
             // remove from ThreadList
             this.m_jwt_refesher_thread_list.remove(ep_name);
@@ -1014,25 +1025,25 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                             this.addMQTTTransport(ep_name, mqtt);
 
                             // DEBUG
-                            this.errorLogger().warning("GoogleCloudIOT: connecting MQTT for endpoint: " + ep_name + " type: " + ep_type + "...");
+                            this.errorLogger().warning("GoogleCloudIOT(MQTT): connecting MQTT for endpoint: " + ep_name + " type: " + ep_type + "...");
 
                             // connect and start listening... 
                             if (this.connect(ep_name, client_id, jwt) == true) {
                                 // DEBUG
-                                this.errorLogger().warning("GoogleCloudIOT: connection SUCCESS");
+                                this.errorLogger().warning("GoogleCloudIOT(MQTT): connection SUCCESS");
 
                                 // start a listener thread...
-                                this.errorLogger().info("GoogleCloudIOT: Creating and registering listener Thread for endpoint: " + ep_name + " type: " + ep_type);
+                                this.errorLogger().info("GoogleCloudIOT(MQTT): Creating and registering listener Thread for endpoint: " + ep_name + " type: " + ep_type);
                                 this.startListenerThread(ep_name, mqtt);
 
                                 // start the JwT  refresher thread
-                                this.errorLogger().info("GoogleCloudIOT: Starting JwT refresher thread");
+                                this.errorLogger().info("GoogleCloudIOT(MQTT): Starting JwT refresher thread");
                                 this.startJwTRefresherThread(ep_name);
 
                                 // if we have topics in our param list, lets go ahead and subscribe
                                 if (topics != null) {
                                     // DEBUG
-                                    this.errorLogger().info("GoogleCloudIOT: re-subscribing to topics...");
+                                    this.errorLogger().info("GoogleCloudIOT(MQTT): re-subscribing to topics...");
 
                                     // re-subscribe
                                     this.mqtt(ep_name).subscribe(topics);
@@ -1043,7 +1054,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                             }
                             else {
                                 // unable to connect!
-                                this.errorLogger().critical("GoogleCloudIOT: Unable to connect to MQTT for endpoint: " + ep_name + " type: " + ep_type);
+                                this.errorLogger().critical("GoogleCloudIOT(MQTT): Unable to connect to MQTT for endpoint: " + ep_name + " type: " + ep_type);
 
                                 // remove the MQTT transport
                                 this.remove(ep_name);
@@ -1057,28 +1068,28 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                         }
                         else {
                             // unable to allocate MQTT connection for our endpoint
-                            this.errorLogger().critical("GoogleCloudIOT: ERROR. Unable to allocate MQTT connection for: " + ep_name);
+                            this.errorLogger().critical("GoogleCloudIOT(MQTT): ERROR. Unable to allocate MQTT connection for: " + ep_name);
                         }
                     }
                     else {
                         // unable to find endpoint details
-                        this.errorLogger().warning("GoogleCloudIOT: unable to find endpoint details for: " + ep_name + "... ignoring...");
+                        this.errorLogger().warning("GoogleCloudIOT(MQTT): unable to find endpoint details for: " + ep_name + "... ignoring...");
                     }
                 }
                 else {
                     // already connected... just ignore
-                    this.errorLogger().info("GoogleCloudIOT: already have connection for " + ep_name + " (OK)");
+                    this.errorLogger().info("GoogleCloudIOT(MQTT): already have connection for " + ep_name + " (OK)");
                     connected = true;
                 }
             }
             catch (IOException ex) {
                 // exception caught... capture and note the stack trace
-                this.errorLogger().critical("GoogleCloudIOT: EXCEPTION caught: " + ex.getMessage() + " endpoint: " + ep_name, ex);
+                this.errorLogger().critical("GoogleCloudIOT(MQTT): EXCEPTION caught: " + ex.getMessage() + " endpoint: " + ep_name, ex);
             }
         }
         else {
             // unconfigured
-            this.errorLogger().warning("GoogleCloudIOT: Google AUTH JSON is UNCONFIGURED. Pausing bridge...");
+            this.errorLogger().warning("GoogleCloudIOT(MQTT): Google AUTH JSON is UNCONFIGURED. Pausing bridge...");
         }
         
         // return the connected status
@@ -1147,30 +1158,18 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         // format: mbed/__COMMAND_TYPE__/__DEVICE_TYPE__/__EPNAME__/<uri path>
         return null;                               // unused
     }
-
-    // get the endpoint type from the endpoint name
-    private String getTypeFromEndpointName(String ep_name) {
-        String ep_type = null;
-
-        HashMap<String, Object> entry = (HashMap<String, Object>) this.m_endpoints.get(ep_name);
-        if (entry != null) {
-            ep_type = (String) entry.get("ep_type");
-        }
-
-        return ep_type;
-    }
     
     // complete processing of adding the new device
     @Override
     public void completeNewDeviceRegistration(Map endpoint) {
         try {
             // create the device in GoogleCloud
-            this.errorLogger().info("GoogleCloudIOT: calling registerNewDevice(): " + endpoint);
+            this.errorLogger().info("GoogleCloudIOT(MQTT): calling registerNewDevice(): " + endpoint);
             this.registerNewDevice(endpoint);
-            this.errorLogger().info("GoogleCloudIOT: registerNewDevice() completed");
+            this.errorLogger().info("GoogleCloudIOT(MQTT): registerNewDevice() completed");
         }
         catch (Exception ex) {
-            this.errorLogger().warning("GoogleCloudIOT: caught exception in registerNewDevice(): " + endpoint, ex);
+            this.errorLogger().warning("GoogleCloudIOT(MQTT): caught exception in registerNewDevice(): " + endpoint, ex);
         }
         
         // get the device ID and device Type
@@ -1184,12 +1183,12 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
     // subscribe to to the proper topics 
     private void subscribeToGoogleTopics(String ep_name,String ep_type) {
         try {
-            this.errorLogger().info("GoogleCloudIOT: calling subscribe(): EP: " + ep_name + " type: " + ep_type);
+            this.errorLogger().info("GoogleCloudIOT(MQTT): calling subscribe(): EP: " + ep_name + " type: " + ep_type);
             this.subscribe(ep_name,ep_type,this.createEndpointTopicData(ep_name, ep_type),this);
-            this.errorLogger().info("GoogleCloudIOT: subscribe() completed");
+            this.errorLogger().info("GoogleCloudIOT(MQTT): subscribe() completed");
         }
         catch (Exception ex) {
-            this.errorLogger().warning("GoogleCloudIOT: caught exception in subscribe(): EP: " + ep_name + " type: " + ep_type, ex);
+            this.errorLogger().warning("GoogleCloudIOT(MQTT): caught exception in subscribe(): EP: " + ep_name + " type: " + ep_type, ex);
         }
     }
     
@@ -1210,24 +1209,24 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
             // Connect to the Google MQTT Service
             if (this.mqtt(ep_name).connect(this.m_google_cloud_mqtt_host,this.m_google_cloud_mqtt_port,client_id,this.m_use_clean_session,ep_name)) {
                 // set the command listener...
-                this.orchestrator().errorLogger().info("GoogleCloudIOT: Setting CoAP command listener...");
+                this.orchestrator().errorLogger().info("GoogleCloudIOT(MQTT): Setting CoAP command listener...");
                 this.mqtt(ep_name).setOnReceiveListener(this);
         
                 // connection success
-                this.orchestrator().errorLogger().info("GoogleCloudIOT: connection completed successfully");
+                this.orchestrator().errorLogger().info("GoogleCloudIOT(MQTT): connection completed successfully");
             }
             else {
                 // connection failure
-                this.orchestrator().errorLogger().info("GoogleCloudIOT: connection FAILED");
+                this.orchestrator().errorLogger().info("GoogleCloudIOT(MQTT): connection FAILED");
             }
         }
         else {
             // already connected
-            this.orchestrator().errorLogger().info("GoogleCloudIOT: Already connected (OK)...");
+            this.orchestrator().errorLogger().info("GoogleCloudIOT(MQTT): Already connected (OK)...");
         }
             
         // return our connection status
-        this.orchestrator().errorLogger().info("GoogleCloudIOT: Connection status: " + this.isConnected(ep_name));
+        this.orchestrator().errorLogger().info("GoogleCloudIOT(MQTT): Connection status: " + this.isConnected(ep_name));
         return this.isConnected(ep_name);
     }
     
@@ -1265,7 +1264,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                         .build();
             } 
             catch (GeneralSecurityException | IOException ex) {
-                this.errorLogger().critical("GoogleCloudIOT: Unable to create CloudIot instance: " + ex.getMessage());
+                this.errorLogger().critical("GoogleCloudIOT(MQTT): Unable to create CloudIot instance: " + ex.getMessage());
                 inst = null;
             }
         }
@@ -1293,7 +1292,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
                                  .build();
             }
             catch (GeneralSecurityException | IOException ex) {
-                this.errorLogger().critical("GoogleCloudIOT: Unable to create Pubsub instance: " + ex.getMessage());
+                this.errorLogger().critical("GoogleCloudIOT(MQTT): Unable to create Pubsub instance: " + ex.getMessage());
                 inst = null;
             }
         }
@@ -1309,7 +1308,7 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         
         try {
             // announce login
-            this.errorLogger().info("GoogleCloudIOT: logging into project_id: " + project_id + "...");
+            this.errorLogger().info("GoogleCloudIOT(MQTT): logging into project_id: " + project_id + "...");
             
             // remove \\00A0 as it can be copied during config setting of the auth json by the configurator...
             // hex(A0) = dec(160)... just replace with an ordinary space... that will make Google's JSON parser happy...
@@ -1334,11 +1333,11 @@ public class GoogleCloudMQTTProcessor extends GenericConnectablePeerProcessor im
         }
         catch (com.google.api.client.googleapis.json.GoogleJsonResponseException ex) {
             // caught exception during login
-            this.errorLogger().warning("GoogleCloudIOT: Unable to log into Google Cloud: " + ex.getMessage());
+            this.errorLogger().warning("GoogleCloudIOT(MQTT): Unable to log into Google Cloud: " + ex.getMessage());
         }
         catch (IOException ex) {
             // caught exception during login
-            this.errorLogger().warning("GoogleCloudIOT: Unable to log into Google Cloud: " + ex.getMessage());
+            this.errorLogger().warning("GoogleCloudIOT(MQTT): Unable to log into Google Cloud: " + ex.getMessage());
             success = false;
         }
         

@@ -1,6 +1,6 @@
 /**
- * @file GoogleJwTRefresherThread.java
- * @brief Google Cloud JwT Refresher
+ * @file JwTRefresherThread.java
+ * @brief JwT Refresher Thread implementation
  * @author Doug Anson
  * @version 1.0
  * @see
@@ -20,30 +20,30 @@
  * limitations under the License.
  *
  */
-package com.arm.pelion.bridge.coordinator.processors.google;
+package com.arm.pelion.bridge.coordinator.processors.core;
 
-import com.arm.pelion.bridge.coordinator.processors.google.mqtt.GoogleCloudMQTTProcessor;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.JwTRefresherResponderInterface;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
 
 /**
- * Google CloudIoT JwT Refresher Thread
+ * JwT Refresher Thread implementation
  * 
  * @author Doug Anson
  */
-public class GoogleJwTRefresherThread extends Thread {
-    private GoogleCloudMQTTProcessor m_processor = null;
+public class JwTRefresherThread extends Thread {
+    private JwTRefresherResponderInterface m_responder = null;
     private boolean m_running = false;
     private long m_wait_between_refresh_ms = 0;
     private String m_ep_name = null;
     private long m_wait_for_lock = 0;
     
     // Constructor
-    public GoogleJwTRefresherThread(GoogleCloudMQTTProcessor processor,String ep_name) {
-        this.m_processor = processor;
+    public JwTRefresherThread(JwTRefresherResponderInterface processor,String ep_name) {
+        this.m_responder = processor;
         this.m_ep_name = ep_name;
-        this.m_wait_between_refresh_ms = this.m_processor.getJwTRefreshIntervalInSeconds() * 1000;
-        this.m_wait_for_lock = this.m_processor.waitForLockTime();        
+        this.m_wait_between_refresh_ms = this.m_responder.getJwTRefreshIntervalInSeconds() * 1000;
+        this.m_wait_for_lock = this.m_responder.waitForLockTime();        
     }
     
     /**
@@ -71,7 +71,7 @@ public class GoogleJwTRefresherThread extends Thread {
         }
         
         // Exiting
-        this.errorLogger().warning("GoogleCloudIOT: JwT Refresh Thread STOPPED for: " + this.m_ep_name);
+        this.errorLogger().warning("JwTRefresher: JwT Refresh Thread STOPPED for: " + this.m_ep_name);
     }
     
     /**
@@ -84,19 +84,19 @@ public class GoogleJwTRefresherThread extends Thread {
                 Thread.sleep(this.m_wait_between_refresh_ms);
                 
                 // wait until the processor is idle
-                while(this.m_processor.operationStart() == false) {
+                while(this.m_responder.operationStart() == false) {
                     // continue sleeping until we have a lock on the processor
                     Utils.waitForABit(this.errorLogger(), this.m_wait_for_lock);
                 }
                 
                 // DEBUG
-                this.errorLogger().info("GoogleCloudIOT: Refreshing JwT for: " + this.m_ep_name);
+                this.errorLogger().info("JwTRefresher: Refreshing JwT for endpoint: " + this.m_ep_name);
 
                 // now refresh our token
-                this.m_processor.refreshJwTForEndpoint(this.m_ep_name);
+                this.m_responder.refreshJwTForEndpoint(this.m_ep_name);
                 
                 // UNLOCK
-                this.m_processor.operationStop();
+                this.m_responder.operationStop();
                 
             }
             catch (InterruptedException ex) {
@@ -107,8 +107,8 @@ public class GoogleJwTRefresherThread extends Thread {
     
     // Error Logger
     private ErrorLogger errorLogger() {
-        if (this.m_processor != null) {
-            return this.m_processor.errorLogger();
+        if (this.m_responder != null) {
+            return this.m_responder.errorLogger();
         }
         return null;
     }

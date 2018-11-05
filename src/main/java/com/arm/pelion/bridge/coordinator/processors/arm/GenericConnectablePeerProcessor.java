@@ -266,6 +266,23 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         return this.m_next_api_request_id;
     }
     
+    // create a fudged topic (since we dont use mqtt...)
+    protected String createFudgedTopic(String ep_name) {
+        // we can fudge the topic... it really wont be needed for anything other than the EP_NAME
+        // the format is: <topic_root>/<verb>/<ept>/<ep>/
+        return "dontcare/dontcare/dontcare/" + ep_name + "/";
+    }
+    
+    // get the endpoint name from the topic (notification topic sent) 
+    // format: <topic_root>/notify/<ep_type>/<endpoint name>/<URI> POSITION SENSITIVE
+    protected String getEndpointNameFromNotificationTopic(String topic) {
+        String[] items = topic.split("/");
+        if (items.length >= 4 && items[3].trim().length() > 0) { // POSITION SENSITIVE
+            return items[3].trim();                              // POSITION SENSITIVE
+        }
+        return null;
+    }
+    
     // get the JSON value from the JSON key
     private String getJSONStringValueFromJSONKey(String json,String key) {
         Map parsed = this.tryJSONParse(json);
