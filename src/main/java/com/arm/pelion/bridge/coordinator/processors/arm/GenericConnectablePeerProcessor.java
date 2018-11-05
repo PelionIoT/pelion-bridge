@@ -34,6 +34,7 @@ import com.arm.pelion.bridge.data.SerializableHashMap;
 import java.util.HashMap;
 import java.util.Map;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.ConnectionCreator;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.DeviceManagerToPeerProcessorInterface;
 import java.util.List;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import javax.servlet.http.HttpServletRequest;
@@ -46,7 +47,10 @@ import org.fusesource.mqtt.client.Topic;
  *
  * @author Doug Anson
  */
-public class GenericConnectablePeerProcessor extends PeerProcessor implements Transport.ReceiveListener, PeerProcessorInterface {
+public class GenericConnectablePeerProcessor extends PeerProcessor implements DeviceManagerToPeerProcessorInterface, Transport.ReceiveListener, PeerProcessorInterface {
+    // default HTTP auth qualifier
+    public static final String DEFAULT_AUTH_TOKEN_QUALIFIER = "bearer";
+    
     // default maximum number of devices we can shadow
     private static final int MAX_DEVICE_SHADOWS = 100000;       // 100,000 devices
     
@@ -84,6 +88,10 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
     private HashMap<String, MQTTTransport> m_mqtt = null;
     protected SerializableHashMap m_endpoints = null;
     protected HashMap<String, TransportReceiveThread> m_mqtt_thread_list = null;
+    
+    // Auth Token and qualifier
+    protected String m_http_auth_qualifier = DEFAULT_AUTH_TOKEN_QUALIFIER;
+    protected String m_http_auth_token = null;
 
     // Factory method for initializing the Sample 3rd Party peer
     public static GenericConnectablePeerProcessor createPeerProcessor(Orchestrator manager, HttpTransport http) {
@@ -761,5 +769,58 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements Tr
         }
         
         return ok;
+    }
+    
+    // HTTP support for this peer processor 
+    @Override
+    public String httpsGet(String url) {
+        return this.httpsGet(this.m_http,url);
+    }
+    
+    // GET specific data to a given URL 
+    protected String httpsGet(HttpTransport http,String url) {
+        http.setAuthorizationQualifier(this.m_http_auth_qualifier);
+        //this.errorLogger().info("IoTHub(httpsGet): SASToken: " + this.m_http_auth_token);
+        String result = http.httpsGetApiTokenAuth(url, this.m_http_auth_token, null, "application/json");
+        return result;
+    }
+
+    // PUT specific data to a given URL (with data)
+    @Override
+    public String httpsPut(String url, String payload) {
+        this.m_http.setAuthorizationQualifier(this.m_http_auth_qualifier);
+        String result = this.m_http.httpsPutApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
+        return result;
+    }
+    
+    // POST specific data to a given URL (with data)
+    @Override
+    public String httpsPost(String url, String payload) {
+        this.m_http.setAuthorizationQualifier(this.m_http_auth_qualifier);
+        String result = this.m_http.httpsPostApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
+        return result;
+    }
+
+    // DELETE specific data to a given URL (with data)
+    protected String httpsDelete(String url, String etag) {
+        return this.httpsDelete(this.m_http, url, etag, null);
+    }
+    
+    // DELETE specific data to a given URL (with data)
+    protected String httpsDelete(HttpTransport http,String url, String etag) {
+        return this.httpsDelete(http, url, etag, null);
+    }
+
+    @Override
+    public String httpsDelete(String url, String etag, String payload) {
+        return this.httpsDelete(this.m_http, url, etag, payload);
+    }
+    
+    protected String httpsDelete(HttpTransport http, String url, String etag, String payload) {
+        http.setAuthorizationQualifier(this.m_http_auth_qualifier);
+        http.setETagValue(etag);             // ETag header required...
+        http.setIfMatchValue("*");           // If-Match header required... 
+        String result = http.httpsDeleteApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
+        return result;
     }
 }

@@ -52,6 +52,7 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     private static final String IOTHUB_DEVICE_PREFIX_SEPARATOR = "-";                       // device prefix separator (if used...)... cannot be an "_"
     private static final long SAS_TOKEN_VALID_TIME_MS = 365 * 24 * 60 * 60 * 1000;          // SAS Token created for 1 year expiration
     private static final long SAS_TOKEN_RECREATE_INTERVAL_MS = 360 * 24 * 60 * 60 * 1000;   // number of days to wait before re-creating the SAS Token
+    private static final String IOTHUB_AUTH_QUALIFIER = "SharedAccessSignature";            // IoTHub SAS Token qualifier
     
     private int m_num_coap_topics = 1;                                  // # of MQTT Topics for CoAP verbs in IoTHub implementation
     private String m_iot_hub_observe_notification_topic = null;
@@ -70,10 +71,6 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     private long m_iot_hub_sas_token_validity_time_ms = SAS_TOKEN_VALID_TIME_MS;
     private long m_iot_hub_sas_token_recreate_interval_ms= SAS_TOKEN_RECREATE_INTERVAL_MS;
     private boolean m_configured = false;
-    
-    // HTTP specific configuration for IoTHub
-    private String m_http_auth_qualifier = "SharedAccessSignature";
-    private String m_http_auth_token = null;
     
     // HTTP listeners for our device shadows
     private HashMap<String,HTTPDeviceListener> m_device_listeners = null;
@@ -112,16 +109,19 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         // create the HTTP-based device listeners
         this.m_device_listeners = new HashMap<>();
         
+        // HTTP Auth Qualifier
+        this.m_http_auth_qualifier = IOTHUB_AUTH_QUALIFIER;
+        
         // initialize the SAS Token and its refresher...
         this.initSASToken(false);
         
         // continue only if configured
-        if (this.m_iot_hub_sas_token != null && this.m_iot_hub_sas_token.contains("Goes_Here") == false) {
+        if (this.m_iot_hub_connect_string != null && this.m_iot_hub_connect_string.contains("Goes_Here") == false) {
             // we are configured!
             this.m_configured = true;
             
             // IoTHub SAS Token (take out the qualifier if present...)
-            this.m_http_auth_token = this.m_iot_hub_sas_token.replace("SharedAccessSignature ", "").trim();
+            this.m_http_auth_token = this.m_iot_hub_sas_token.replace(this.m_http_auth_qualifier + " ", "").trim();
         
             // get our defaults
             this.m_mqtt_host = this.orchestrator().preferences().valueOf("iot_event_hub_mqtt_ip_address", this.m_suffix).replace("__IOT_EVENT_HUB__", this.m_iot_hub_name);
@@ -728,61 +728,6 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         return this.getEndpointTypeFromEndpointName(ep);
     }
     
-    // GET specific data to a given URL 
-    @Override
-    public String httpsGet(String url) {
-        return this.httpsGet(this.m_http,url);
-    }
-    
-    // GET specific data to a given URL 
-    private String httpsGet(HttpTransport http,String url) {
-        http.setAuthorizationQualifier(this.m_http_auth_qualifier);
-        //this.errorLogger().info("IoTHub(httpsGet): SASToken: " + this.m_http_auth_token);
-        String result = http.httpsGetApiTokenAuth(url, this.m_http_auth_token, null, "application/json");
-        return result;
-    }
-
-    // PUT specific data to a given URL (with data)
-    @Override
-    public String httpsPut(String url, String payload) {
-        this.m_http.setAuthorizationQualifier(this.m_http_auth_qualifier);
-        //this.errorLogger().info("IoTHub(httpsPut): SASToken: " + this.m_http_auth_token);
-        String result = this.m_http.httpsPutApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
-        return result;
-    }
-    
-    // POST specific data to a given URL (with data)
-    @Override
-    public String httpsPost(String url, String payload) {
-        this.m_http.setAuthorizationQualifier(this.m_http_auth_qualifier);
-        //this.errorLogger().info("IoTHub(httpsPost): SASToken: " + this.m_http_auth_token);
-        String result = this.m_http.httpsPostApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
-        return result;
-    }
-
-    // DELETE specific data to a given URL (with data)
-    public String httpsDelete(String url, String etag) {
-        return this.httpsDelete(this.m_http, url, etag, null);
-    }
-    
-    // DELETE specific data to a given URL (with data)
-    public String httpsDelete(HttpTransport http,String url, String etag) {
-        return this.httpsDelete(http, url, etag, null);
-    }
-
-    @Override
-    public String httpsDelete(String url, String etag, String payload) {
-        return this.httpsDelete(this.m_http, url, etag, payload);
-    }
-    
-    public String httpsDelete(HttpTransport http, String url, String etag, String payload) {
-        http.setAuthorizationQualifier(this.m_http_auth_qualifier);
-        http.setETagValue(etag);             // ETag header required...
-        http.setIfMatchValue("*");           // If-Match header required... 
-        String result = http.httpsDeleteApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
-        return result;
-    }
-    
     // Run the refresh thread to refresh the SAS Token periodically
     @Override
     public void run() {
@@ -794,7 +739,15 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         // WARN - refresh thread has halted
         this.errorLogger().warning("IoTHuB: WARNING: SAS Token refresh thread has halted. SAS Token may expire within the year...");
     }
-    
+
+    // Create the authentication hash for the webhook auth header
+    @Override
+    public String createAuthenticationHash() {
+        // use the IoTHub connection string as the hash seed for the webhook auth header...
+        return Utils.createHash(this.m_iot_hub_connect_string);
+    }
+   
+    // no reconnection necessary for HTTP based processors
     @Override
     public boolean startReconnection(String ep_name, String ep_type, Topic[] topics) {
         // not used in HTTP based integration
@@ -807,16 +760,9 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         // not used in HTTP based integration
     }
 
-    // stop our IoTHub 3rd Party peer listeners
+    // stop any IoTHub listeners
     @Override
     public void stopListener() {
         // not used in HTTP based integration
-    }
-    
-    // Create the authentication hash for the webhook auth header
-    @Override
-    public String createAuthenticationHash() {
-        // use the IoTHub connection string as the hash seed for the webhook auth header...
-        return Utils.createHash(this.m_iot_hub_connect_string);
     }
 }

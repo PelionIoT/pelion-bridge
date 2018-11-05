@@ -55,9 +55,9 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     private static final String IOTHUB_DEVICE_PREFIX_SEPARATOR = "-";                       // device prefix separator (if used...)... cannot be an "_"
     private static final long SAS_TOKEN_VALID_TIME_MS = 365 * 24 * 60 * 60 * 1000;          // SAS Token created for 1 year expiration
     private static final long SAS_TOKEN_RECREATE_INTERVAL_MS = 360 * 24 * 60 * 60 * 1000;   // number of days to wait before re-creating the SAS Token
+    private static final String IOTHUB_AUTH_QUALIFIER = "SharedAccessSignature";            // IoTHub SAS Token qualifier
     
     private int m_num_coap_topics = 1;                                  // # of MQTT Topics for CoAP verbs in IoTHub implementation
-    private String m_iot_hub_auth_qualifier = "SharedAccessSignature";
     private String m_iot_hub_observe_notification_topic = null;
     private String m_iot_hub_coap_cmd_topic_base = null;
     private String m_iot_hub_name = null;
@@ -73,7 +73,7 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     private boolean m_sas_token_run_refresh_thread = true;
     private long m_iot_hub_sas_token_validity_time_ms = SAS_TOKEN_VALID_TIME_MS;
     private long m_iot_hub_sas_token_recreate_interval_ms= SAS_TOKEN_RECREATE_INTERVAL_MS;
-
+    
     // constructor (singleton)
     public IoTHubProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
         this(manager, mqtt, null, http);
@@ -99,8 +99,11 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         // Get the IoTHub Connect String
         this.m_iot_hub_connect_string = this.orchestrator().preferences().valueOf("iot_event_hub_connect_string",this.m_suffix);
         
-       // initialize the SAS Token and its refresher...
-       this.initSASToken(false);
+        // HTTP Auth Qualifier
+        this.m_http_auth_qualifier = IOTHUB_AUTH_QUALIFIER;
+        
+        // initialize the SAS Token and its refresher...
+        this.initSASToken(false);
         
         // initialize our MQTT transport list
         this.initMQTTTransportList();
@@ -125,6 +128,9 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
             // Enable prefixing of mbed Cloud names for IoTHub
             this.m_iot_event_hub_enable_device_id_prefix = this.prefBoolValue("iot_event_hub_enable_device_id_prefix", this.m_suffix);
             this.m_iot_event_hub_device_id_prefix = null;
+            
+            // HTTP Auth Token: for IoTHub, its the SAS Token minus the qualifier and space...
+            this.m_http_auth_token = this.m_iot_hub_sas_token.replace(this.m_http_auth_qualifier + " ", "").trim();
 
             // If prefixing is enabled, get the prefix
             if (this.m_iot_event_hub_enable_device_id_prefix == true) {
@@ -982,8 +988,8 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     
     // create a MQTT Password for a given device
     private String createMQTTPassword() {
-        // use the IoTHub SAS Token + the original signature qualifier
-        return this.m_iot_hub_auth_qualifier + " " + this.m_iot_hub_sas_token;
+        // use the IoTHub SAS Token
+        return this.m_iot_hub_sas_token;
     }
     
     // IoTHub Specific: add a MQTT transport for a given endpoint - this is how MS IoTHub MQTT integration works... 
@@ -992,7 +998,7 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         boolean connected = false; 
         
         // make sure we configured
-        if (this.m_iot_hub_sas_token != null && this.m_iot_hub_sas_token.contains("Goes_Here") == false) {
+        if (this.m_iot_hub_connect_string != null && this.m_iot_hub_connect_string.contains("Goes_Here") == false) {
             // IOTHUB DeviceID Prefix
             String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
 
@@ -1193,42 +1199,5 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         
         // WARN - refresh thread has halted
         this.errorLogger().warning("IoTHuB: WARNING: SAS Token refresh thread has halted. SAS Token may expire within the year...");
-    }
-    
-     // GET specific data to a given URL 
-    @Override
-    public String httpsGet(String url) {
-        this.m_http.setAuthorizationQualifier(this.m_iot_hub_auth_qualifier);
-        String result = this.m_http.httpsGetApiTokenAuth(url, this.m_iot_hub_sas_token, null, "application/json");
-        return result;
-    }
-
-    // PUT specific data to a given URL (with data)
-    @Override
-    public String httpsPut(String url, String payload) {
-        this.m_http.setAuthorizationQualifier(this.m_iot_hub_auth_qualifier);
-        String result = this.m_http.httpsPutApiTokenAuth(url, this.m_iot_hub_sas_token, payload, "application/json");
-        return result;
-    }
-    
-    @Override
-    public String httpsPost(String url, String payload) {
-        this.m_http.setAuthorizationQualifier(this.m_iot_hub_auth_qualifier);
-        String result = this.m_http.httpsPostApiTokenAuth(url, this.m_iot_hub_sas_token, payload, "application/json");
-        return result;    
-    }
-
-    // DELETE specific data to a given URL (with data)
-    private String httpsDelete(String url, String etag) {
-        return this.httpsDelete(url, etag, null);
-    }
-
-    @Override
-    public String httpsDelete(String url, String etag, String payload) {
-        this.m_http.setAuthorizationQualifier(this.m_iot_hub_auth_qualifier);
-        this.m_http.setETagValue(etag);             // ETag header required...
-        this.m_http.setIfMatchValue("*");           // If-Match header required... 
-        String result = this.m_http.httpsDeleteApiTokenAuth(url, this.m_iot_hub_sas_token, payload, "application/json");
-        return result;
     }
 }
