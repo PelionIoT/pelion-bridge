@@ -37,13 +37,4 @@ public interface JwTRefresherResponderInterface {
     
     // refresh the JwT for a speciific endpoint
     public void refreshJwTForEndpoint(String ep_name);
-    
-    // wait for the lock to acquire
-    public long waitForLockTime();
-    
-    // initiate the JwT update
-    public boolean operationStart();
-    
-    // complete the refresher operation
-    public void operationStop();
 }

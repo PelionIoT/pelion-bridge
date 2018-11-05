@@ -85,10 +85,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     
     // QoS State Google Expects
     private static QoS GOOGLE_QoS = QoS.AT_LEAST_ONCE;
-    
-    // Lock Wait time in MS
-    private long m_lock_wait_ms = 2500;       // 2.5 seconds
-    
+        
     // SUBSCRIBE to these topics
     private String m_google_cloud_coap_config_topic = null;
     
@@ -226,12 +223,6 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
             // HTTP Auth Qualifier
             this.m_http_auth_qualifier = GOOGLE_AUTH_QUALIFIER;
 
-            // WaitForLock
-            this.m_lock_wait_ms = this.orchestrator().preferences().intValueOf("google_wait_for_lock_ms",this.m_suffix);
-            if (this.m_lock_wait_ms <= 0) {
-                this.m_lock_wait_ms = 7500; // 7.5 seconds
-            }
-
             // DEBUG
             this.errorLogger().info("ProjectID: " + this.m_google_cloud_project_id + 
                                     " Application Name: " + this.m_google_cloud_application_name + 
@@ -266,13 +257,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     protected int getMaxNumberOfShadows() {
         return MAX_GOOGLE_DEVICE_SHADOWS;
     }
-    
-    // get the WaitForLock time
-    @Override
-    public long waitForLockTime() {
-        return this.m_lock_wait_ms;
-    }
-    
+        
     // get the JwT refresh interval in seconds
     @Override
     public long getJwTRefreshIntervalInSeconds() {
@@ -583,11 +568,6 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get", "options":"noResp=true" }
         String options = this.getRESTOptions(message);
         
-        // wait until we have a LOCK
-        while(this.operationStart() == false) {
-            Utils.waitForABit(this.errorLogger(),this.m_lock_wait_ms);
-        }
-        
         // DEBUG
         this.errorLogger().info("GoogleCloudIOT(MQTT): GOT LOCK... ");
         
@@ -640,13 +620,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                     this.errorLogger().warning("GoogleCloudIOT(CoAP Command): CoAP observation(get) not sent. NOT CONNECTED");
                 }
             }
-        }
-        
-        // DEBUG
-        this.errorLogger().info("GoogleCloudIOT(MQTT): RELEASING LOCK... ");
-        
-        // UNLOCK
-        this.operationStop();
+        }        
     }
 
     // Google Cloud: create the endpoint GoogleCloud topic data

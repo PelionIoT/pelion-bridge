@@ -72,23 +72,7 @@ import java.io.UnsupportedEncodingException;
 public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implements JwTRefresherResponderInterface, HTTPDeviceListenerInterface, DeviceManagerToPeerProcessorInterface, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {    
     // Google Auth Token Qualifer
     public static final String GOOGLE_AUTH_QUALIFIER = "Bearer";
-    
-    // Google Cloud IoT notifications get published to this topic:  /devices/{deviceID}/events
-    private static String GOOGLE_CLOUDIOT_EVENT_TAG = "events";
-    
-    // Google Cloud IoT device state changes tag
-    private static String GOOGLE_CLOUDIOT_STATE_TAG = "state";
-        
-    // Lock Wait time in MS
-    private long m_lock_wait_ms = 2500;       // 2.5 seconds
-    
-    // SUBSCRIBE to these topics
-    private String m_google_cloud_coap_config_topic = null;
-    
-    // PUBLISH to these topics
-    private String m_google_cloud_coap_state_topic = null;
-    private String m_google_cloud_observe_notification_topic = null;
-    
+                    
     // keystore root directory
     private String m_keystore_rootdir = null;
 
@@ -103,16 +87,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     
     // GoogleCloud Region
     private String m_google_cloud_region = null;
-    
-    // GoogleCloud MQTT Host
-    private String m_google_cloud_mqtt_host = null;
-    
-    // GoogleCloud MQTT Port
-    private int m_google_cloud_mqtt_port = 0;
-    
-    // GoogleCloud MQTT Version
-    private String m_google_cloud_mqtt_version = null;
-    
+        
     // max number of connect retries (JwT expiration/reset)
     private int m_max_retries = 0;
     
@@ -158,7 +133,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     private String m_google_cloud_device_config_request_url_template = null;
     private String m_google_cloud_device_set_state_command_url_template = null;
     
-    // we configured
+    // we are configured
     private boolean m_configured = false;
 
     // constructor (singleton)
@@ -196,33 +171,9 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
             // get the Region
             this.m_google_cloud_region = this.orchestrator().preferences().valueOf("google_cloud_region",this.m_suffix);
 
-            // get the MQTT Host
-            this.m_google_cloud_mqtt_host = this.orchestrator().preferences().valueOf("google_cloud_mqtt_host",this.m_suffix);
-
-            // get the MQTT Port
-            this.m_google_cloud_mqtt_port = this.orchestrator().preferences().intValueOf("google_cloud_mqtt_port",this.m_suffix);
-
-            // get the MQTT Version
-            this.m_google_cloud_mqtt_version = this.orchestrator().preferences().valueOf("google_cloud_mqtt_version",this.m_suffix);
-
             // Google CloudIot Registry Name
             this.m_google_cloud_registry_name = this.orchestrator().preferences().valueOf("google_cloud_registry_name",this.m_suffix);
-
-            // Observation notification topic (PUBLISH)
-            this.m_google_cloud_observe_notification_topic = this.orchestrator().preferences().valueOf("google_cloud_observe_notification_topic",this.m_suffix);
-
-            // We receive commands/results that go down to mbed Cloud via the CONFIG topic
-            this.m_google_cloud_coap_config_topic = this.orchestrator().preferences().valueOf("google_cloud_coap_config_topic", this.m_suffix);
-
-            // we publish state changes that go up to Google Cloud IoT from mbed Cloud via the STATE topic
-            this.m_google_cloud_coap_state_topic = this.orchestrator().preferences().valueOf("google_cloud_coap_state_topic", this.m_suffix);
-
-            // Required Google Cloud format:  Event Tag redefinition
-            this.m_observation_key = GOOGLE_CLOUDIOT_EVENT_TAG;
-
-            // Required Google Cloud format: State Tag redefinition
-            this.m_cmd_response_key = GOOGLE_CLOUDIOT_STATE_TAG;
-            
+           
             // HTTP URL templates
             this.m_google_cloud_observe_notification_message_url_template = this.orchestrator().preferences().valueOf("google_cloud_observe_notification_message_url",this.m_suffix);
             this.m_google_cloud_device_config_request_url_template = this.orchestrator().preferences().valueOf("google_cloud_device_config_request_url",this.m_suffix);
@@ -236,12 +187,6 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
 
             // HTTP Auth Qualifier
             this.m_http_auth_qualifier = GOOGLE_AUTH_QUALIFIER;
-
-            // WaitForLock
-            this.m_lock_wait_ms = this.orchestrator().preferences().intValueOf("google_wait_for_lock_ms",this.m_suffix);
-            if (this.m_lock_wait_ms <= 0) {
-                this.m_lock_wait_ms = 7500; // 7.5 seconds
-            }
 
             // DEBUG
             this.errorLogger().info("ProjectID: " + this.m_google_cloud_project_id + 
@@ -300,12 +245,6 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                 .replace("__PROJECT_ID__",this.m_google_cloud_project_id)
                 .replace("__CLOUD_REGION__",this.m_google_cloud_region)
                 .replace("__REGISTRY_NAME__",this.m_google_cloud_registry_name);
-    }
-    
-    // get the WaitForLock time
-    @Override
-    public long waitForLockTime() {
-        return this.m_lock_wait_ms;
     }
     
     // get the JwT refresh interval in seconds
@@ -788,7 +727,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         int http_code = this.getLastResponseCode(ep_name);
         
         // DEBUG
-        this.errorLogger().info("GoogleCloudIoT: getNextMessage: URL: " + url + " CODE: " + http_code + " MESSAGE: " + google_message);
+        this.errorLogger().info("GoogleCloudIoT(HTTP): getNextMessage: URL: " + url + " CODE: " + http_code + " MESSAGE: " + google_message);
         
         // if we have a message... process it.
         if (google_message != null && google_message.length() > 0) {
@@ -796,7 +735,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
             message = this.parseGoogleMessage(google_message);
             
             // DEBUG
-            this.errorLogger().info("GoogleCloudIoT: getNextMessage: Config Change Request: " + message + " CODE: " + http_code);
+            this.errorLogger().info("GoogleCloudIoT(HTTP): getNextMessage: Config Change Request: " + message + " CODE: " + http_code);
         }
         
         // return the message
@@ -813,7 +752,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         }
         catch(UnsupportedEncodingException ex) {
             // error in parsing google message
-            this.errorLogger().warning("GoogleCloudIoT: Exception in parseGoogleMessage: " + ex.getMessage());
+            this.errorLogger().warning("GoogleCloudIoT(HTTP): Exception in parseGoogleMessage: " + ex.getMessage());
         }
         return null;
     }
@@ -832,7 +771,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         }
         else {
             // No message to process... OK
-            this.errorLogger().info("GoogleCloudIoT: EP: " + ep_name + " No config change request to process. (OK)");
+            this.errorLogger().info("GoogleCloudIoT(HTTP): EP: " + ep_name + " No config change request to process. (OK)");
         }
     }
 

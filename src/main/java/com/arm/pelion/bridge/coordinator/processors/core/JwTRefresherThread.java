@@ -24,7 +24,6 @@ package com.arm.pelion.bridge.coordinator.processors.core;
 
 import com.arm.pelion.bridge.coordinator.processors.interfaces.JwTRefresherResponderInterface;
 import com.arm.pelion.bridge.core.ErrorLogger;
-import com.arm.pelion.bridge.core.Utils;
 
 /**
  * JwT Refresher Thread implementation
@@ -36,14 +35,12 @@ public class JwTRefresherThread extends Thread {
     private boolean m_running = false;
     private long m_wait_between_refresh_ms = 0;
     private String m_ep_name = null;
-    private long m_wait_for_lock = 0;
     
     // Constructor
     public JwTRefresherThread(JwTRefresherResponderInterface processor,String ep_name) {
         this.m_responder = processor;
         this.m_ep_name = ep_name;
         this.m_wait_between_refresh_ms = this.m_responder.getJwTRefreshIntervalInSeconds() * 1000;
-        this.m_wait_for_lock = this.m_responder.waitForLockTime();        
     }
     
     /**
@@ -82,22 +79,12 @@ public class JwTRefresherThread extends Thread {
             try {
                 // sleep until we need to refresh our JwT
                 Thread.sleep(this.m_wait_between_refresh_ms);
-                
-                // wait until the processor is idle
-                while(this.m_responder.operationStart() == false) {
-                    // continue sleeping until we have a lock on the processor
-                    Utils.waitForABit(this.errorLogger(), this.m_wait_for_lock);
-                }
-                
+                                
                 // DEBUG
                 this.errorLogger().info("JwTRefresher: Refreshing JwT for endpoint: " + this.m_ep_name);
 
                 // now refresh our token
-                this.m_responder.refreshJwTForEndpoint(this.m_ep_name);
-                
-                // UNLOCK
-                this.m_responder.operationStop();
-                
+                this.m_responder.refreshJwTForEndpoint(this.m_ep_name);                
             }
             catch (InterruptedException ex) {
                 // silent
