@@ -981,9 +981,9 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     }
     
     // create a MQTT Password for a given device
-    private String createMQTTPassword(String iothub_ep_name) {
+    private String createMQTTPassword() {
         // use the IoTHub SAS Token + the original signature qualifier
-        return this.m_iot_hub_auth_qualifier + iothub_ep_name + this.m_iot_hub_sas_token;
+        return this.m_iot_hub_auth_qualifier + " " + this.m_iot_hub_sas_token;
     }
     
     // IoTHub Specific: add a MQTT transport for a given endpoint - this is how MS IoTHub MQTT integration works... 
@@ -1012,7 +1012,7 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
                     // set the creds for the IoTHub MQTT Transport instance
                     mqtt.setClientID(iothub_ep_name);
                     mqtt.setUsername(username);
-                    mqtt.setPassword(this.createMQTTPassword(iothub_ep_name));
+                    mqtt.setPassword(this.createMQTTPassword());
 
                     // IoTHub only works with SSL... 
                     mqtt.useSSLConnection(true);
