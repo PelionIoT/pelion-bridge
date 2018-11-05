@@ -61,6 +61,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
+import com.google.api.client.repackaged.org.apache.commons.codec.binary.Base64;
+import java.io.UnsupportedEncodingException;
 
 /**
  * Google CloudIoT peer processor based on HTTP
@@ -69,7 +71,7 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInte
  */
 public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implements JwTRefresherResponderInterface, HTTPDeviceListenerInterface, DeviceManagerToPeerProcessorInterface, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {    
     // Google Auth Token Qualifer
-    public static final String GOOGLE_AUTH_QUALIFIER = "bearer";
+    public static final String GOOGLE_AUTH_QUALIFIER = "Bearer";
     
     // Google Cloud IoT notifications get published to this topic:  /devices/{deviceID}/events
     private static String GOOGLE_CLOUDIOT_EVENT_TAG = "events";
@@ -149,12 +151,12 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     private HashMap<String,HTTPDeviceListener> m_device_listeners = null;
     
     // HTTP Auth Token list for device shadows
-    private HashMap<String,String> m_auth_tokens = null;
+    private HashMap<String,HashMap<String,Object>> m_endpoint_auth_data = null;
     
     // URL templates for Google Cloud IoT/HTTP
     private String m_google_cloud_observe_notification_message_url_template = null;
-    private String m_google_cloud_device_cmd_message_url_template = null;
-    private String m_google_cloud_device_cmd_ack_url_template = null;
+    private String m_google_cloud_device_config_request_url_template = null;
+    private String m_google_cloud_device_set_state_command_url_template = null;
     
     // we configured
     private boolean m_configured = false;
@@ -222,15 +224,15 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
             this.m_cmd_response_key = GOOGLE_CLOUDIOT_STATE_TAG;
             
             // HTTP URL templates
-            this.m_google_cloud_observe_notification_message_url_template = this.orchestrator().preferences().valueOf("google_cloudb_observe_notification_message_url",this.m_suffix);
-            this.m_google_cloud_device_cmd_message_url_template = this.orchestrator().preferences().valueOf("google_cloud_device_cmd_message_url",this.m_suffix);
-            this.m_google_cloud_device_cmd_ack_url_template = this.orchestrator().preferences().valueOf("google_cloud_device_cmd_ack_url",this.m_suffix);
+            this.m_google_cloud_observe_notification_message_url_template = this.orchestrator().preferences().valueOf("google_cloud_observe_notification_message_url",this.m_suffix);
+            this.m_google_cloud_device_config_request_url_template = this.orchestrator().preferences().valueOf("google_cloud_device_config_request_url",this.m_suffix);
+            this.m_google_cloud_device_set_state_command_url_template = this.orchestrator().preferences().valueOf("google_cloud_device_set_state_command_url",this.m_suffix);
 
             // create the HTTP-based device listeners
             this.m_device_listeners = new HashMap<>();
             
-            // Create the HTTP Auth Tokens list
-            this.m_auth_tokens = new HashMap<>();
+            // Create the HTTP Auth Data List
+            this.m_endpoint_auth_data = new HashMap<>();
 
             // HTTP Auth Qualifier
             this.m_http_auth_qualifier = GOOGLE_AUTH_QUALIFIER;
@@ -275,17 +277,29 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     
     // create the device observation notification url
     private String buildDeviceObservationNotificationURL(String ep_name) {
-        return this.m_google_cloud_observe_notification_message_url_template.replace("__EPNAME__", ep_name);
+        return this.m_google_cloud_observe_notification_message_url_template
+                .replace("__EPNAME__", ep_name)
+                .replace("__PROJECT_ID__",this.m_google_cloud_project_id)
+                .replace("__CLOUD_REGION__",this.m_google_cloud_region)
+                .replace("__REGISTRY_NAME__",this.m_google_cloud_registry_name);
     }
     
-    // create the device coap command URL
-    private String buildDeviceCommandURL(String ep_name) {
-        return this.m_google_cloud_device_cmd_message_url_template.replace("__EPNAME__", ep_name);
+    // create the device config change request receive URL
+    private String buildDeviceConfigChangeRequestURL(String ep_name) {
+        return this.m_google_cloud_device_config_request_url_template
+                .replace("__EPNAME__", ep_name)
+                .replace("__PROJECT_ID__",this.m_google_cloud_project_id)
+                .replace("__CLOUD_REGION__",this.m_google_cloud_region)
+                .replace("__REGISTRY_NAME__",this.m_google_cloud_registry_name);
     }
     
-    // create the device coap command ack URL
-    private String buildDeviceCommandACKURL(String ep_name,String etag) {
-        return this.m_google_cloud_device_cmd_ack_url_template.replace("__EPNAME__", ep_name);
+    // create the device set state command URL
+    private String buildDeviceSetStateCommandURL(String ep_name) {
+        return this.m_google_cloud_device_set_state_command_url_template
+                .replace("__EPNAME__", ep_name)
+                .replace("__PROJECT_ID__",this.m_google_cloud_project_id)
+                .replace("__CLOUD_REGION__",this.m_google_cloud_region)
+                .replace("__REGISTRY_NAME__",this.m_google_cloud_registry_name);
     }
     
     // get the WaitForLock time
@@ -458,14 +472,17 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                 String ep_name = this.getEndpointNameFromNotificationTopic(topic);
 
                 // create the posting URL 
-                String url = this.buildDeviceObservationNotificationURL(ep_name);
+                String url = this.buildDeviceObservationNotificationURL(this.mbedDeviceIDToGoogleDeviceID(ep_name));
+                
+                // create a JSON struct the Google CloudIoT expects for notifications
+                String google_message = this.buildGoogleEventMessagePayload(message);
 
                 // DEBUG
-                this.errorLogger().info("GoogleCloudIoT(HTTP): sendMessage; URL: " + url + " MESSAGE: " + message);
+                this.errorLogger().info("GoogleCloudIoT(HTTP): sendMessage; URL: " + url + " MESSAGE: " + google_message);
 
                 // post the message to Google Cloud IoT
-                this.httpsPost(url, message);
-                int http_code = this.m_http.getLastResponseCode();
+                this.httpsPost(ep_name, url, google_message);
+                int http_code = this.getLastResponseCode(ep_name);
 
                 // DEBUG
                 if (Utils.httpResponseCodeOK(http_code)) {
@@ -489,20 +506,19 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     
     // send the API Response back through the topic
     private void sendApiResponse(String topic, ApiResponse response) {
+        // DEBUG
+        this.errorLogger().info("GoogleCloudIoT(sendApiResponse): TOPIC: " + topic + " RESPONSE: " + response.createResponseJSON());
+        
         // publish via sendMessage()
         this.sendMessage(topic, response.createResponseJSON());
     }
     
     // GoogleCloud Specific: CoAP command handler - processes CoAP commands coming over MQTT channel
     @Override
-    public void onMessageReceive(String topic, String message) {
+    public void onMessageReceive(String ep_name, String message) {
         // DEBUG
-        this.errorLogger().info("GoogleCloudIOT: CoAP Command message to process: Topic: " + topic + " message: " + message);
+        this.errorLogger().info("GoogleCloudIOT: CoAP Command message to process: EP: " + ep_name + " message: " + message);
         
-         // parse the topic to get the endpoint
-        // format: mbed/__DEVICE_TYPE__/__EPNAME__/coap/__COMMAND_TYPE__/#
-        String ep_name = this.getEndpointNameFromTopic(topic);
-
         // parse the topic to get the endpoint type
         String ep_type = this.getEndpointTypeFromEndpointName(ep_name);
         
@@ -536,10 +552,6 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         // pull the CoAP verb from the message itself... its JSON... (PRIMARY)
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
         String coap_verb = this.getCoAPVerb(message);
-        if (coap_verb == null || coap_verb.length() == 0) {
-            // optionally pull the CoAP verb from the MQTT Topic (SECONDARY)
-            coap_verb = this.getCoAPVerbFromTopic(topic);
-        }
 
         // if the ep_name is wildcarded... get the endpoint name from the JSON payload
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get" }
@@ -550,14 +562,6 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         // if there are mDC/mDS REST options... lets add them
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get", "options":"noResp=true" }
         String options = this.getRESTOptions(message);
-        
-        // wait until we have a LOCK
-        while(this.operationStart() == false) {
-            Utils.waitForABit(this.errorLogger(),this.m_lock_wait_ms);
-        }
-        
-        // DEBUG
-        this.errorLogger().info("GoogleCloudIOT: GOT LOCK... ");
         
         // dispatch the CoAP resource operation request to mbed Cloud
         String response = this.orchestrator().processEndpointResourceOperation(coap_verb, ep_name, uri, value, options);
@@ -593,17 +597,27 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                 // DEBUG
                 this.errorLogger().info("GoogleCloudIoT(HTTP): Sending Observation (GET): " + observation);
 
-                // send the observation (GET reply)...
-                String fudged_topic = this.createFudgedTopic(ep_name);
-                this.sendMessage(fudged_topic, observation);
+                // We send this is a state change to Google Cloud IoT
+                String url = this.buildDeviceSetStateCommandURL(this.mbedDeviceIDToGoogleDeviceID(ep_name));
+                
+                // Encode the data into a payload
+                String google_message = this.buildGoogleEventMessagePayload(observation);
+                
+                // POST to Google CloudIoT
+                this.httpsPost(ep_name, url, payload);
+                int http_code = this.getLastResponseCode(ep_name);
+                
+                // DEBUG
+                if (http_code < 300) {
+                    // SUCCESS
+                    this.errorLogger().info("GoogleCloudIoT(HTTP): observation sent SUCCESSFULLY. CODE: " + http_code);
+                }
+                else {
+                    // FAILURE
+                    this.errorLogger().warning("GoogleCloudIoT(HTTP): observation send FAILED. CODE: " + http_code + " URL: " + url);
+                }
             }
         }
-        
-        // DEBUG
-        this.errorLogger().info("GoogleCloudIOT: RELEASING LOCK... ");
-        
-        // UNLOCK
-        this.operationStop();
     }
     
     // close down the device shadow
@@ -619,6 +633,9 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
 
         // stop the listener thread for this device
         this.stopListenerThread(device);
+        
+        // remove the auth data
+        this.m_endpoint_auth_data.remove(device);
         
          // DEBUG
         this.errorLogger().warning("GoogleCloudIOT: device: " + device + " closed down SUCCESSFULLY.");
@@ -690,9 +707,15 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         try {
             // DEBUG
             this.errorLogger().info("GoogleCloudIOT: Refreshing JwT for endpoint: " + ep_name + "...");
+            
+            // get or init our auth data for this endpoint
+            HashMap<String, Object> endpoint_auth_data = this.checkAndInitEndpointAuthData(ep_name);
 
             // create a new JwT and store it as the HTTP Auth Token
-            this.m_auth_tokens.put(ep_name,this.createGoogleCloudJWT(ep_name));
+            endpoint_auth_data.put("auth_token",this.createGoogleCloudJWT(ep_name));
+            
+            // set the new auth data for this endpoint
+            this.m_endpoint_auth_data.put(ep_name,endpoint_auth_data);
         }
         catch(IOException ex) {
             // error creating JWT
@@ -754,59 +777,62 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     }
     
     // get the next message (these are device command messages from Google Cloud IoT --> Pelion)
-    private String getNextMessage(HttpTransport http,String ep_name) {        
+    private String getNextMessage(String ep_name) { 
+        String message = null;
+        
         // create the URL
-        String url = this.buildDeviceCommandURL(ep_name);
+        String url = this.buildDeviceConfigChangeRequestURL(this.mbedDeviceIDToGoogleDeviceID(ep_name));
             
         // dispatch the GET and collect the result - with message ACK immediately to Google Cloud IoT
-        String message = this.httpsGet(http,url);
-        int http_code = http.getLastResponseCode();
-        String etag = http.getLastETagValue();
-        if (message != null && message.length() > 0) {
+        String google_message = this.httpsGet(ep_name,url);
+        int http_code = this.getLastResponseCode(ep_name);
+        
+        // DEBUG
+        this.errorLogger().info("GoogleCloudIoT: getNextMessage: URL: " + url + " CODE: " + http_code + " MESSAGE: " + google_message);
+        
+        // if we have a message... process it.
+        if (google_message != null && google_message.length() > 0) {
+            // parse the Google message 
+            message = this.parseGoogleMessage(google_message);
+            
             // DEBUG
-            this.errorLogger().info("GoogleCloudIoT: getNextMessage: Acking Message: " + message + " CODE: " + http_code + " ETAG: " + etag);
-
-            // immediately ACK a message if we get one...
-            this.ackLastMessage(http,ep_name,etag);
+            this.errorLogger().info("GoogleCloudIoT: getNextMessage: Config Change Request: " + message + " CODE: " + http_code);
         }
         
         // return the message
         return message;
     }
     
-    // ack a command message
-    private void ackLastMessage(HttpTransport http,String ep_name,String etag) {
+    // parse an inbound google message
+    private String parseGoogleMessage(String google_message) {
         try {
-            // create the URL
-            String url = this.buildDeviceCommandACKURL(ep_name, etag);
-
-            // dispatch the ACK to dequeue the message within Google Cloud
-            this.httpsDelete(http, url, etag);
-            int http_code = http.getLastResponseCode();
-
-            // DEBUG
-            this.errorLogger().info("GoogleCloudIoT: URL: " + url + " EP: " + ep_name + " CODE: " + http_code);
+            // Format: {"binaryData":"<Base64EncodedData>"}
+            Map parsed = this.orchestrator().getJSONParser().parseJson(google_message);
+            String b64_message = (String)parsed.get("binaryData");
+            return new String(Base64.decodeBase64(b64_message),"UTF-8");
         }
-        catch (Exception ex) {
-            this.errorLogger().warning("GoogleCloudIoT: Exception in ackLastCommandMessage: " + ex.getMessage(),ex);
+        catch(UnsupportedEncodingException ex) {
+            // error in parsing google message
+            this.errorLogger().warning("GoogleCloudIoT: Exception in parseGoogleMessage: " + ex.getMessage());
         }
+        return null;
     }
     
     // poll for and process device command messages
     @Override
     public void pollAndProcessDeviceMessages(HttpTransport http,String ep_name) {
         // Get the next message
-        String message = this.getNextMessage(http,ep_name);
+        String message = this.getNextMessage(ep_name);
         if (message != null && message.length() > 0) {
             // DEBUG
-            this.errorLogger().info("GoogleCloudIoT: DEVICE: " + ep_name + " MESSAGE: " + message);
-
-            // parse and process the message
+            this.errorLogger().info("GoogleCloudIoT(pollAndProcessDeviceMessages): EP: " + ep_name + " Config Change Request: " + message);
+            
+            // parse and process the configuration change request message
             this.onMessageReceive(ep_name, message);
         }
         else {
             // No message to process... OK
-            this.errorLogger().info("GoogleCloudIoT: DEVICE: " + ep_name + " No message to process. (OK)");
+            this.errorLogger().info("GoogleCloudIoT: EP: " + ep_name + " No config change request to process. (OK)");
         }
     }
 
@@ -841,6 +867,9 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                     // add our device type
                     this.setEndpointTypeFromEndpointName(device_id, device_type);
                     this.errorLogger().warning("GoogleCloudIoT(completeNewDeviceRegistration): Device Shadow: " + device_id + " creation SUCCESS");
+                    
+                    // create our auth token for this new device
+                    this.checkAndInitEndpointAuthData(device_id);
                     
                     // Create and start our device listener thread for this device
                     this.createDeviceListener(device_id);
@@ -974,11 +1003,47 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         return success;
     }
     
-    // create our HTTP-based device listener 
+     // get and init our endpoint auth data
+    private HashMap<String,Object> checkAndInitEndpointAuthData(String ep_name) {
+        // check if we have already created our data for this endpoint
+        HashMap<String,Object> endpoint_auth_data = this.m_endpoint_auth_data.get(ep_name);
+        if (endpoint_auth_data == null) {
+            // does not exist yet... so initialize one and set it...
+            endpoint_auth_data = new HashMap<>();
+            
+            // each endpoint has its own instance of HttpTransport...
+            endpoint_auth_data.put("http_transport", new HttpTransport(this.errorLogger(),this.preferences()));
+            
+            try {
+                // create our initial JwT Token
+                endpoint_auth_data.put("auth_token", this.createGoogleCloudJWT(ep_name));
+                
+                // put the new entry into our list
+                this.m_endpoint_auth_data.put(ep_name,endpoint_auth_data);
+            }
+            catch (IOException ex) {
+                // error creating JwT
+                this.errorLogger().warning("GoogleCloudIoT(HTTP): Exception caught in checkAndInitEndpointAuthData: " + ex.getMessage());
+                endpoint_auth_data = null;
+            }
+        }
+        return endpoint_auth_data;
+    }
+    
+    // create our HTTP-based device listener (checkAndInitEndpointAuthData() must have been called apriori!)
     private void createDeviceListener(String ep_name) {
         if (ep_name != null && ep_name.length() > 0) {
             if (this.m_device_listeners.get(ep_name) == null) {
-                this.m_device_listeners.put(ep_name, new HTTPDeviceListener(this,new HttpTransport(this.errorLogger(),this.preferences()),ep_name));
+                // auth data should already be created prior to this method being called 
+                HashMap<String,Object> endpoint_auth_data = this.m_endpoint_auth_data.get(ep_name);
+                if (endpoint_auth_data != null) {
+                    HttpTransport http = (HttpTransport)endpoint_auth_data.get("http_transport");
+                    this.m_device_listeners.put(ep_name, new HTTPDeviceListener(this,http,ep_name));
+                }
+                else {
+                    // no auth data for the endpoint... 
+                    this.errorLogger().warning("GoogleCloudIoT(HTTP): Unable to setup device listner (no AUTH data) for endpoint: " + ep_name);
+                }
             }
         }
     }
@@ -992,5 +1057,81 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                 this.m_device_listeners.remove(ep_name);
             }
         }
+    }
+    
+    // GET specific data to a given URL 
+    protected String httpsGet(String ep_name,String url) {
+        HashMap<String,Object> endpoint_auth_data = this.m_endpoint_auth_data.get(ep_name);
+        if (endpoint_auth_data != null) {
+            HttpTransport http = (HttpTransport)endpoint_auth_data.get("http_transport");
+            String auth_token = (String)endpoint_auth_data.get("auth_token");
+            return http.httpsGetApiTokenAuth(url, auth_token, null, "application/json");
+        }
+        else {
+            // no auth data for the endpoint... 
+            this.errorLogger().warning("GoogleCloudIoT(HTTP): httpsGet() FAILED (no AUTH data) for endpoint: " + ep_name);
+        }
+        return null;
+    }
+
+    // PUT specific data to a given URL (with data)
+    protected String httpsPut(String ep_name, String url, String payload) {
+        HashMap<String,Object> endpoint_auth_data = this.m_endpoint_auth_data.get(ep_name);
+        if (endpoint_auth_data != null) {
+            HttpTransport http = (HttpTransport)endpoint_auth_data.get("http_transport");
+            String auth_token = (String)endpoint_auth_data.get("auth_token");
+            return http.httpsPutApiTokenAuth(url, auth_token, payload, "application/json");
+        }
+        else {
+            // no auth data for the endpoint... 
+            this.errorLogger().warning("GoogleCloudIoT(HTTP): httpsPut() FAILED (no AUTH data) for endpoint: " + ep_name);
+        }
+        return null;
+    }
+    
+    // POST specific data to a given URL (with data)
+    protected String httpsPost(String ep_name, String url, String payload) {
+        HashMap<String,Object> endpoint_auth_data = this.m_endpoint_auth_data.get(ep_name);
+        if (endpoint_auth_data != null) {
+            HttpTransport http = (HttpTransport)endpoint_auth_data.get("http_transport");
+            String auth_token = (String)endpoint_auth_data.get("auth_token");
+            return http.httpsPostApiTokenAuth(url, auth_token, payload, "application/json");
+        }
+        else {
+            // no auth data for the endpoint... 
+            this.errorLogger().warning("GoogleCloudIoT(HTTP): httpsPost() FAILED (no AUTH data) for endpoint: " + ep_name);
+        }
+        return null;
+    }
+    
+    // DELETE specific data to a given URL (with data)
+    @Override
+    public String httpsDelete(String ep_name,String url) {
+        HashMap<String,Object> endpoint_auth_data = this.m_endpoint_auth_data.get(ep_name);
+        if (endpoint_auth_data != null) {
+            HttpTransport http = (HttpTransport)endpoint_auth_data.get("http_transport");
+            String auth_token = (String)endpoint_auth_data.get("auth_token");
+            return http.httpsDelete(url, null, null, null, null);
+        }
+        else {
+            // no auth data for the endpoint... 
+            this.errorLogger().warning("GoogleCloudIoT(HTTP): httpsDelete() FAILED (no AUTH data) for endpoint: " + ep_name);
+        }
+        return null;
+    }
+    
+    // build out our Google CloudIoT payload
+    private String buildGoogleEventMessagePayload(String message) {
+        return "{\"binary_data\":\"" + Base64.encodeBase64URLSafeString(message.getBytes()) + "\"}";
+    }
+    
+    // get the last response code for a given endpoint
+    private int getLastResponseCode(String ep_name) {
+        HashMap<String,Object> endpoint_auth_data = this.m_endpoint_auth_data.get(ep_name);
+        if (endpoint_auth_data != null) {
+            HttpTransport http = (HttpTransport)endpoint_auth_data.get("http_transport");
+            return http.getLastResponseCode();
+        }
+        return 200;
     }
 }

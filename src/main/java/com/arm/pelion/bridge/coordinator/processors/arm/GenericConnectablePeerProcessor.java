@@ -49,16 +49,16 @@ import org.fusesource.mqtt.client.Topic;
  */
 public class GenericConnectablePeerProcessor extends PeerProcessor implements DeviceManagerToPeerProcessorInterface, Transport.ReceiveListener, PeerProcessorInterface {
     // default HTTP auth qualifier
-    public static final String DEFAULT_AUTH_TOKEN_QUALIFIER = "bearer";
+    public static final String DEFAULT_AUTH_TOKEN_QUALIFIER = "Bearer";         // Bearer tokens used by default
     
     // default maximum number of devices we can shadow
-    private static final int MAX_DEVICE_SHADOWS = 100000;       // 100,000 devices
+    private static final int MAX_DEVICE_SHADOWS = 100000;                       // 100,000 devices
     
     // default generic MQTT thread key
     private static String DEFAULT_GENERIC_RT_KEY = "__generic__";
     
     // default wait time
-    private static int DEFAULT_RECONNNECT_SLEEP_TIME_MS = 15000;      // 15 seconds   
+    private static int DEFAULT_RECONNNECT_SLEEP_TIME_MS = 15000;                // 15 seconds   
     
     // defaulted maximum api request ID
     private static int MAX_API_REQUEST_ID = 32768;
@@ -69,11 +69,11 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
     private String m_api_request_topic = null;
     
     // Health Statistic Qualifier
-    private String m_hs_qualifier = "MQTT";     // default is MQTT
+    private String m_hs_qualifier = "MQTT";                                     // default is MQTT
     
     // is MQTT in use in this processor?
-    private boolean m_mqtt_utilized = true;     // default is TRUE
-    private boolean m_http_utilized = false;    // default is FALSE 
+    private boolean m_mqtt_utilized = true;                                     // default is TRUE
+    private boolean m_http_utilized = false;                                    // default is FALSE 
     
     protected String m_mqtt_host = null;
     protected int m_mqtt_port = 0;
@@ -797,7 +797,6 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
     // GET specific data to a given URL 
     protected String httpsGet(HttpTransport http,String url) {
         http.setAuthorizationQualifier(this.m_http_auth_qualifier);
-        //this.errorLogger().info("IoTHub(httpsGet): SASToken: " + this.m_http_auth_token);
         String result = http.httpsGetApiTokenAuth(url, this.m_http_auth_token, null, "application/json");
         return result;
     }
@@ -805,16 +804,26 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
     // PUT specific data to a given URL (with data)
     @Override
     public String httpsPut(String url, String payload) {
-        this.m_http.setAuthorizationQualifier(this.m_http_auth_qualifier);
-        String result = this.m_http.httpsPutApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
+        return this.httpsPut(this.m_http,url,payload);
+    }
+    
+    // PUT specific data to a given URL (with data)
+    protected String httpsPut(HttpTransport http,String url, String payload) {
+        http.setAuthorizationQualifier(this.m_http_auth_qualifier);
+        String result = http.httpsPutApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
         return result;
     }
     
     // POST specific data to a given URL (with data)
     @Override
     public String httpsPost(String url, String payload) {
-        this.m_http.setAuthorizationQualifier(this.m_http_auth_qualifier);
-        String result = this.m_http.httpsPostApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
+        return this.httpsPost(this.m_http,url,payload);
+    }
+    
+    // POST specific data to a given URL (with data)
+    protected String httpsPost(HttpTransport http, String url, String payload) {
+        http.setAuthorizationQualifier(this.m_http_auth_qualifier);
+        String result = http.httpsPostApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
         return result;
     }
 
@@ -828,11 +837,13 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         return this.httpsDelete(http, url, etag, null);
     }
 
+    // DELETE specific data to a given URL (with data)
     @Override
     public String httpsDelete(String url, String etag, String payload) {
         return this.httpsDelete(this.m_http, url, etag, payload);
     }
     
+    // DELETE specific data to a given URL (with data)
     protected String httpsDelete(HttpTransport http, String url, String etag, String payload) {
         http.setAuthorizationQualifier(this.m_http_auth_qualifier);
         http.setETagValue(etag);             // ETag header required...
