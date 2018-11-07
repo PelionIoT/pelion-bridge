@@ -128,6 +128,9 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     // HTTP Auth Token list for device shadows
     private HashMap<String,HashMap<String,Object>> m_endpoint_auth_data = null;
     
+    // Version tracker for HTTP polling
+    private HashMap<String,Integer> m_device_config_versions = null;
+    
     // URL templates for Google Cloud IoT/HTTP
     private String m_google_cloud_observe_notification_message_url_template = null;
     private String m_google_cloud_device_config_request_url_template = null;
@@ -184,6 +187,9 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
             
             // Create the HTTP Auth Data List
             this.m_endpoint_auth_data = new HashMap<>();
+            
+            // Create the device versions struct
+            this.m_device_config_versions = new HashMap<>();
 
             // HTTP Auth Qualifier
             this.m_http_auth_qualifier = GOOGLE_AUTH_QUALIFIER;
@@ -417,7 +423,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                 String google_message = this.buildGoogleEventMessagePayload(message);
 
                 // DEBUG
-                this.errorLogger().info("GoogleCloudIoT(HTTP): sendMessage; URL: " + url + " MESSAGE: " + google_message);
+                this.errorLogger().info("GoogleCloudIoT(HTTP): sendMessage; URL: " + url + " MESSAGE: " + message + " TOPIC: " + topic,new Exception());
 
                 // post the message to Google Cloud IoT
                 this.httpsPost(ep_name, url, google_message);
@@ -502,6 +508,9 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         // format: { "path":"/303/0/5850", "new_value":"0", "ep":"mbed-eth-observe", "coap_verb": "get", "options":"noResp=true" }
         String options = this.getRESTOptions(message);
         
+        // DEBUG
+        this.errorLogger().info("GoogleCloudIOT(onMessageReceive): processing op: VERB: " + coap_verb + " EP: " + ep_name + " URI: " + uri + " VALUE: " + value + " OPTIONS: " + options, new Exception());
+        
         // dispatch the CoAP resource operation request to mbed Cloud
         String response = this.orchestrator().processEndpointResourceOperation(coap_verb, ep_name, uri, value, options);
 
@@ -575,6 +584,9 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         
         // remove the auth data
         this.m_endpoint_auth_data.remove(device);
+        
+        // remove the config version tracking
+        this.m_device_config_versions.remove(device);
         
          // DEBUG
         this.errorLogger().warning("GoogleCloudIOT: device: " + device + " closed down SUCCESSFULLY.");
@@ -715,27 +727,60 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         return true;
     }
     
+    // have we already seen this version config message?
+    private boolean alreadySeenConfig(String ep_name, int version) {
+        if (ep_name != null && version >= 0) {
+            Integer ep_version = this.m_device_config_versions.get(ep_name);
+            if (ep_version != null && version == ep_version) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     // get the next message (these are device command messages from Google Cloud IoT --> Pelion)
     private String getNextMessage(String ep_name) { 
         String message = null;
-        
+        boolean continue_polling = true;
+        int version = -1;
+                
         // create the URL
         String url = this.buildDeviceConfigChangeRequestURL(this.mbedDeviceIDToGoogleDeviceID(ep_name));
-            
-        // dispatch the GET and collect the result - with message ACK immediately to Google Cloud IoT
-        String google_message = this.httpsGet(ep_name,url);
-        int http_code = this.getLastResponseCode(ep_name);
         
-        // DEBUG
-        this.errorLogger().info("GoogleCloudIoT(HTTP): getNextMessage: URL: " + url + " CODE: " + http_code + " MESSAGE: " + google_message);
-        
-        // if we have a message... process it.
-        if (google_message != null && google_message.length() > 0) {
-            // parse the Google message 
-            message = this.parseGoogleMessage(google_message);
+        while(continue_polling == true) {
+            // dispatch the GET and collect the result - with message ACK immediately to Google Cloud IoT
+            String google_message = this.httpsGet(ep_name,url);
+            int http_code = this.getLastResponseCode(ep_name);
             
-            // DEBUG
-            this.errorLogger().info("GoogleCloudIoT(HTTP): getNextMessage: Config Change Request: " + message + " CODE: " + http_code);
+            // Parse the Google message
+            Map parsed = this.tryJSONParse(google_message);
+            String str_version = (String)parsed.get("version");
+            Integer int_version = Integer.parseInt(str_version);
+            version = int_version;
+            
+            // have we already seen this version?
+            if (this.alreadySeenConfig(ep_name, version) == false) {
+                // DEBUG
+                this.errorLogger().info("GoogleCloudIoT(HTTP): getNextMessage: URL: " + url + " CODE: " + http_code + " MESSAGE: " + google_message);
+
+                // if we have a message... process it.
+                if (google_message != null && google_message.length() > 0) {
+                    // parse the Google message 
+                    message = this.parseGoogleMessage(google_message);
+
+                    // DEBUG
+                    this.errorLogger().info("GoogleCloudIoT(HTTP): getNextMessage: Config Change Request: " + message + " CODE: " + http_code);
+                }
+                
+                // we are done polling
+                continue_polling = false;
+                
+                // save this version
+                this.m_device_config_versions.put(ep_name,int_version);
+            }
+            else {
+                // we've already seen this version... so continue polling
+            }
         }
         
         // return the message
@@ -1004,6 +1049,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         if (endpoint_auth_data != null) {
             HttpTransport http = (HttpTransport)endpoint_auth_data.get("http_transport");
             String auth_token = (String)endpoint_auth_data.get("auth_token");
+            http.addHeader("cache-control", "no-cache");
             return http.httpsGetApiTokenAuth(url, auth_token, null, "application/json");
         }
         else {
@@ -1019,6 +1065,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         if (endpoint_auth_data != null) {
             HttpTransport http = (HttpTransport)endpoint_auth_data.get("http_transport");
             String auth_token = (String)endpoint_auth_data.get("auth_token");
+            http.addHeader("cache-control", "no-cache");
             return http.httpsPutApiTokenAuth(url, auth_token, payload, "application/json");
         }
         else {
@@ -1034,6 +1081,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         if (endpoint_auth_data != null) {
             HttpTransport http = (HttpTransport)endpoint_auth_data.get("http_transport");
             String auth_token = (String)endpoint_auth_data.get("auth_token");
+            http.addHeader("cache-control", "no-cache");
             return http.httpsPostApiTokenAuth(url, auth_token, payload, "application/json");
         }
         else {
@@ -1050,6 +1098,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         if (endpoint_auth_data != null) {
             HttpTransport http = (HttpTransport)endpoint_auth_data.get("http_transport");
             String auth_token = (String)endpoint_auth_data.get("auth_token");
+            http.addHeader("cache-control", "no-cache");
             return http.httpsDelete(url, null, null, null, null);
         }
         else {

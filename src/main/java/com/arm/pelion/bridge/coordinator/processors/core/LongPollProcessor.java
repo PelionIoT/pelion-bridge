@@ -70,9 +70,14 @@ public class LongPollProcessor extends Thread {
         // persistent GET over https()
         this.m_pelion_processor.errorLogger().info("LongPollProcessor: Invoking HTTPS(GET) to poll Pelion API for new notifications...");
         response = this.m_pelion_processor.persistentHTTPSGet(this.m_pelion_processor.longPollURL());
-         
+        
         // note the response code
         int last_code = this.m_pelion_processor.getLastResponseCode();
+        
+        // DEBUG
+        this.m_pelion_processor.errorLogger().info("LongPollProcessor: URL: " + this.m_pelion_processor.longPollURL() + " CODE: " + last_code);
+        
+        // act
         if (last_code == 400) {
             // API key already has a callback webhook setup
             this.errorLogger().warning("LongPollProcessor: API Key was previously setup in webhook mode... Please create and use another API Key and restart the bridge...");
