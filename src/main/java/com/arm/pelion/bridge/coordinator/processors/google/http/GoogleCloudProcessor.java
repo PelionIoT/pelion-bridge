@@ -844,22 +844,29 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                 // get the device ID and device Type
                 String device_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
                 String device_id = Utils.valueFromValidKey(device, "id", "ep");
-                    
-                // create the device twin
-                boolean ok = this.m_device_manager.registerNewDevice(device);
-                if (ok) {
-                    // add our device type
-                    this.setEndpointTypeFromEndpointName(device_id, device_type);
-                    this.errorLogger().warning("GoogleCloudIoT(completeNewDeviceRegistration): Device Shadow: " + device_id + " creation SUCCESS");
-                    
-                    // create our auth token for this new device
-                    this.checkAndInitEndpointAuthData(device_id);
-                    
-                    // Create and start our device listener thread for this device
-                    this.createDeviceListener(device_id);
+                
+                // check if we already have auth creds for this device twin... if we do, it already exists...
+                if (this.m_endpoint_auth_data.get(device_id) == null) {
+                    // create the device shadow/twin
+                    boolean ok = this.m_device_manager.registerNewDevice(device);
+                    if (ok) {
+                        // add our device type
+                        this.setEndpointTypeFromEndpointName(device_id, device_type);
+                        this.errorLogger().warning("GoogleCloudIoT(completeNewDeviceRegistration): Device Shadow: " + device_id + " creation SUCCESS");
+
+                        // create our auth token for this new device
+                        this.checkAndInitEndpointAuthData(device_id);
+
+                        // Create and start our device listener thread for this device
+                        this.createDeviceListener(device_id);
+                    }
+                    else {
+                        this.errorLogger().warning("GoogleCloudIoT(completeNewDeviceRegistration): Device Shadow: " + device_id + " creation FAILURE");
+                    }
                 }
                 else {
-                    this.errorLogger().warning("GoogleCloudIoT(completeNewDeviceRegistration): Device Shadow: " + device_id + " creation FAILURE");
+                    // device already exists (OK)
+                    this.errorLogger().info("GoogleCloudIoT(completeNewDeviceRegistration): Device Shadow: " + device_id + " already exists (OK)");
                 }
             }
             else {
