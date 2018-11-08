@@ -434,8 +434,16 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                     // SUCCESS
                     this.errorLogger().info("GoogleCloudIoT(HTTP): message: " + message + " sent to device: " + ep_name + " SUCCESSFULLY. Code: " + http_code);
                 }
-                else if (http_code != 404) {
-                    // FAILURE
+                else if (http_code == 403 || http_code == 404) {
+                    // FAILURE - forbidden/not found
+                    this.errorLogger().warning("GoogleCloudIoT(HTTP): message: " + message + " send to device: " + ep_name + " FAILED (forbidden/not found). Code: " + http_code);
+                    
+                    // attempt to re-create the device - we will re-create it on the next re-registration...
+                    this.errorLogger().warning("GoogleCloudIoT(HTTP): removing stale device sahdow: " + ep_name);
+                    this.closeDeviceShadow(ep_name);
+                }
+                else {
+                    // FAILURE - unknown
                     this.errorLogger().warning("GoogleCloudIoT(HTTP): message: " + message + " send to device: " + ep_name + " FAILED. Code: " + http_code);
                 }
             }
@@ -729,7 +737,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     
     // have we already seen this version config message?
     private boolean alreadySeenConfig(String ep_name, int version) {
-        if (ep_name != null && version >= 0) {
+        if (ep_name != null && version > 0) {
             Integer ep_version = this.m_device_config_versions.get(ep_name);
             if (ep_version != null && version == ep_version) {
                 return true;
@@ -742,7 +750,8 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     private String getNextMessage(String ep_name) { 
         String message = null;
         boolean continue_polling = true;
-        int version = -1;
+        int version = 0;
+        Integer int_version = version;
                 
         // create the URL
         String url = this.buildDeviceConfigChangeRequestURL(this.mbedDeviceIDToGoogleDeviceID(ep_name));
@@ -754,9 +763,16 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
             
             // Parse the Google message
             Map parsed = this.tryJSONParse(google_message);
-            String str_version = (String)parsed.get("version");
-            Integer int_version = Integer.parseInt(str_version);
-            version = int_version;
+            try {
+                String str_version = (String)parsed.get("version");
+                if (str_version != null && str_version.length() > 0) {
+                    int_version = Integer.parseInt(str_version);
+                    version = int_version;
+                }
+            }
+            catch (NumberFormatException ex) {
+                // formatting exception.. use default of 0
+            }
             
             // have we already seen this version?
             if (this.alreadySeenConfig(ep_name, version) == false) {
