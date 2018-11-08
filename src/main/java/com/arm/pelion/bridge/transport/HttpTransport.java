@@ -603,10 +603,12 @@ public class HttpTransport extends BaseClass {
                 }
                 else {
                     this.errorLogger().warning("HttpTransport(" + verb + "): ERROR in doHTTP(" + verb + "): Connection is NULL");
+                    this.saveResponseCode(597);
                 }
             }
             catch (IOException ex2) {
-                this.errorLogger().warning("HttpTransport(" + verb + "): Exception in doHTTP(" + verb + "): Unable to save last response code: " + ex2.getMessage());
+                this.errorLogger().info("HttpTransport(" + verb + "): Exception in doHTTP(" + verb + "): Unable to save last response code: " + ex2.getMessage());
+                this.saveResponseCode(599);        
             }
         }
 
