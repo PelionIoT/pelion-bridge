@@ -56,13 +56,13 @@ public class MSIoTHubPeerProcessorFactory extends BasePeerProcessorFactory imple
             if (use_mqtt == true) {
                 // use MQTT-based IoTHub processor
                 manager.errorLogger().info("Registering MS IoTHub MQTT processor...");
-                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.ms.mqtt.IoTHubProcessor(manager, null, http);
+                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.ms.mqtt.IoTHubProcessor(manager, null, new HttpTransport(manager.errorLogger(),manager.preferences()));
                 me.addProcessor(p);
             }
             else {
                 // use HTTP-based IoTHub processor
                 manager.errorLogger().info("Registering MS IoTHub HTTP processor...");
-                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.ms.http.IoTHubProcessor(manager, null, http);
+                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.ms.http.IoTHubProcessor(manager, new HttpTransport(manager.errorLogger(),manager.preferences()));
                 me.addProcessor(p);
             }
         }

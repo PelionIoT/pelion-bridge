@@ -414,6 +414,14 @@ public class Utils {
                 logger.info("AWS CLI: Invoked: " + cmd);
                 logger.info("AWS CLI: Response: " + response);
                 logger.info("AWS CLI: Exit Code: " + status);
+                
+                // trim the response
+                response = response.trim();
+                
+                // if no response... but successful... lets put in an error code
+                if (response == null || response.length() == 0) {
+                    response = "{\"status\":" + status + "}";
+                }
             }
         }
         catch (IOException | InterruptedException ex) {
@@ -1177,7 +1185,7 @@ public class Utils {
             try {
                 Integer oid = Integer.parseInt(object_id);
                 if (oid > 0) {
-                    if (oid == 1 || oid == 3 || oid == 5 || oid == 10255 || oid == 5000) {
+                    if (oid == 1 || oid == 3 || oid == 5 || oid == 10255 || oid == 5000 || oid == 10252 || oid == 35011) {
                         return true;
                     }
                 }

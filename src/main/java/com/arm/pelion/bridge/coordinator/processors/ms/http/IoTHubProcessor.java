@@ -30,25 +30,22 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.DeviceManagerToPe
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.HTTPDeviceListenerInterface;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
-import com.arm.pelion.bridge.coordinator.processors.interfaces.ReconnectionInterface;
 import com.arm.pelion.bridge.coordinator.processors.ms.IoTHubDeviceManager;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.transport.HttpTransport;
-import com.arm.pelion.bridge.transport.MQTTTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.fusesource.mqtt.client.Topic;
 
 /**
  * MS IoTHub peer processor based on HTTP
  * 
  * @author Doug Anson
  */
-public class IoTHubProcessor extends GenericConnectablePeerProcessor implements Runnable, DeviceManagerToPeerProcessorInterface, HTTPDeviceListenerInterface, PeerProcessorInterface, GenericSender,Transport.ReceiveListener, ReconnectionInterface, AsyncResponseProcessor {    
+public class IoTHubProcessor extends GenericConnectablePeerProcessor implements Runnable, DeviceManagerToPeerProcessorInterface, HTTPDeviceListenerInterface, PeerProcessorInterface, GenericSender,Transport.ReceiveListener, AsyncResponseProcessor {    
     private static final String IOTHUB_DEVICE_PREFIX_SEPARATOR = "-";                       // device prefix separator (if used...)... cannot be an "_"
     private static final long SAS_TOKEN_VALID_TIME_MS = 365 * 24 * 60 * 60 * 1000;          // SAS Token created for 1 year expiration
     private static final long SAS_TOKEN_RECREATE_INTERVAL_MS = 360 * 24 * 60 * 60 * 1000;   // number of days to wait before re-creating the SAS Token
@@ -81,13 +78,13 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     private String m_iot_event_hub_device_cmd_ack_url_template = null;
     
     // constructor
-    public IoTHubProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
-        this(manager, mqtt, http, null);
+    public IoTHubProcessor(Orchestrator manager, HttpTransport http) {
+        this(manager, http, null);
     }
 
     // constructor
-    public IoTHubProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http, String suffix) {
-        super(manager, mqtt, suffix, http);
+    public IoTHubProcessor(Orchestrator manager, HttpTransport http, String suffix) {
+        super(manager, null, suffix, http);
         
         // Http processor 
         this.m_http = http;
@@ -728,13 +725,6 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     public String createAuthenticationHash() {
         // use the IoTHub connection string as the hash seed for the webhook auth header...
         return Utils.createHash(this.m_iot_hub_connect_string);
-    }
-   
-    // no reconnection necessary for HTTP based processors
-    @Override
-    public boolean startReconnection(String ep_name, String ep_type, Topic[] topics) {
-        // not used in HTTP based integration
-        return true;
     }
     
     // initialize any IoTHub listeners

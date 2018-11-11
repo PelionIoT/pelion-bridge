@@ -23,8 +23,8 @@
 package com.arm.pelion.bridge.coordinator.processors.aws;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.aws.mqtt.AWSIoTMQTTProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.DeviceManager;
+import com.arm.pelion.bridge.coordinator.processors.interfaces.DeviceManagerToPeerProcessorInterface;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.data.SerializableHashMap;
 import com.arm.pelion.bridge.transport.HttpTransport;
@@ -46,18 +46,18 @@ public class AWSIoTDeviceManager extends DeviceManager {
     private String m_policy_name = null;
     private String m_policy_document = null;
     
-    private AWSIoTMQTTProcessor m_processor = null;
+    private DeviceManagerToPeerProcessorInterface m_processor = null;
     
     // lock to reconnection serial
     private boolean m_in_progress = false;
     
     // constructor
-    public AWSIoTDeviceManager(HttpTransport http, AWSIoTMQTTProcessor processor) {
+    public AWSIoTDeviceManager(HttpTransport http, DeviceManagerToPeerProcessorInterface processor) {
         this(null, http, processor);
     }
 
     // constructor
-    public AWSIoTDeviceManager(String suffix, HttpTransport http, AWSIoTMQTTProcessor processor) {
+    public AWSIoTDeviceManager(String suffix, HttpTransport http, DeviceManagerToPeerProcessorInterface processor) {
         super(processor.errorLogger(), processor.preferences(),suffix,http,processor.orchestrator());
         this.m_processor = processor;
 

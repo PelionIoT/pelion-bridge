@@ -24,7 +24,6 @@ package com.arm.pelion.bridge.coordinator.processors.factories;
 
 import com.arm.pelion.bridge.coordinator.processors.arm.GenericConnectablePeerProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
-import com.arm.pelion.bridge.coordinator.processors.aws.mqtt.AWSIoTMQTTProcessor;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import com.arm.pelion.bridge.transport.Transport;
 import java.util.ArrayList;
@@ -39,15 +38,31 @@ public class AWSIoTPeerProcessorFactory extends BasePeerProcessorFactory impleme
 
     // Factory method for initializing the AWS IotHub MQTT collection orchestrator
     public static AWSIoTPeerProcessorFactory createPeerProcessor(Orchestrator manager, HttpTransport http) {
+         // default is to use MQTT
+        boolean use_mqtt = true;
+        
+        // determine whether we use MQTT or HTTP
+        String aws_iot_transport = manager.preferences().valueOf("aws_iot_transport");
+        if (aws_iot_transport != null && aws_iot_transport.equalsIgnoreCase("http")) {
+            use_mqtt = false;
+        }
+        
         // create me
         AWSIoTPeerProcessorFactory me = new AWSIoTPeerProcessorFactory(manager, http);
 
         // initialize me
         boolean aws_iot_gw_enabled = manager.preferences().booleanValueOf("enable_aws_iot_gw_addon");
         if (aws_iot_gw_enabled == true) {
-            manager.errorLogger().info("Registering AWS IoT MQTT processor...");
-            GenericConnectablePeerProcessor p = new AWSIoTMQTTProcessor(manager, null, http);
-            me.addProcessor(p);
+            if (use_mqtt == true) {
+                manager.errorLogger().info("Registering AWS IoT MQTT processor...");
+                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.aws.mqtt.AWSIoTProcessor(manager, null, http);
+                me.addProcessor(p);
+            }
+            else {
+                manager.errorLogger().info("Registering AWS IoT HTTP processor...");
+                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.aws.http.AWSIoTProcessor(manager, null, http);
+                me.addProcessor(p);
+            }
         }
 
         // return me

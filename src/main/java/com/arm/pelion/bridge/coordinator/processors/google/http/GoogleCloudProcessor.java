@@ -35,9 +35,7 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.HTTPDeviceListene
 import com.arm.pelion.bridge.coordinator.processors.interfaces.JwTRefresherResponderInterface;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.transport.HttpTransport;
-import com.arm.pelion.bridge.transport.MQTTTransport;
 import com.arm.pelion.bridge.transport.Transport;
-import com.arm.pelion.bridge.transport.TransportReceiveThread;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpRequestInitializer;
@@ -140,13 +138,13 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     private boolean m_configured = false;
 
     // constructor (singleton)
-    public GoogleCloudProcessor(Orchestrator manager, MQTTTransport mqtt, HttpTransport http) {
-        this(manager, mqtt, null, http);
+    public GoogleCloudProcessor(Orchestrator manager, HttpTransport http) {
+        this(manager, null, http);
     }
 
     // constructor (with suffix for preferences)
-    public GoogleCloudProcessor(Orchestrator manager, MQTTTransport mqtt, String suffix, HttpTransport http) {
-        super(manager, mqtt, suffix, http);
+    public GoogleCloudProcessor(Orchestrator manager, String suffix, HttpTransport http) {
+        super(manager, null, suffix, http);
 
         // GoogleCloud Processor Announce
         this.errorLogger().warning("Google CloudIoT Processor ENABLED (HTTP)");
@@ -711,18 +709,6 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                 // silent
             }
         }
-    }
-    
-    // start our listener thread
-    private void startListenerThread(String ep_name,MQTTTransport mqtt) {
-        // stop any existing listener thread
-        this.m_mqtt_thread_list.remove(ep_name);
-
-        // create and start the listener
-        TransportReceiveThread listener = new TransportReceiveThread(mqtt);
-        listener.setOnReceiveListener(this);
-        this.m_mqtt_thread_list.put(ep_name, listener);
-        listener.start();
     }
     
     // AsyncResponse response processor

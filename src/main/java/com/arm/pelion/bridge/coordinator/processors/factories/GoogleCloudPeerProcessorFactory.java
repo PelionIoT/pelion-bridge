@@ -55,12 +55,12 @@ public class GoogleCloudPeerProcessorFactory extends BasePeerProcessorFactory im
         if (google_cloud_gw_enabled == true) {
             if (use_mqtt == true) {
                 manager.errorLogger().info("Registering Google Cloud MQTT processor...");
-                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.google.mqtt.GoogleCloudProcessor(manager, null, http);
+                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.google.mqtt.GoogleCloudProcessor(manager, null, new HttpTransport(manager.errorLogger(),manager.preferences()));
                 me.addProcessor(p);
             }
             else {
                 manager.errorLogger().info("Registering Google Cloud HTTP processor...");
-                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.google.http.GoogleCloudProcessor(manager, null, http);
+                GenericConnectablePeerProcessor p = new com.arm.pelion.bridge.coordinator.processors.google.http.GoogleCloudProcessor(manager, new HttpTransport(manager.errorLogger(),manager.preferences()));
                 me.addProcessor(p);
             }
         }
