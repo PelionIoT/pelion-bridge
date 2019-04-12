@@ -609,26 +609,26 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
                 }
                 catch (com.google.api.client.googleapis.json.GoogleJsonResponseException ex) {
                     // Create the Topic
-                    this.errorLogger().info("GoogleCloudIOT: Creating Main Topic: " + topic);
+                    this.errorLogger().info("GoogleCloudIOT: Creating PubSub Topic: " + topic);
                     return this.m_pub_sub.projects().topics().create(topic,new Topic()).execute();
                 }
             }
             catch (com.google.api.client.googleapis.json.GoogleJsonResponseException ex) {
                 // DEBUG
-                this.errorLogger().info("GoogleCloudIOT: Exception during topic creation: " + topic);
+                this.errorLogger().info("GoogleCloudIOT: Exception during PubSub topic creation: " + topic);
             } 
             catch (IOException ex) {
                 // no pubsub instance
-                this.errorLogger().info("GoogleCloudIOT: I/O exception in topic creation: " + topic);
+                this.errorLogger().info("GoogleCloudIOT: I/O exception in PubSub topic creation: " + topic);
             }
             catch (Exception ex) {
                 // no pubsub instance
-                this.errorLogger().info("GoogleCloudIOT: General exception in topic creation: " + topic);
+                this.errorLogger().info("GoogleCloudIOT: General exception in PubSub topic creation: " + topic);
             }
         }
         else {
             // no pubsub instance
-            this.errorLogger().warning("GoogleCloudIOT: no pubsub instance... unable to create topic");
+            this.errorLogger().warning("GoogleCloudIOT: no PubSub instance... unable to create topic");
         }
         return null;
     }

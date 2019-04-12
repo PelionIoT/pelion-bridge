@@ -145,6 +145,10 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     // constructor (with suffix for preferences)
     public GoogleCloudProcessor(Orchestrator manager, String suffix, HttpTransport http) {
         super(manager, null, suffix, http);
+        
+        // change these for Google CloudIoT
+        this.m_observation_key = "events";
+        this.m_cmd_response_key = "state";
 
         // GoogleCloud Processor Announce
         this.errorLogger().warning("Google CloudIoT Processor ENABLED (HTTP)");
