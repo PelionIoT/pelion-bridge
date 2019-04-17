@@ -320,6 +320,60 @@ public class HttpTransport extends BaseClass {
     public String httpsPutApiTokenAuth(String url_str, String api_token, String data, String content_type, boolean expect_response) {
         return this.dispatchHTTPS("PUT", url_str, null, null, data, content_type, expect_response, true, true, true, api_token);
     }
+    
+    // execute PATCH over https
+    /**
+     *
+     * @param url_str
+     * @param username
+     * @param password
+     * @param data
+     * @param content_type
+     * @return
+     */
+    public String httpsPatch(String url_str, String username, String password, String data, String content_type) {
+        return this.dispatchHTTPS("PATCH", url_str, username, password, data, content_type, true, true, true, false, null);
+    }
+
+    /**
+     *
+     * @param url_str
+     * @param api_token
+     * @param data
+     * @param content_type
+     * @return
+     */
+    public String httpsPatchApiTokenAuth(String url_str, String api_token, String data, String content_type) {
+        return this.dispatchHTTPS("PATCH", url_str, null, null, data, content_type, true, true, true, true, api_token);
+    }
+
+    // execute PUT over https
+    /**
+     *
+     * @param url_str
+     * @param username
+     * @param password
+     * @param data
+     * @param content_type
+     * @param expect_response
+     * @return
+     */
+    public String httpsPatch(String url_str, String username, String password, String data, String content_type, boolean expect_response) {
+        return this.dispatchHTTPS("PATCH", url_str, username, password, data, content_type, expect_response, true, true, false, null);
+    }
+
+    /**
+     *
+     * @param url_str
+     * @param api_token
+     * @param data
+     * @param content_type
+     * @param expect_response
+     * @return
+     */
+    public String httpsPatchApiTokenAuth(String url_str, String api_token, String data, String content_type, boolean expect_response) {
+        return this.dispatchHTTPS("PATCH", url_str, null, null, data, content_type, expect_response, true, true, true, api_token);
+    }
 
     // execute DELETE over https
     /**
@@ -427,7 +481,18 @@ public class HttpTransport extends BaseClass {
                 
                 // open the SSL connction
                 connection = (HttpsURLConnection) (url.openConnection());
-                ((HttpsURLConnection) connection).setRequestMethod(verb);
+                if (verb != null && verb.equalsIgnoreCase("patch") == true) {
+                    //
+                    // we have to fudge PATCH over a POST verb due to this
+                    // https://stackoverflow.com/questions/25163131/httpurlconnection-invalid-http-method-patch
+                    //
+                    ((HttpsURLConnection) connection).setRequestProperty("X-HTTP-Method-Override","PATCH");
+                    ((HttpsURLConnection) connection).setRequestMethod("POST");
+                }
+                else {
+                    // just use the verb directly...
+                    ((HttpsURLConnection) connection).setRequestMethod(verb);
+                }
                 ((HttpsURLConnection) connection).setSSLSocketFactory(this.m_sc.getSocketFactory());
                 ((HttpsURLConnection) connection).setHostnameVerifier(this.m_verifier); 
                 

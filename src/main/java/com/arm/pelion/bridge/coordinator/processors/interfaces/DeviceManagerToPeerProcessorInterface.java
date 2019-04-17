@@ -47,5 +47,6 @@ public interface DeviceManagerToPeerProcessorInterface {
     public String httpsGet(String url);
     public String httpsPut(String url, String payload);
     public String httpsPost(String url, String payload);
+    public String httpsPatch(String url, String payload);
     public String httpsDelete(String url, String etag, String payload);
 }

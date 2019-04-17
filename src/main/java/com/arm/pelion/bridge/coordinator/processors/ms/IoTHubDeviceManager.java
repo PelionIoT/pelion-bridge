@@ -47,6 +47,9 @@ public class IoTHubDeviceManager extends DeviceManager {
     // IoTHub Device ID prefixing...
     private boolean m_iot_event_hub_enable_device_id_prefix = false;
     private String m_iot_event_hub_device_id_prefix = null;
+    
+    // toggle to enable/disable use of device twin resource properties
+    private boolean m_enable_twin_properties = false;
 
     // constructor
     public IoTHubDeviceManager(DeviceManagerToPeerProcessorInterface processor, HttpTransport http, String hub_name, String sas_token) {
@@ -67,9 +70,6 @@ public class IoTHubDeviceManager extends DeviceManager {
         // IoTHub DeviceID REST URL Template
         this.m_device_id_url_template = this.preferences().valueOf("iot_event_hub_device_id_url", this.m_suffix).replace("__IOT_EVENT_HUB__", this.m_iot_event_hub_name).replace("__API_VERSION__", this.m_api_version);
 
-        // Add device JSON template
-        this.m_iot_event_hub_add_device_json = this.preferences().valueOf("iot_event_hub_add_device_json", this.m_suffix);
-
         // Enable prefixing of mbed Cloud names for IoTHub
         this.m_iot_event_hub_enable_device_id_prefix = this.prefBoolValue("iot_event_hub_enable_device_id_prefix", this.m_suffix);
         this.m_iot_event_hub_device_id_prefix = null;
@@ -83,6 +83,22 @@ public class IoTHubDeviceManager extends DeviceManager {
         }
     }
 
+    // generate the default base device twin JSON
+    private HashMap initBaseDeviceTwinJSON(String deviceId) {
+        HashMap<String,Object> base_twin_json = new HashMap<>();
+        base_twin_json.put("deviceID",deviceId);
+        base_twin_json.put("status","enabled");
+        return base_twin_json;
+    }
+    
+    // create the twin update URL
+    private String createDeviceTwinURLFromDeviceURL(String deviceUrl) {
+        if (deviceUrl != null) {
+            return deviceUrl.replace("/devices/", "/twins/");
+        }
+        return deviceUrl;
+    }
+    
     // IoTHub DeviceID Prefix enabler
     private String addDeviceIDPrefix(String ep_name) {
         String iothub_ep_name = ep_name;
@@ -132,6 +148,32 @@ public class IoTHubDeviceManager extends DeviceManager {
         // return our status
         return status;
     }
+    
+    // create the device twin's reported properties JSON
+    private String createDeviceTwinReportedPropertiesJSON(Map message) {
+        return this.createDeviceTwinReportedPropertiesJSON(new HashMap<String,Object>(), message);
+    }
+    
+    // create the device twin's reported properties JSON
+    private String createDeviceTwinReportedPropertiesJSON(HashMap<String,Object> json, Map message) {
+        // DEBUG
+        this.errorLogger().info("createDeviceTwinReportedPropertiesJSON: MAP: " + message);
+
+        // properties map
+        HashMap<String,String> properties = new HashMap<>();
+
+        // create the reported properties
+        properties.put("endpointName",(String)message.get("ep"));
+        properties.put("endpointType",(String)message.get("ept"));
+
+        // construct the twin properties (reported ones)
+        HashMap<String,Map> reported_properties = new HashMap<>();
+        reported_properties.put("reported",properties);
+        json.put("properties", reported_properties);
+
+        // create the JSON string
+        return this.orchestrator().getJSONGenerator().generateJson(json);
+    }
 
     // create and register a new device
     private boolean createAndRegisterNewDevice(Map message) {
@@ -146,12 +188,12 @@ public class IoTHubDeviceManager extends DeviceManager {
 
         // create the URL
         String url = this.m_device_id_url_template.replace("__EPNAME__", iothub_ep_name);
-
-        // build out the PUT payload
-        String payload = this.m_iot_event_hub_add_device_json.replace("__EPNAME__", iothub_ep_name);
+        
+        // create the payload (base twin) for the PUT operation
+        String payload = this.orchestrator().getJSONGenerator().generateJson(this.initBaseDeviceTwinJSON(iothub_ep_name));
 
         // DEBUG
-        this.errorLogger().info("IoTHub: registerNewDevice: URL: " + url + " DATA: " + payload);
+        this.errorLogger().info("IoTHub: registerNewDevice(create device): URL: " + url + " DATA: " + payload);
 
         // dispatch and look for the result
         String result = this.httpsPut(url, payload);
@@ -160,14 +202,45 @@ public class IoTHubDeviceManager extends DeviceManager {
         int http_code = this.m_http.getLastResponseCode();
         if (Utils.httpResponseCodeOK(http_code)) {
             // DEBUG
-            this.errorLogger().info("IoTHub: registerNewDevice: SUCCESS. RESULT: " + result);
-            status = true;
+            this.errorLogger().info("IoTHub: registerNewDevice(create device): SUCCESS. RESULT: " + result);
+            if (this.m_enable_twin_properties == true) {
+                // now we need to update the device twin with desired propertes
+                String twin_update_url = this.createDeviceTwinURLFromDeviceURL(url);
 
-            // DEBUG
-            this.errorLogger().info("IoTHub: registerNewDevice: saving off device details...");
+                // create the new reported properties JSON as the payload
+                String reported_properties_payload = this.createDeviceTwinReportedPropertiesJSON(this.initBaseDeviceTwinJSON(iothub_ep_name),message);
+                //String reported_properties_payload = this.createDeviceTwinReportedPropertiesJSON(message);
 
-            // save off device details...
-            this.saveAddDeviceDetails(iothub_ep_name, device_type, result);
+                // DEBUG
+                this.errorLogger().info("IoTHub: registerNewDevice(twin patch): URL: " + twin_update_url + " DATA: " + reported_properties_payload);
+
+                // dispatch via PATCH
+                result = this.httpsPatch(twin_update_url, reported_properties_payload);
+                http_code = this.m_http.getLastResponseCode();
+                if (Utils.httpResponseCodeOK(http_code)) {
+                    // DEBUG
+                    this.errorLogger().info("IoTHub: registerNewDevice(twin patch): SUCCESS. RESULT: " + result);
+
+                    // DEBUG
+                    this.errorLogger().info("IoTHub: registerNewDevice: saving off device details...");
+
+                    // save off device details...
+                    this.saveAddDeviceDetails(iothub_ep_name, device_type, result);
+                    status = true;
+                }
+                else {
+                    // Unable to update twin details
+                    this.errorLogger().warning("IoTHub: registerNewDevice (unable to update twin properties): FAILURE: " + this.m_http.getLastResponseCode() + " RESULT: " + result);
+                }
+            }
+            else {
+                // DEBUG
+                this.errorLogger().info("IoTHub: registerNewDevice: saving off device details...");
+
+                // save off device details...
+                this.saveAddDeviceDetails(iothub_ep_name, device_type, result);
+                status = true;
+            }
         }
         else if (http_code == 409) {
             // DEBUG
@@ -179,7 +252,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         }
         else {
             // DEBUG
-            this.errorLogger().warning("IoTHub: registerNewDevice: FAILURE: " + this.m_http.getLastResponseCode() + " RESULT: " + result);
+            this.errorLogger().warning("IoTHub: registerNewDevice(create device): FAILURE: " + this.m_http.getLastResponseCode() + " RESULT: " + result);
         }
         
         // return our status
@@ -428,6 +501,11 @@ public class IoTHubDeviceManager extends DeviceManager {
     // PUT specific data to a given URL (with data)
     private String httpsPut(String url, String payload) {
         return this.m_processor.httpsPut(url, payload);
+    }
+    
+    // PATCH specific data to a given URL (with data)
+    private String httpsPatch(String url, String payload) {
+        return this.m_processor.httpsPatch(url, payload);
     }
     
     // POST specific data to a given URL (with data)

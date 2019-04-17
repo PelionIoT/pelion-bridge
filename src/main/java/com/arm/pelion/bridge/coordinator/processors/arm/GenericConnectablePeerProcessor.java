@@ -814,6 +814,19 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         return result;
     }
     
+    // PATCH specific data to a given URL (with data)
+    @Override
+    public String httpsPatch(String url, String payload) {
+        return this.httpsPatch(this.m_http,url,payload);
+    }
+    
+    // PATCH specific data to a given URL (with data)
+    protected String httpsPatch(HttpTransport http,String url, String payload) {
+        http.setAuthorizationQualifier(this.m_http_auth_qualifier);
+        String result = http.httpsPatchApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
+        return result;
+    }
+    
     // POST specific data to a given URL (with data)
     @Override
     public String httpsPost(String url, String payload) {
