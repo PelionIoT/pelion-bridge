@@ -72,6 +72,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.TimeZone;
 import java.util.UUID;
 import javax.crypto.Mac;
@@ -1264,5 +1265,11 @@ public class Utils {
             
         }
         return map;
+    }
+    
+    // create a random number within the min/max range
+    public static int createRandomNumberWithinRange(int min,int max) {
+        Random rn = new Random();
+        return rn.nextInt(max - min + 1) + min;
     }
 }

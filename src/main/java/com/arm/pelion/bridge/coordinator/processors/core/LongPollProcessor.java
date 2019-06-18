@@ -32,7 +32,8 @@ import com.arm.pelion.bridge.core.Utils;
  * @author Doug Anson
  */
 public class LongPollProcessor extends Thread {
-    private static final int LONG_POLL_SHORT_WAIT = 1500;               // pause for 1.5 seconds after normal long poll operation
+    private static final int LONG_POLL_SHORT_WAIT_MAX = 2000;           // max ms after normal long poll operation
+    private static final int LONG_POLL_SHORT_WAIT_MIN = 500;            // min ms after normal long poll operation
     private static final int API_KEY_UNCONFIGURED_WAIT_MS = 600000;     // pause for 5 minutes if an unconfigured API key is detected
     private static final int API_KEY_CONFIGURED_WAIT_MS = 10000;        // pause for 10 seconds if a configured API key is detected
     private PelionProcessor m_pelion_processor = null;
@@ -116,7 +117,7 @@ public class LongPollProcessor extends Thread {
                 this.m_pelion_processor.processDeviceServerMessage(response,null);
                 
                 // wait briefly... just to slow things down a little bit...
-                Utils.waitForABit(this.errorLogger(),LONG_POLL_SHORT_WAIT);
+                Utils.waitForABit(this.errorLogger(),Utils.createRandomNumberWithinRange(LONG_POLL_SHORT_WAIT_MIN, LONG_POLL_SHORT_WAIT_MAX));
             }
             else {
                 // DEBUG
@@ -126,7 +127,7 @@ public class LongPollProcessor extends Thread {
                 this.errorLogger().info("LongPollProcessor: Nothing to process (OK). http_code=" + this.m_pelion_processor.getLastResponseCode());
                 
                 // wait briefly... just to slow things down a little bit...
-                Utils.waitForABit(this.errorLogger(),LONG_POLL_SHORT_WAIT);
+                Utils.waitForABit(this.errorLogger(),Utils.createRandomNumberWithinRange(LONG_POLL_SHORT_WAIT_MIN, LONG_POLL_SHORT_WAIT_MAX));
             }
         }
     }
