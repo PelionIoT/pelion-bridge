@@ -29,6 +29,7 @@ import com.arm.pelion.bridge.servlet.EventsProcessor;
 import com.arm.pelion.bridge.servlet.Manager;
 import java.io.IOException;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
@@ -111,6 +112,9 @@ public class BridgeMain implements Runnable {
         ServerConnector sslConnector = new ServerConnector(this.m_server, sslContextFactory);
         sslConnector.setHost("0.0.0.0");
         sslConnector.setPort(this.m_preferences.intValueOf("mds_gw_port"));
+        sslConnector.setIdleTimeout(TimeUnit.HOURS.toMillis(2));
+        sslConnector.setAcceptQueueSize(10000);
+        sslConnector.setReuseAddress(true);
         this.m_server.addConnector(sslConnector);
 
         // eventing process servlet bindings (wildcarded)
@@ -121,6 +125,9 @@ public class BridgeMain implements Runnable {
         ServerConnector logger_server_connector = new ServerConnector(this.m_ws_service,sslContextFactory);
         logger_server_connector.setHost("0.0.0.0");
         logger_server_connector.setPort(this.m_preferences.intValueOf("websocket_streaming_port"));
+        logger_server_connector.setIdleTimeout(TimeUnit.HOURS.toMillis(2));
+        logger_server_connector.setAcceptQueueSize(1000);
+        logger_server_connector.setReuseAddress(true);
         this.m_ws_service.addConnector(logger_server_connector);
         
         // default context handler for WS
