@@ -637,8 +637,20 @@ public class HttpTransport extends BaseClass {
                     }
                 }
                 else {
-                    // no result expected
-                    result = "";
+                    // no result expected.. but try anyway...
+                    try {
+                        try (InputStream content = (InputStream) connection.getInputStream(); BufferedReader in = new BufferedReader(new InputStreamReader(content))) {
+                            StringBuilder buf = new StringBuilder();
+                            while ((line = in.readLine()) != null) {
+                                buf.append(line);
+                            }
+                            result = buf.toString();
+                        }
+                    }
+                    catch (java.io.FileNotFoundException ex) {
+                        this.errorLogger().info("HttpTransport(" + verb + ") empty response (OK).");
+                        result = "";
+                    }
                 }
 
                 // save off the HTTP response code & ETag if we have one...
