@@ -23,6 +23,7 @@
 
 package com.arm.pelion.bridge.core;
 
+import com.arm.pelion.bridge.loggerservlet.LoggerTracker;
 import com.arm.pelion.bridge.loggerservlet.LoggerWebSocketServlet;
 import com.arm.pelion.bridge.preferences.PreferenceManager;
 import com.arm.pelion.bridge.servlet.EventsProcessor;
@@ -172,13 +173,32 @@ public class BridgeMain implements Runnable {
             // initialize the listeners
             this.m_manager.initListeners();
 
-            // Start the Websocket Service
-            this.errorLogger().warning("Main: Starting logger service");
-            this.m_ws_service.start();   
+            // set the error logger
+            LoggerTracker.getInstance().setErrorLogger(this.errorLogger());
             
-            // Start the Bridge Service
-            this.errorLogger().warning("Main: Starting bridge service");
-            this.m_server.start();
+             while (true) {
+                try {
+                    // Start the Websocket Service
+                    this.errorLogger().warning("Main: Starting logger service");
+                    this.m_ws_service.start();   
+                    break;
+                }
+                catch (Exception ex) {
+                    this.errorLogger().critical("Main: EXCEPTION during bridge start(): " + ex.getMessage());
+                }
+            }
+            
+            while (true) {
+                try {
+                    // Start the Bridge Service
+                    this.errorLogger().warning("Main: Starting bridge service");
+                    this.m_server.start();
+                    break;
+                }
+                catch (Exception ex) {
+                    this.errorLogger().critical("Main: EXCEPTION during bridge start(): " + ex.getMessage());
+                }
+            }
 
             // Direct the manager to establish the webhooks to Connector/mDS/Cloud
             this.m_manager.initWebhooks();

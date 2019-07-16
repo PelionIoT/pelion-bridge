@@ -22,6 +22,7 @@
  */
 package com.arm.pelion.bridge.loggerservlet;
 
+import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -40,6 +41,7 @@ public class LoggerTracker implements Runnable {
     private boolean is_running = true;
     private Queue<String> m_log_queue = new LinkedList<String>();
     private List<LoggerWebSocket> m_members = new ArrayList<>();
+    private ErrorLogger m_logger = null;
     
     public static LoggerTracker getInstance() {
         if (me_thread.isAlive() == false) {
@@ -48,7 +50,16 @@ public class LoggerTracker implements Runnable {
         return me;
     }
     
+    public void setErrorLogger(ErrorLogger logger) {
+        this.m_logger = logger;
+    }
+    
+    public ErrorLogger errorLogger() {
+        return this.m_logger;
+    }
+    
     public void join(LoggerWebSocket socket) {
+        socket.setErrorLogger(this.m_logger);
         m_members.add(socket);
     }
 
@@ -58,19 +69,6 @@ public class LoggerTracker implements Runnable {
 
     public void write(String message) {
         this.putMessage(message);
-    }
-    
-    public boolean connected() {
-        boolean is_connected = true;
-        if (this.m_members != null) {
-            for(LoggerWebSocket member: m_members) {
-                is_connected = is_connected & member.session.isOpen();
-            }
-        }
-        else {
-            is_connected = false;
-        }
-        return is_connected;
     }
     
     private synchronized void putMessage(String message) {
@@ -87,11 +85,14 @@ public class LoggerTracker implements Runnable {
     
     private void writeLogCache() {
         while(this.is_running == true) {
-            for(LoggerWebSocket member: m_members) {
-                while(this.getMessageCount() > 0) {
-                    if (member != null && member.session != null && member.session.isOpen() == true) {
-                        // dump the message and remove
-                        member.session.getRemote().sendStringByFuture(this.getNextMessage());
+            while(this.getMessageCount() > 0) {
+                String message = this.getNextMessage();
+                for(LoggerWebSocket member: m_members) {
+                    for (int i=0;member != null && i<member.m_sessions.size();++i) {
+                        if (member.m_sessions.get(i).isOpen() == true) {
+                            // dump the message and remove
+                            member.m_sessions.get(i).getRemote().sendStringByFuture(message);
+                        }
                     }
                 }
             }

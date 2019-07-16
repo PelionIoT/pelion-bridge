@@ -22,11 +22,14 @@
  */
 package com.arm.pelion.bridge.loggerservlet;
 
+import com.arm.pelion.bridge.core.ErrorLogger;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 
 
@@ -37,17 +40,33 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket;
  */
 @WebSocket
 public class LoggerWebSocket {
-        public Session session = null;
+    public ArrayList<Session> m_sessions = new ArrayList<>();
+    private ErrorLogger m_logger = null;
+    
+    public void setErrorLogger(ErrorLogger logger) {
+        this.m_logger = logger;
+    }
+    
+    @OnWebSocketConnect
+    public void onConnect(Session session) throws IOException {
+        this.m_sessions.add(session);
+        LoggerTracker.getInstance().join(this);
+        
+        // DEBUG
+        //this.m_logger.info("LoggerWebSocket: Connected to: " + session.getRemoteAddress());
+    }
 
-	@OnWebSocketConnect
-	public void onConnect(Session session) throws IOException {
-            this.session = session;
-            LoggerTracker.getInstance().join(this);
-	}
+    @OnWebSocketClose
+    public void onClose(Session session, int status, String reason) {
+        LoggerTracker.getInstance().leave(this);
+        this.m_sessions.remove(session);
+        
+        // DEBUG
+        //this.m_logger.info("LoggerWebSocket: Disconnected from: " + session.getRemoteAddress());
+    }
 
-	@OnWebSocketClose
-	public void onClose(Session session, int status, String reason) {
-            LoggerTracker.getInstance().leave(this);
-	}
-
+    @OnWebSocketError
+    public void onError(Session session, Throwable error) {
+        this.m_logger.info("LoggerWebSocket: Exception caught: " + error.getMessage() + ". Session: " + session);
+    }
 }

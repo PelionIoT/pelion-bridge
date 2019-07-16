@@ -36,8 +36,8 @@ import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import com.mbed.lwm2m.LWM2MResource;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
+import com.google.api.client.util.Base64;
 import java.util.ArrayList;
 
 /**
@@ -71,6 +71,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private int m_pelion_api_port = 0;
     private String m_pelion_cloud_uri = null;
     private long m_device_discovery_delay_ms = DEVICE_DISCOVERY_DELAY_MS;
+    
+    // Enable/Disable retrieval of device attributes (default is OFF)
+    private boolean m_enable_attribute_gets = false;                            // true - enable device attribute retrieval, false - use defaults
 
     // device metadata resource URI from configuration
     private String m_device_manufacturer_res = null;
@@ -122,6 +125,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // Maximum # of devices to query per GET
     private int m_max_devices_per_query = PELION_MAX_DEVICES_PER_QUERY;
+    
+    // manufacturer, model, serial are the defaults...
+    private String m_device_attribute_uri_list[] = {"/3/0/0","/3/0/1","/3/0/2"};
 
     // constructor
     public PelionProcessor(Orchestrator orchestrator, HttpTransport http) {
@@ -930,7 +936,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                         String path = (String) resource.get("path");
 
                         // look for /3/0
-                        if (path != null && path.equalsIgnoreCase(this.m_device_attributes_path) == true) {
+                        if (path != null && path.contains(this.m_device_attributes_path) == true && this.m_enable_attribute_gets == true) {
                             // we have device attributes in this endpoint... go get 'em. 
                             has_device_attributes = true;
                         }
@@ -959,19 +965,30 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private void retrieveDeviceAttributes(Map endpoint, AsyncResponseProcessor processor) {
         // get the device ID and device Type
         String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
-                    
-        // Create the Device Attributes URL
-        String url = this.createCoAPURL(device_id, this.m_device_attributes_path);
-
-        // DEBUG
-        //this.errorLogger().info("ATTRIBUTES: Calling GET to receive: " + url);
         
-        // Dispatch and get the response (an AsyncId)
-        String json_response = this.httpsGet(url, this.m_device_attributes_content_type, this.apiToken());
+        // loop through the ur
+        for(int i=0;i<this.m_device_attribute_uri_list.length;++i) {
+            // Create the Device Attributes URL
+            String url = this.createCoAPURL(device_id, this.m_device_attribute_uri_list[i]);
 
-        // record the response to get processed later
-        if (json_response != null) {
-            this.orchestrator().recordAsyncResponse(json_response, url, endpoint, processor);
+            // DEBUG
+            this.errorLogger().info("ATTRIBUTES: Calling GET to receive: " + url);
+
+            // Dispatch and get the response (an AsyncId)
+            String json_response = this.httpsGet(url,"text/plain", this.apiToken());
+            
+            // add the URI to the ID for the response
+            Map response = this.orchestrator().getJSONParser().parseJson(json_response);
+            response.put("uri",this.m_device_attribute_uri_list[i]);
+            json_response = this.orchestrator().getJSONGenerator().generateJson(response);
+            
+            // DEBUG
+            this.errorLogger().info("ATTRIBUTES: Saving RESPONSE: " + json_response);
+            
+            // record the response to get processed later
+            if (json_response != null) {
+                this.orchestrator().recordAsyncResponse(json_response, url, endpoint, processor);
+            }
         }
     }
 
@@ -995,40 +1012,40 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
         }
     }
+    
+    // Device Attribute Retrieval enabled/disabled
+    public boolean deviceAttributeRetrievalEnabled() {
+        return this.m_enable_attribute_gets;
+    }
 
     // parse the device attributes
     private Map parseDeviceAttributes(Map response, Map endpoint) {
-        LWM2MResource res = null;
+        // Get the original URI from the request...
+        Map response_map = (Map)response.get("response_map");
+        Map orig_record = (Map)response.get("orig_record");
+        Map orig_endpoint = (Map)orig_record.get("orig_endpoint");
+        String uri = (String)response_map.get("uri");
         
-        try {
-            // Convert the TLV to a LWM2M Resource List...
-            List<LWM2MResource> list = Utils.tlvDecodeToLWM2MObjectList(this.errorLogger(),(String) response.get("payload"));
-                        
-            // /3/0/0
-            endpoint.put("meta_mfg", Utils.getLWM2MResourceValueByResourceID(this.errorLogger(),list,0)); 
-            
-            // /3/0/1
-            endpoint.put("meta_model", Utils.getLWM2MResourceValueByResourceID(this.errorLogger(),list,1));
-            
-            // /3/0/2
-            endpoint.put("meta_serial", Utils.getLWM2MResourceValueByResourceID(this.errorLogger(),list,2));
-            
-            // /3/0/13
-            endpoint.put("meta_time", Utils.getLWM2MResourceValueByResourceID(this.errorLogger(),list,13)); 
-            
-            // /3/0/17
-            endpoint.put("meta_type", Utils.getLWM2MResourceValueByResourceID(this.errorLogger(),list,17)); 
-            
-            // /3/0/18
-            endpoint.put("meta_hardware", Utils.getLWM2MResourceValueByResourceID(this.errorLogger(),list,18)); 
-            
-            // /3/0/21
-            endpoint.put("meta_total_mem", Utils.getLWM2MResourceValueByResourceID(this.errorLogger(),list,21)); 
-        }
-        catch (Exception ex) {
-            // exception during TLV parse... 
-            this.errorLogger().info("PelionProcessor: Error parsing TLV device attributes... using defaults...OK: " + ex.getMessage(),ex);
-        }
+        // Decode the payload
+        String b64_payload = (String)response.get("payload");
+        String payload = new String(Base64.decodeBase64(b64_payload));
+        
+        // DEBUG
+        this.errorLogger().warning("parseDeviceAttributes: RESPONSE: " + response);
+        this.errorLogger().warning("parseDeviceAttributes: URI: " + uri + " VALUE: " + payload);
+        
+        // update the appropriate value
+        if (uri != null && payload != null) {
+            if (uri.contains("3/0/0")) {
+                endpoint.put("meta_mfg", payload);
+            }
+            if (uri.contains("3/0/1")) {
+                endpoint.put("meta_model", payload);
+            }
+            if (uri.contains("3/0/2")) {
+                endpoint.put("meta_serial", payload);
+            }
+        }  
 
         // return the updated endpoint
         return endpoint;

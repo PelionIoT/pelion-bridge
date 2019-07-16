@@ -108,6 +108,9 @@ public class MQTTTransport extends Transport implements GenericSender {
     private boolean m_set_mqtt_version = true;  
     private String[] m_unsubscribe_topics = null;
     private boolean m_retain = DEFAULT_RETAIN_ENABLED;
+
+    // port remapping option
+    private boolean m_port_remap = true; // default is true...
     
     // reset mode/state
     private boolean m_is_in_reset = false;
@@ -180,6 +183,7 @@ public class MQTTTransport extends Transport implements GenericSender {
         this.m_has_connected = false;
         this.m_is_in_reset = false;
         this.m_retain = false;
+        this.m_port_remap = true; 
         
         this.m_mqtt_use_ssl = this.prefBoolValue("mqtt_use_ssl", this.m_suffix);
         this.m_debug_creds = this.prefBoolValue("mqtt_debug_creds", this.m_suffix);
@@ -228,6 +232,7 @@ public class MQTTTransport extends Transport implements GenericSender {
         this.m_has_connected = false;
         this.m_is_in_reset = false;
         this.m_retain = false;
+        this.m_port_remap = true;
 
         this.m_mqtt_use_ssl = this.prefBoolValue("mqtt_use_ssl", this.m_suffix);
         this.m_debug_creds = this.prefBoolValue("mqtt_debug_creds", this.m_suffix);
@@ -255,6 +260,16 @@ public class MQTTTransport extends Transport implements GenericSender {
             // default the keystore pw
             this.m_keystore_pw = MQTTTransport.KEYSTORE_PW_DEFAULT;
         }
+    }
+    
+    // enable debugging of creds
+    public void enableDebugCreds(boolean debug) {
+        this.m_debug_creds = debug;
+    }
+    
+    // no ssl port remapping
+    public void sslPortRemap(boolean remap) {
+        this.m_port_remap = remap;
     }
     
     // record additional endpoint details
@@ -1278,7 +1293,9 @@ public class MQTTTransport extends Transport implements GenericSender {
             // adjust for SSL usage when needed
             if (this.m_mqtt_use_ssl == true) {
                 // initialize our SSL context
-                port += 7000;           // take mqtt_port 1883 and add 7000 --> 8883
+                if (this.m_port_remap == true) {
+                    port += 7000;           // take mqtt_port 1883 and add 7000 --> 8883
+                }
                 prefix = "ssl://";      // SSL used... 
                 
                 // by default, we use a fixed ID for the ssl context... this may be overriden

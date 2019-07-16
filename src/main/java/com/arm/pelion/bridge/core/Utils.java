@@ -64,9 +64,9 @@ import java.security.spec.X509EncodedKeySpec;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -120,7 +120,14 @@ public class Utils {
     
     // get the local time as an RFC3339 format
     public static String getLocalTimeAsString() {
-        return new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss").format(new Date()) + ".000Z";
+        Instant instant = Instant.ofEpochMilli ( System.currentTimeMillis() );
+        return instant.toString();
+    }
+    
+    // get the local time as an RFC3339 format
+    public static String getUTCTimeAsString() {
+        Instant instant = Instant.ofEpochMilli ( Utils.getUTCTime() );
+        return instant.toString();
     }
 
     // get UTC time in seconds since Jan 1 1970
@@ -865,6 +872,10 @@ public class Utils {
             String temp = Utils.escapeChars(pem);
             String privKeyPEM = temp.replace("-----BEGIN RSA PRIVATE KEY-----", "");
             privKeyPEM = privKeyPEM.replace("-----END RSA PRIVATE KEY-----", "");
+            
+            // some dont have RSA in them... 
+            privKeyPEM = privKeyPEM.replace("-----BEGIN PRIVATE KEY-----", "");
+            privKeyPEM = privKeyPEM.replace("-----END PRIVATE KEY-----", "");
 
             // DEBUG
             //logger.info("createPrivateKeyFromPEM: " + privKeyPEM);
@@ -1271,5 +1282,37 @@ public class Utils {
     public static int createRandomNumberWithinRange(int min,int max) {
         Random rn = new Random();
         return rn.nextInt(max - min + 1) + min;
+    }
+    
+    // generate the public key from the supplied base64 encoded certificate
+    public static String generateBase64EncodedPublicKeyFromCertificate(ErrorLogger logger, String b64_cert) {
+        String b64_pub_key = null;
+        
+        // Base64 decode the Cert
+        byte[] cert = Base64.decodeBase64(b64_cert);
+        
+        try {
+            // create an X509Certificate instance
+            X509Certificate x509_certificate = (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(cert));
+        
+            // snag the public key
+            PublicKey pub_key = x509_certificate.getPublicKey();
+            
+            // Convert to PEM format
+            String pubkey = "-----BEGIN PUBLIC KEY-----" +  
+                          Base64.encodeBase64String(pub_key.getEncoded()) + 
+                          "-----END PUBLIC KEY-----";
+            
+            // Base64 encode
+            b64_pub_key = Base64.encodeBase64String(pubkey.getBytes());
+            
+        }
+        catch (CertificateException ex) {
+            // Exception caught
+            logger.warning("generateBase64EncodedPublicKeyFromCertificate: Exception during parse of X509 Certificate: " + b64_cert);
+        }
+        
+        // return the base64 encoded public key
+        return b64_pub_key;
     }
 }
