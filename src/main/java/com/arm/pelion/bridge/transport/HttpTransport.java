@@ -629,6 +629,7 @@ public class HttpTransport extends BaseClass {
                                 buf.append(line);
                             }
                             result = buf.toString();
+                            content.close();
                         }
                     }
                     catch (java.io.FileNotFoundException ex) {
@@ -645,6 +646,7 @@ public class HttpTransport extends BaseClass {
                                 buf.append(line);
                             }
                             result = buf.toString();
+                            content.close();
                         }
                     }
                     catch (java.io.FileNotFoundException ex) {
@@ -664,6 +666,16 @@ public class HttpTransport extends BaseClass {
                 // non-SSL not supported
                 this.errorLogger().critical("HttpTransport(" + verb + "): ERROR! HTTP UNSUPPORTED in HttpTransport: URL: " + url_str);
                 this.saveResponseCode(598);
+                
+                try {
+                    // close
+                    ((HttpsURLConnection) connection).disconnect();
+                    System.gc();
+                }
+                catch (Exception ex3) {
+                    // silent
+                }
+                
                 return null;
             }
         }    
@@ -687,6 +699,15 @@ public class HttpTransport extends BaseClass {
                 this.errorLogger().info("HttpTransport(" + verb + "): Exception in doHTTP(" + verb + "): Unable to save last response code: " + ex2.getMessage());
                 this.saveResponseCode(599);        
             }
+        }
+        
+        try {
+            // close
+            ((HttpsURLConnection) connection).disconnect();
+            System.gc();
+        }
+        catch (Exception ex3) {
+            // silent
         }
 
         // return the result
