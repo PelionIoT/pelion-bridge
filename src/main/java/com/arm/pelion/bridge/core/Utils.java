@@ -1315,4 +1315,13 @@ public class Utils {
         // return the base64 encoded public key
         return b64_pub_key;
     }
+    
+    // scale back GC() operations
+    public static boolean doGC() {
+        long val = (long)Math.random();
+        if (val%17 == 0) {
+            return true;
+        }
+        return false;
+    }
 }

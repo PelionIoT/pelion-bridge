@@ -668,9 +668,10 @@ public class HttpTransport extends BaseClass {
                 this.saveResponseCode(598);
                 
                 try {
-                    // close
-                    ((HttpsURLConnection) connection).disconnect();
-                    System.gc();
+                    // GC
+                    if (Utils.doGC()) {
+                        System.gc();
+                    }
                 }
                 catch (Exception ex3) {
                     // silent
@@ -702,9 +703,10 @@ public class HttpTransport extends BaseClass {
         }
         
         try {
-            // close
-            ((HttpsURLConnection) connection).disconnect();
-            System.gc();
+            // GC
+            if (Utils.doGC()) {
+                System.gc();
+            }
         }
         catch (Exception ex3) {
             // silent
