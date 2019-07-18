@@ -622,7 +622,7 @@ public class MQTTTransport extends Transport implements GenericSender {
      * @param id 
      * @return
      */
-    public synchronized boolean connect(String host, int port, String clientID, boolean clean_session, String id) {
+    public boolean connect(String host, int port, String clientID, boolean clean_session, String id) {
         int num_tries = this.prefIntValue("mqtt_connect_retries", this.m_suffix);
         
         // build out the URL connection string
@@ -874,7 +874,7 @@ public class MQTTTransport extends Transport implements GenericSender {
      * @return true - processed (or empty), false - failure
      */
     @Override
-    public synchronized boolean receiveAndProcess() {
+    public boolean receiveAndProcess() {
         if (this.isConnected()) {
             try {
                 // receive the MQTT message and process it...
@@ -1120,7 +1120,7 @@ public class MQTTTransport extends Transport implements GenericSender {
      * @param qos
      * @return send status
      */
-    public synchronized boolean sendMessage(String topic, String message, QoS qos) {
+    public boolean sendMessage(String topic, String message, QoS qos) {
         boolean sent = false;
         if (this.m_connection != null && this.m_connection.isConnected() == true && message != null) {
             try {
