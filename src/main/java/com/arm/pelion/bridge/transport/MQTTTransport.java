@@ -84,6 +84,12 @@ public class MQTTTransport extends Transport implements GenericSender {
     // default retain behavior
     private static final boolean DEFAULT_RETAIN_ENABLED = true;     // set to true
     
+    // DEFAULT backoff
+    private static final int DEFAULT_BACKOFF_MS = 10000; // 10 seconds
+    
+    // initial backoff in ms
+    private int m_backoff_ms = DEFAULT_BACKOFF_MS;    
+    
     // Access our instance 
     private static volatile MQTTTransport m_self = null;
     
@@ -969,6 +975,9 @@ public class MQTTTransport extends Transport implements GenericSender {
 
     // reset our MQTT connection... sometimes it goes wonky...
     private synchronized void resetConnection() {
+        // exponential backoff
+        this.backoff();
+        
         // if we have never connected before, just return
         if (this.m_has_connected == false) {
             // we've NEVER connected before... so just ignore... we may be in the middle of our first connection attempt...
@@ -1144,9 +1153,8 @@ public class MQTTTransport extends Transport implements GenericSender {
             // unable to send (not connected yet)
             this.errorLogger().warning("sendMessage: NOT CONNECTED. Unable to send message: " + message);
             
-            // XXX attempt reset (guarded by initial_connect vs. subsquent connect)
-            // this.resetConnection();
-            sent = true;
+            // attempt reset (guarded by initial_connect vs. subsquent connect)
+            this.resetConnection();
         }
         else if (message != null) {
             // unable to send (not connected)
@@ -1360,5 +1368,17 @@ public class MQTTTransport extends Transport implements GenericSender {
         public X509Certificate[] getAcceptedIssuers() {
             return new X509Certificate[0];
         }
+    }
+    
+     // backoff on reconnection
+    private void backoff() {
+        // DEBUG
+        this.errorLogger().warning("MQTTTransport: Backing off connection attempt: " + this.m_backoff_ms + " (ms)...");
+        
+        // sleep for the backoff
+        Utils.waitForABit(this.errorLogger(), this.m_backoff_ms);
+        
+        // now update the backoff time in case we have to try again...
+        this.m_backoff_ms = this.m_backoff_ms + DEFAULT_BACKOFF_MS;
     }
 }

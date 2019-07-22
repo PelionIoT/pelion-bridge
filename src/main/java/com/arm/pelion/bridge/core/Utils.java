@@ -1319,7 +1319,7 @@ public class Utils {
     // scale back GC() operations
     public static boolean doGC() {
         long val = (long)Math.random();
-        if (val%101 == 0) {
+        if (val%593 == 0) {
             return true;
         }
         return false;

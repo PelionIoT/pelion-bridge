@@ -861,28 +861,33 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         if (verb != null && verb.length() > 0) {
             // dispatch the Pelion REST based on CoAP verb received
             if (verb.equalsIgnoreCase(("get"))) {
-                this.errorLogger().info("PelionProcessor: Invoking GET: " + url);
                 json = this.httpsGet(url);
+                int http_code = this.getLastResponseCode();
+                this.errorLogger().info("PelionProcessor: Invoked GET: " + url + " CODE: " + http_code);
                 if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("put"))) {
-                this.errorLogger().info("PelionProcessor: Invoking PUT: " + url + " DATA: " + value);
                 json = this.httpsPut(url, value);
+                int http_code = this.getLastResponseCode();
+                this.errorLogger().info("PelionProcessor: Invoked PUT: " + url + " DATA: " + value + " CODE: " + http_code);
                 if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("post"))) {
-                this.errorLogger().info("PelionProcessor: Invoking POST: " + url + " DATA: " + value);
-                 json = this.httpsPost(url, value, "plain/text", this.apiToken());  // nail content_type to "plain/text"
-                 if (json == null) json = "";
+                json = this.httpsPost(url, value, "plain/text", this.apiToken());  // nail content_type to "plain/text"
+                int http_code = this.getLastResponseCode();
+                this.errorLogger().info("PelionProcessor: Invoked POST: " + url + " DATA: " + value + " CODE: " + http_code);
+                if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("delete"))) {
-                this.errorLogger().info("PelionProcessor: Invoking DELETE: " + url);
-                 json = this.httpsDelete(url, "plain/text", this.apiToken());      // nail content_type to "plain/text"
-                 if (json == null) json = "";
+                json = this.httpsDelete(url, "plain/text", this.apiToken());      // nail content_type to "plain/text"
+                int http_code = this.getLastResponseCode();
+                this.errorLogger().info("PelionProcessor: Invoked DELETE: " + url + " CODE: " + http_code);
+                if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("del"))) {
-                this.errorLogger().info("PelionProcessor: Invoking DELETE: " + url);
                 json = this.httpsDelete(url, "plain/text", this.apiToken());      // nail content_type to "plain/text"
+                int http_code = this.getLastResponseCode();
+                this.errorLogger().info("PelionProcessor: Invoked  DELETE: " + url + " CODE: " + http_code);
                 if (json == null) json = "";
             }
         }
