@@ -867,7 +867,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 if (json == null) json = "";
             }
             if (verb.equalsIgnoreCase(("put"))) {
-                json = this.httpsPut(url, value);
+                json = this.httpsPut(url, value, "plain/text", this.apiToken());  // nail content_type to "plain/text"
                 int http_code = this.getLastResponseCode();
                 this.errorLogger().info("PelionProcessor: Invoked PUT: " + url + " DATA: " + value + " CODE: " + http_code);
                 if (json == null) json = "";

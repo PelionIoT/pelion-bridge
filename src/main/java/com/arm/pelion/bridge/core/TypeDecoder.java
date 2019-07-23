@@ -32,6 +32,9 @@ import com.arm.pelion.bridge.preferences.PreferenceManager;
 public class TypeDecoder extends BaseClass {
 
     private Double m_d = 0.0;
+    private Float m_f;
+    private Long m_l;
+    private Boolean m_b = false;
     private Integer m_i = 0;
     private String m_s = null;
 
@@ -112,6 +115,34 @@ public class TypeDecoder extends BaseClass {
 
                 this.m_d = (Double)data;
                 return this.m_d;
+            }
+            else if (data instanceof Float) {
+                // DEBUG
+                this.errorLogger().info("getFundamentalValue: Type is Float");
+
+                this.m_f = (Float)data;
+                return this.m_f;
+            }
+            else if (data instanceof Long) {
+                // DEBUG
+                this.errorLogger().info("getFundamentalValue: Type is Long");
+
+                this.m_l = (Long)data;
+                return this.m_l;
+            }
+            else if (data instanceof Boolean) {
+                // DEBUG
+                this.errorLogger().info("getFundamentalValue: Type is Boolean");
+
+                this.m_b = (Boolean)data;
+                return this.m_b;
+            }
+            else if (data instanceof String) {
+                // DEBUG
+                this.errorLogger().info("getFundamentalValue: Type is String");
+
+                this.m_s = (String)data;
+                return this.m_s;
             }
             else {
                 // secondary checks next
