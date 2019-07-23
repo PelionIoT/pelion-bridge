@@ -46,6 +46,9 @@ import java.util.ArrayList;
  * @author Doug Anson
  */
 public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
+    // sanitize EPT (default is false)
+    private static final boolean SANITIZE_EPT = false;
+
     // How many device entries to retrieve in a single /v3/devices query (discovery)
     private static final int PELION_MAX_DEVICES_PER_QUERY = 100;
     
@@ -1207,7 +1210,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         HashMap<String,Object> endpoint = new HashMap<>();
         
         // sanitize the endpoint type
-        device.put("endpoint_type",this.sanitizeEndpointType((String)device.get("endpoint_type")));
+        if (PelionProcessor.SANITIZE_EPT == true) {
+            device.put("endpoint_type",this.sanitizeEndpointType((String)device.get("endpoint_type")));
+        }
 
         // get the device ID and device Type
         String device_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
