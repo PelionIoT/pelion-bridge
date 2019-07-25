@@ -25,6 +25,7 @@ package com.arm.pelion.bridge.coordinator.processors.core;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.core.BaseClass;
 import com.arm.pelion.bridge.data.SerializableHashMap;
+import java.util.ArrayList;
 
 /**
  * Endpoint Type Management for pelion-bridge
@@ -36,10 +37,16 @@ public class EndpointTypeManager extends BaseClass {
     // endpoint type hashmap
     private SerializableHashMap m_endpoint_type_list = null;
     
+    // banned list
+    private ArrayList<String> m_banned_devices = null;
+    
     // constructor
     public EndpointTypeManager(Orchestrator orchestrator) {
         super(orchestrator.errorLogger(), orchestrator.preferences());
         this.m_orchestrator = orchestrator;
+        
+        // allocate the banned devices list
+        this.m_banned_devices = new ArrayList<>();
         
         // create endpoint name/endpoint type map
         this.m_endpoint_type_list = new SerializableHashMap(orchestrator,"ENDPOINT_TYPE_LIST");
@@ -57,14 +64,20 @@ public class EndpointTypeManager extends BaseClass {
     // set the endpoint type from a given endpoint name
     public synchronized void setEndpointTypeFromEndpointName(String endpoint, String type) {
         if (type != null && type.length() > 0) {
-            // DEBUG
-            this.errorLogger().info("EndpointTypeManager: Setting Type: " + type + " for EP: " + endpoint);
+            if (this.isBannedDevice(endpoint) == false) {
+                // DEBUG
+                this.errorLogger().info("EndpointTypeManager: Setting Type: " + type + " for EP: " + endpoint);
 
-            // set the endpoint type 
-            this.m_endpoint_type_list.put(endpoint,type);
+                // set the endpoint type 
+                this.m_endpoint_type_list.put(endpoint,type);
 
-            // DEBUG
-            this.errorLogger().info("EndpointTypeManager: Count(Set): " + this.size());
+                // DEBUG
+                this.errorLogger().info("EndpointTypeManager: Count(Set): " + this.size());
+            }
+            else {
+                // device is banned... so dont add it
+                this.errorLogger().info("EndpointTypeManager: EP: " + endpoint + " is banned. Ignoring (OK)");
+            }
         }
     }
     
@@ -84,7 +97,24 @@ public class EndpointTypeManager extends BaseClass {
     // get the count of the map
     public synchronized int size() {
         // DEBUG
-        this.errorLogger().info("EndpointTypeManager: Count: " + this.m_endpoint_type_list.map().size());
+        this.errorLogger().info("EndpointTypeManager: Map(" + this.m_endpoint_type_list.map().size() + "): " + this.m_endpoint_type_list.map());
         return this.m_endpoint_type_list.map().size();
+    }
+    
+    // is the given device banned?
+    private synchronized boolean isBannedDevice(String endpoint) {
+        for(int i=0;endpoint != null && i<this.m_banned_devices.size();++i) {
+            if (endpoint.equalsIgnoreCase(this.m_banned_devices.get(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // permanently ban device (optional)
+    public synchronized void banDevice(String endpoint) {
+        if (this.isBannedDevice(endpoint) == false) {
+            this.m_banned_devices.add(endpoint);
+        }
     }
 }
