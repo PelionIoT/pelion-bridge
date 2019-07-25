@@ -116,5 +116,6 @@ public class EndpointTypeManager extends BaseClass {
         if (this.isBannedDevice(endpoint) == false) {
             this.m_banned_devices.add(endpoint);
         }
+        this.m_endpoint_type_list.remove(endpoint);
     }
 }
