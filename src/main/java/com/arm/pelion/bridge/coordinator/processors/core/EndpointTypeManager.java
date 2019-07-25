@@ -56,25 +56,29 @@ public class EndpointTypeManager extends BaseClass {
 
     // set the endpoint type from a given endpoint name
     public synchronized void setEndpointTypeFromEndpointName(String endpoint, String type) {
-        // DEBUG
-        this.errorLogger().info("EndpointTypeManager: Setting Type: " + type + " for EP: " + endpoint);
-        
-        // set the endpoint type 
-        this.m_endpoint_type_list.put(endpoint,type);
-        
-        // DEBUG
-        this.errorLogger().info("EndpointTypeManager: Count(Set): " + this.size());
+        if (type != null && type.length() > 0) {
+            // DEBUG
+            this.errorLogger().info("EndpointTypeManager: Setting Type: " + type + " for EP: " + endpoint);
+
+            // set the endpoint type 
+            this.m_endpoint_type_list.put(endpoint,type);
+
+            // DEBUG
+            this.errorLogger().info("EndpointTypeManager: Count(Set): " + this.size());
+        }
     }
     
     // remove the endpoint type from the endpoint name
     public synchronized void removeEndpointTypeFromEndpointName(String endpoint) {
-        // DEBUG
-        this.errorLogger().info("EndpointTypeManager: Removing Type for EP: " + endpoint);
-        
-        this.m_endpoint_type_list.remove(endpoint);
-        
-        // DEBUG
-        this.errorLogger().info("EndpointTypeManager: Count(Remove): " + this.size());
+        if (endpoint != null && endpoint.length() > 0) {
+            // DEBUG
+            this.errorLogger().info("EndpointTypeManager: Removing Type for EP: " + endpoint);
+
+            this.m_endpoint_type_list.remove(endpoint);
+
+            // DEBUG
+            this.errorLogger().info("EndpointTypeManager: Count(Remove): " + this.size());
+        }
     }
     
     // get the count of the map
