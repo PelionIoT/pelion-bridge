@@ -667,6 +667,16 @@ public class HttpTransport extends BaseClass {
                 this.errorLogger().critical("HttpTransport(" + verb + "): ERROR! HTTP UNSUPPORTED in HttpTransport: URL: " + url_str);
                 this.saveResponseCode(598);
                 
+                // close
+                try {
+                    if (connection != null) {
+                        ((HttpsURLConnection)connection).disconnect();
+                    }
+                }
+                catch (Exception ex) {
+                    // silent
+                }
+
                 try {
                     // GC
                     if (Utils.doGC()) {
@@ -700,6 +710,16 @@ public class HttpTransport extends BaseClass {
                 this.errorLogger().info("HttpTransport(" + verb + "): Exception in doHTTP(" + verb + "): Unable to save last response code: " + ex2.getMessage());
                 this.saveResponseCode(599);        
             }
+        }
+        
+        // close
+        try {
+            if (connection != null) {
+                ((HttpsURLConnection)connection).disconnect();
+            }
+        }
+        catch (Exception ex) {
+            // silent
         }
         
         try {
