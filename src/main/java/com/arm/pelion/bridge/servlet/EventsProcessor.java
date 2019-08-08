@@ -65,9 +65,7 @@ public class EventsProcessor extends HttpServlet implements ServletProcessor {
         try {
             if (do_empty_response == false) {
                 // process the request
-                ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this,this.m_error_logger);
-                Thread t = new Thread(pit);
-                t.start();
+                this.processRequest(request,response);
             }
             else {
                 // send am empty response
@@ -85,10 +83,10 @@ public class EventsProcessor extends HttpServlet implements ServletProcessor {
     
     // Process an inbound device server event request to the Pelion bridge
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) {
-        ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this,this.m_error_logger);
-        Thread t = new Thread(pit);
-        t.start();
-        //this.invokeRequest(request,response);
+        //ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this,this.m_error_logger);
+        //Thread t = new Thread(pit);
+        //t.start();
+        this.invokeRequest(request,response);
     }
     
     // invoke the device server processing request
