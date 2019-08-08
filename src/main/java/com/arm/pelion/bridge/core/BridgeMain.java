@@ -47,7 +47,7 @@ public class BridgeMain implements Runnable {
     // Defaults
     private static int DEF_THREAD_COUNT_CHECK_WAIT_MS = 60000;      // 1 minute between thread count checks
     private static int DEF_CORE_POOL_SIZE = 10;                     // default size of pool of threads
-    private static int DEF_MAX_POOL_SIZE = 1000000;                 // max size of pool of threads
+    private static int DEF_MAX_POOL_SIZE = 25;                      // max size of pool of threads
     
     // thread count wait time in ms
     private int m_thread_count_check_wait_ms = DEF_THREAD_COUNT_CHECK_WAIT_MS;
@@ -94,6 +94,10 @@ public class BridgeMain implements Runnable {
             max_pool_size = DEF_MAX_POOL_SIZE;
         }
         
+        // Override
+        max_pool_size = DEF_MAX_POOL_SIZE;
+        core_pool_size = DEF_CORE_POOL_SIZE;
+        
         // Threading Pool Config
         this.errorLogger().warning("Main: Jetty Thread Executor Pool: initial pool: " + core_pool_size + " max: " + max_pool_size);
         
@@ -114,7 +118,7 @@ public class BridgeMain implements Runnable {
         sslConnector.setHost("0.0.0.0");
         sslConnector.setPort(this.m_preferences.intValueOf("mds_gw_port"));
         sslConnector.setIdleTimeout(TimeUnit.HOURS.toMillis(1000));
-        sslConnector.setAcceptQueueSize(10000);
+        sslConnector.setAcceptQueueSize(100);
         sslConnector.setReuseAddress(true);
         this.m_server.addConnector(sslConnector);
 
@@ -172,11 +176,11 @@ public class BridgeMain implements Runnable {
             
             // initialize the listeners
             this.m_manager.initListeners();
-
+            
             // set the error logger
             LoggerTracker.getInstance().setErrorLogger(this.errorLogger());
-            
-             while (true) {
+
+            while (true) {
                 try {
                     // Start the Websocket Service
                     this.errorLogger().warning("Main: Starting logger service");
@@ -199,7 +203,7 @@ public class BridgeMain implements Runnable {
                     this.errorLogger().critical("Main: EXCEPTION during bridge start(): " + ex.getMessage());
                 }
             }
-
+            
             // Direct the manager to establish the webhooks to Connector/mDS/Cloud
             this.m_manager.initWebhooks();
             
@@ -211,7 +215,7 @@ public class BridgeMain implements Runnable {
             this.m_ws_service.join();
         }
         catch (Exception ex) {
-            this.errorLogger().critical("Main: EXCEPTION during bridge start(): " + ex.getMessage(),ex);
+            this.errorLogger().critical("Main: EXCEPTION during bridge start(): " + ex.getMessage());
         }
     }
     
@@ -258,19 +262,43 @@ public class BridgeMain implements Runnable {
         return this.m_logger;
     }
     
+    // stringify the thread to determine its origin
+    private String printThread(Thread t) {
+        String result = "[";
+        StackTraceElement[] trace = t.getStackTrace();
+        if (trace.length > 3) {
+            result = result + trace[trace.length-4].toString();
+        }
+        if (trace.length > 2) {
+            result = result + trace[trace.length-3].toString();
+        }
+        else if (trace.length > 1) {
+            result = result + trace[trace.length-2].toString();
+        }
+        else if (trace.length > 0) {
+            result = result + trace[trace.length-1].toString();
+        }
+        result = result + "]";
+        return result;
+    }
+    
     // update the active thread count
     private void updateActiveThreadCount() {
         try {
             int count = 0;
             Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
             for (Thread t : threadSet) {
-                if (t.isDaemon() || t.isAlive()) {
+                if (t.isAlive()) {
                     ++count;
+                    
+                    // DEBUG
+                    //this.errorLogger().warning("Count: " + count + " ThreadStack: " + this.printThread(t));
+                }
+                else {
+                    // clean it..
+                    t.join();
                 }
             }
-                        
-            // add one for main...
-            ++count;
             
             // record the count
             this.m_thread_count = count;
