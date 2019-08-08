@@ -32,6 +32,7 @@ import com.arm.pelion.bridge.core.Utils;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +60,9 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     // enable this if you want to have re-subscription even if the subscription already exists (i.e. wipe/reset)
     protected boolean m_re_subscribe = true;
     
+    // Visited List
+    private ArrayList<String> m_device_seen_list = null;
+    
     // keys used to differentiate between data from CoAP observations and responses from CoAP commands 
     protected String m_observation_key = "observation";             // legacy: "observation", unified: "notify"
     protected String m_cmd_response_key = "cmd-response";           // common for both legacy and unified
@@ -67,6 +71,9 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     // default constructor
     public PeerProcessor(Orchestrator orchestrator, String suffix) {
         super(orchestrator, suffix);
+        
+        // initialize the seen list
+        this.m_device_seen_list = new ArrayList<>();
                 
         // allocate our AsyncResponse orchestrator
         this.m_async_response_manager = new AsyncResponseManager(orchestrator);
@@ -1125,6 +1132,37 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         }
         catch (IOException ex) {
             this.errorLogger().critical("PeerProcessor: Unable to send response back to command requestor...", ex);
+        }
+    }
+    
+    // add device to seen list
+    protected synchronized void addDeviceToSeenList(String id) {
+        if (id != null && id.length() > 0) {
+            this.m_device_seen_list.add(id);
+        }
+    }
+    
+    // is the device previously seen?
+    protected synchronized boolean deviceAlreadySeen(String id) {
+        if (id != null && id.length() > 0) {
+            for(int i=0;i<this.m_device_seen_list.size();++i) {
+                if (this.m_device_seen_list.get(i).equalsIgnoreCase(id)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    // remove the device from the seen list
+    protected synchronized void removeDeviceFromSeenList(String id) {
+        if (id != null && id.length() > 0) {
+            for(int i=0;i<this.m_device_seen_list.size();++i) {
+                if (this.m_device_seen_list.get(i).equalsIgnoreCase(id)) {
+                    this.m_device_seen_list.remove(i);
+                    return;
+                }
+            }
         }
     }
 }

@@ -26,6 +26,7 @@ import com.arm.pelion.bridge.coordinator.processors.core.LongPollProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.coordinator.processors.core.HttpProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.ShadowDeviceThreadDispatcher;
+import com.arm.pelion.bridge.coordinator.processors.core.WebSocketProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.WebhookValidator;
 import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
@@ -48,7 +49,7 @@ import java.util.ArrayList;
 public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
     // sanitize EPT (default is false)
     private static final boolean SANITIZE_EPT = false;
-
+    
     // How many device entries to retrieve in a single /v3/devices query (discovery)
     private static final int PELION_MAX_DEVICES_PER_QUERY = 100;
     
@@ -98,6 +99,10 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private String m_long_poll_url = null;
     private LongPollProcessor m_long_poll_processor = null;
     private WebhookValidator m_webhook_validator = null;
+    
+    // websocket support
+    private boolean m_enable_web_socket = false;
+    private WebSocketProcessor m_web_socket_processor = null;
     
     // maximum number of grouped device shadow create threads
     private int m_mds_max_shadow_create_threads = DEFAULT_MAX_SHADOW_CREATE_THREADS;
@@ -173,6 +178,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         this.m_enable_long_poll = this.prefBoolValue("mds_enable_long_poll");
         this.m_long_poll_uri = this.prefValue("mds_long_poll_uri");
         
+        // WebSocket Support
+        this.m_enable_web_socket = this.prefBoolValue("mds_enable_web_socket");
+        
         // display number of webhook setup retries allowed
         this.errorLogger().warning("PelionProcessor: Number of webhook setup retries configured to: " + this.m_webook_num_retries);
 
@@ -186,7 +194,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         this.setupPelionCloudURI();
        
         // configure the callback type based on the version of mDS (only if not using long polling)
-        if (this.longPollEnabled() == false) {
+        if (this.webSocketEnabled() == false && this.longPollEnabled() == false) {
             this.m_using_callback_webhooks = true;
         }
         
@@ -208,8 +216,17 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             orchestrator.errorLogger().warning("PelionProcessor: Device removal on de-registration DISABLED");
         }
         
-        // finalize long polling setup if enabled
-        if (this.longPollEnabled()) {
+        // 1. finalize web socket if enabled
+        if (this.webSocketEnabled()) {
+            // using long polling... so construct the long poll URL and start long polling (if API KEY is set...)
+            this.errorLogger().warning("PelionProcessor: WebSocket ENABLED. Webhook usage DISABLED. Starting web socket listener...");
+
+            // start the Web Socket listener thread... (will check if API KEY is set or not...)
+            this.startWebSocketListener();
+        }
+        
+        // 2. finalize long polling setup if enabled
+        else if (this.longPollEnabled()) {
             // using long polling... so construct the long poll URL and start long polling (if API KEY is set...)
             this.errorLogger().warning("PelionProcessor: Long Polling ENABLED. Webhook usage DISABLED. Starting long polling...");
 
@@ -219,6 +236,8 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             // start the Long polling thread... (will check if API KEY is set or not...)
             this.startLongPolling();
         }
+        
+        // 3. webhook usage...
         else {
             // using webhooks. Start webhook validator if API key is set...
             if (this.isConfiguredAPIKey() == true) {
@@ -235,11 +254,11 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // long polling enabled
     public boolean webHookEnabled() {
-        return !(this.m_enable_long_poll);
+        return !(this.m_enable_long_poll || this.m_enable_web_socket);
     }
     
     // set whether our API Key is configured or not...
-    private void setAPIKeyConfigured(String api_key) {
+    public void setAPIKeyConfigured(String api_key) {
         this.m_api_key_is_configured = false;
         if (api_key != null && api_key.contains("Goes_Here") == false) {
             // its not in its default configuration... so we assume configured!
@@ -292,6 +311,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // read the request...
         String json = this.read(request);
         if (json != null && json.length() > 0 && json.equalsIgnoreCase("{}") == false) {
+            // DEBUG
+            this.errorLogger().warning("PelionProcessor: processNotificationMessage: MESSAGE: " + json);
+
             // Check for message duplication... 
             if (this.isDuplicateMessage(json) == false) {
                 // record the "last" message
@@ -305,6 +327,10 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 this.errorLogger().info("PelionProcessor: Duplicate message discovered... Ignoring(OK)...");
             }
         }
+        else {
+            // note that the message is trivial
+            this.errorLogger().info("PelionProcessor: Message is empty: " + json + "...(OK)");
+        }
         
         // ALWAYS send the response back as an ACK to Pelion
         this.sendResponseToPelion("application/json;charset=utf-8", request, response, "", "{}");
@@ -314,10 +340,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     @Override
     public synchronized void removeWebhook() {
         // create the dispatch URL
-        String dispatch_url = this.createWebhookDispatchURL();
+        String delete_webhook_url = this.createWebhookDispatchURL();
 
         // delete the callback URL (SSL)
-        this.httpsDelete(dispatch_url);
+        this.httpsDelete(delete_webhook_url,"text/plain",this.apiToken());
+        int http_code = this.getLastResponseCode();
+        
+        // DEBUG
+        this.errorLogger().info("PelionProcessor: removeWebhook: URL: " + delete_webhook_url + " CODE: " + http_code);
     }
 
     // reset the Pelion Notification Callback URL
@@ -583,60 +613,71 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String dispatch_url = this.createWebhookDispatchURL();
         
         // loop through a few times and try
-        for(int i=0;i<this.m_webook_num_retries && success == false;++i) {
-            try {
-                // Issue GET and look at the response
-                json = this.httpsGet(dispatch_url);
-                http_code = this.getLastResponseCode();
-                if (json != null && json.length() > 0) {
-                    // Callback API used: parse the JSON
-                    Map parsed = (Map) this.parseJson(json);
-                    url = (String) parsed.get("url");
+        try {
+            // Issue GET and look at the response
+            json = this.httpsGet(dispatch_url);
+            http_code = this.getLastResponseCode();
+            
+            // DEBUG
+            this.orchestrator().errorLogger().warning("PelionProcessor: getWebhook(): dispatch: " + dispatch_url + " CODE: " + http_code + " RESPONSE: " + json);
+            
+            // see what the response is
+            if (json != null && json.length() > 0) {
+                // Callback API used: parse the JSON
+                Map parsed = (Map) this.parseJson(json);
+                url = (String) parsed.get("url");
 
-                    // DEBUG
-                    this.orchestrator().errorLogger().info("PelionProcessor: received url: " + url + " from pelion callback dispatch: " + dispatch_url + " CODE: " + http_code);
-                    
-                    // success!!
-                    success = true;
-                }
-                else if (http_code == 404) {
-                    // no webhook record found
-                    this.orchestrator().errorLogger().warning("PelionProcessor: no webhook record found (404)");
-                    
-                    // lets wait for a bit... 
-                    success = false;
-                } 
-                else if (http_code == 200) {
-                    // no response received back from Pelion - but success code given
-                    this.orchestrator().errorLogger().warning("PelionProcessor no response received from webhook query: " + dispatch_url + " CODE: " + http_code + "... retrying...");
-                
-                    // wait for a bit...
-                    success = false;
-                }
-                else {
-                    // no response received back from Pelion - with an unexpected error code
-                    this.orchestrator().errorLogger().warning("PelionProcessor: ERROR: no response received from webhook query: " + dispatch_url + " CODE: " + http_code + " (may need to re-create API Key if using long polling previously...)");
-                    
-                    // wait for a bit
-                    success = false;
-                }
+                // DEBUG
+                this.orchestrator().errorLogger().info("PelionProcessor: received url: " + url + " from pelion callback dispatch: " + dispatch_url + " CODE: " + http_code);
+
+                // success!!
+                success = true;
             }
-            catch (Exception ex) {
-                // exception caught
-                this.orchestrator().errorLogger().warning("PelionProcessor: Exception during webhook query: " + dispatch_url + " message: " + ex.getMessage() + " CODE: " + http_code + " JSON: " + json);
-                
-                // wait for a bit
+            else if (http_code == 404) {
+                // no webhook record found
+                this.orchestrator().errorLogger().warning("PelionProcessor: no webhook record found (404)");
+
+                // none set
+                success = false;
+            } 
+            else if (http_code == 200) {
+                // no response received back from Pelion - but success code given
+                this.orchestrator().errorLogger().warning("PelionProcessor no response received from webhook query: " + dispatch_url + " CODE: " + http_code + "... retrying...");
+
+                // none set
                 success = false;
             }
-            
-            // if unsuccessful... wait a bit
-            if (success == false) {
-                Utils.waitForABit(this.errorLogger(), this.m_webhook_retry_wait_ms);
+            else {
+                // no response received back from Pelion - with an unexpected error code
+                this.orchestrator().errorLogger().warning("PelionProcessor: ERROR: no response received from webhook query: " + dispatch_url + " CODE: " + http_code + " (may need to re-create API Key if using long polling previously...)");
+
+                // none set
+                success = false;
             }
+        }
+        catch (Exception ex) {
+            // exception caught
+            this.orchestrator().errorLogger().warning("PelionProcessor: Exception during webhook query: " + dispatch_url + " message: " + ex.getMessage() + " CODE: " + http_code + " JSON: " + json);
+
+            // wait for a bit
+            success = false;
         }
 
         // return the URL only...
         return url;
+    }
+    
+    // enable callbacks in Pelion
+    private void enableCallbacksInPelion() {
+        // delete any existing settings
+        String delete_pull_url = this.createWebhookDispatchURL().replace("callback","pull");
+        
+        // perform a delete
+        this.httpsDelete(delete_pull_url, "text/plain", this.apiToken());
+        int http_code = this.getLastResponseCode();
+        
+        // DEBUG
+        this.errorLogger().info("PelionProcessor: enableCallbacksInPelion: PULL_URL: " + delete_pull_url + " DELETE CODE: " + http_code);        
     }
 
     // set our Pelion Notification Callback URL
@@ -657,7 +698,10 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
         // proceed to set the URL if its not already set.. 
         if (!webhook_set_ok) {
-            // first lets reset Pelion so that we can setup our webhook
+            // first we have to ensure we are using callbacks..
+            this.enableCallbacksInPelion();           
+
+            // next lets reset Pelion so that we can setup our webhook
             this.removeWebhook();
             
             // now, lets create our webhook URL and Auth JSON
@@ -677,7 +721,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
 
             // DEBUG
-            this.errorLogger().info("PelionProcessor: json: " + json + " dispatch: " + dispatch_url);
+            this.errorLogger().info("PelionProcessor: WEBHOOK: json: " + json + " dispatch: " + dispatch_url);
 
             // set the callback URL (SSL)
             this.httpsPut(dispatch_url, json);
@@ -999,6 +1043,11 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
         }
     }
+    
+    // Device Attribute Retrieval enabled/disabled
+    public boolean deviceAttributeRetrievalEnabled() {
+        return this.m_enable_attribute_gets;
+    }
 
     // check and dispatch the appropriate GETs to retrieve the actual device attributes
     private void getActualDeviceAttributes(Map endpoint, AsyncResponseProcessor processor) {
@@ -1019,11 +1068,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 this.errorLogger().warning("PelionProcessor: No peer AsyncResponse processor. Device may not get addeded within peer.");
             }
         }
-    }
-    
-    // Device Attribute Retrieval enabled/disabled
-    public boolean deviceAttributeRetrievalEnabled() {
-        return this.m_enable_attribute_gets;
     }
 
     // parse the device attributes
@@ -1464,6 +1508,11 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         return (this.m_enable_long_poll == true && this.m_long_poll_uri != null && this.m_long_poll_uri.length() > 0);
     }
     
+    // Web socket enabled or disabled?
+    private boolean webSocketEnabled() {
+        return this.m_enable_web_socket;
+    }
+    
     // get the long polling URL
     public String longPollURL() {
         return this.m_long_poll_url;
@@ -1474,6 +1523,52 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String url = this.createBaseURL() + "/" + this.m_long_poll_uri;
         this.errorLogger().info("PelionProcessor: constructLongPollURL: Long Poll URL: " + url);
         return url;
+    }
+    
+    // start the web socket listener thread
+    private void startWebSocketListener() {
+        if (this.isConfiguredAPIKey() == true) {
+            // setup bulk subscriptions
+            this.errorLogger().warning("PelionProcessor: Enabling bulk subscriptions...");
+            boolean ok = this.setupBulkSubscriptions();
+            if (ok == true) {
+                // success
+                this.errorLogger().info("PelionProcessor: bulk subscriptions enabled SUCCESS");
+            }
+            else {
+                // failure
+                this.errorLogger().info("PelionProcessor: bulk subscriptions enabled FAILED");
+            }
+
+            // now begin to web socket listener for Pelion
+            if (this.m_web_socket_processor == null) {
+                this.m_web_socket_processor = new WebSocketProcessor(this);
+                this.m_web_socket_processor.startWebSocketListener();
+            }
+        }
+        else {
+            // API key is not configured... so no web socket processor
+            this.errorLogger().warning("PelionProcessor: Stopping WebSocket listener. API Key not configured (OK)");
+        }
+    }
+    
+    // configure Pelion to use web sockets
+    public boolean enableWebSockets() {
+        if (this.isConfiguredAPIKey() == true) {
+            String url = "https://" + this.m_pelion_api_hostname + "/v" + this.m_connect_api_version + "/websocket/notification";
+            String result = this.httpsPut(url);
+            int http_code = this.getLastResponseCode();
+            if (Utils.httpResponseCodeOK(http_code)) {
+                // announce
+                this.errorLogger().warning("Pelion: WebSocket notification channel ENABLED");
+                return true;
+            }
+            else {
+                // FAILURE
+                this.errorLogger().warning("Pelion: WebSocket notification channel initialization FAILURE: " + result + " CODE: " + http_code);
+            }
+        }
+        return false;
     }
 
     // start the long polling thread

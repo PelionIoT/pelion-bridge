@@ -1005,6 +1005,9 @@ public class MQTTTransport extends Transport implements GenericSender {
                 // DEBUG
                 this.errorLogger().info("resetConnection(MQTT): restarting MQTT connection for device: " + this.m_ep_name);
 
+                // disconnect
+                this.disconnect(true);
+                
                 // end us, restart with a new connection... so adios... 
                 this.m_reconnector.startReconnection(this.m_ep_name,this.m_ep_type,this.m_subscribe_topics);
 

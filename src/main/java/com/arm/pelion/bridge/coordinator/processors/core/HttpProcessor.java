@@ -26,7 +26,6 @@ import com.arm.pelion.bridge.coordinator.Orchestrator;
 import com.arm.pelion.bridge.core.Processor;
 import com.arm.pelion.bridge.transport.HttpTransport;
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.PrintWriter;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -68,19 +67,24 @@ public class HttpProcessor extends Processor {
                 buf.append(line);
                 line = reader.readLine();
             }
+            //reader.close();
+            
+            // DEBUG
+            this.errorLogger().info("PelionProcessor: Read: " + buf.toString());
             return buf.toString();
         }
-        catch (IOException ex) {
-            // silent
+        catch (Exception ex) {
+            // ERROR
+            this.errorLogger().info("PelionProcessor: Exception in READ: " + ex.getMessage(),ex);
         }
-        return null;
+        return "{}";
     }
 
     // send the REST response back to Pelion
     protected void sendResponseToPelion(String content_type, HttpServletRequest request, HttpServletResponse response, String header, String body) {
-        try {
-            response.setContentType(content_type);
-            response.setHeader("Pragma", "no-cache");
+        response.setContentType(content_type);
+        response.setHeader("Pragma", "no-cache");
+        try {    
             try (PrintWriter out = response.getWriter()) {
                 if (header != null && header.length() > 0) {
                     out.println(header);
@@ -88,11 +92,15 @@ public class HttpProcessor extends Processor {
                 if (body != null && body.length() > 0) {
                     out.println(body);
                 }
+                out.flush();
+                out.close();
+                response.setStatus(200);
             }
         }
-        catch (IOException ex) {
-            this.errorLogger().critical("Unable to send response back to Pelion...", ex);
+        catch (Exception ex ) {
+            this.errorLogger().info("Pelion Processor: Exceutpion during send response back to Pelion...(OK)");
         }
+        response.setStatus(200);
     }
     
     // get the API Token

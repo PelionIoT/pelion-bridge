@@ -40,6 +40,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.InvalidKeyException;
@@ -1319,9 +1320,22 @@ public class Utils {
     // scale back GC() operations
     public static boolean doGC() {
         long val = (long)Math.random();
-        if (val%593 == 0) {
+        if (val%111 == 0) {
             return true;
         }
         return false;
+    }
+    
+    // make a string URL safe
+    public static String makeURLSafe(ErrorLogger logger,String str) {
+        if (str != null && str.length() > 0) {
+            try {
+                return URLEncoder.encode(str, StandardCharsets.UTF_8.toString());
+            } 
+            catch (UnsupportedEncodingException ex) {
+                logger.warning("Utils: Unable to URL Encode: " + str,ex);
+            }
+        }
+        return str;
     }
 }

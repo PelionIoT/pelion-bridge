@@ -59,13 +59,36 @@ public class EventsProcessor extends HttpServlet implements ServletProcessor {
     public Manager manager() {
         return this.m_manager;
     }
-
+    
+    // Process an inbound device server event request to the Pelion bridge
+    protected void processRequest(HttpServletRequest request, HttpServletResponse response,boolean do_empty_response) {
+        try {
+            if (do_empty_response == false) {
+                // process the request
+                ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this,this.m_error_logger);
+                Thread t = new Thread(pit);
+                t.start();
+            }
+            else {
+                // send am empty response
+                response.setContentType("application/json;charset=utf-8");
+                response.setHeader("Pragma", "no-cache");
+                PrintWriter out = response.getWriter();
+                out.println("{}");
+                out.close();
+            }
+        }
+        catch (IOException ex) {
+            this.m_error_logger.info("EventsProcessor: Unable to send device server event response back to Pelion...", ex);
+        }
+    }
+    
     // Process an inbound device server event request to the Pelion bridge
     protected void processRequest(HttpServletRequest request, HttpServletResponse response) {
-        //ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this);
-        //Thread t = new Thread(pit);
-        //t.start();
-        this.invokeRequest(request,response);
+        ProcessorInvocationThread pit = new ProcessorInvocationThread(request,response,this,this.m_error_logger);
+        Thread t = new Thread(pit);
+        t.start();
+        //this.invokeRequest(request,response);
     }
     
     // invoke the device server processing request
@@ -73,6 +96,9 @@ public class EventsProcessor extends HttpServlet implements ServletProcessor {
     public void invokeRequest(HttpServletRequest request, HttpServletResponse response) {
         try {
             if (this.m_manager != null) {
+                // DEBUG
+                this.m_error_logger.info("EventsProcessor: Processing Request...");
+                
                 // process our device server event
                 this.m_manager.processDeviceServerEvent(request, response);
             }
@@ -85,6 +111,7 @@ public class EventsProcessor extends HttpServlet implements ServletProcessor {
                 response.setHeader("Pragma", "no-cache");
                 PrintWriter out = response.getWriter();
                 out.println("{}");
+                out.close();
             }
         }
         catch (IOException | ServletException ex) {
@@ -105,7 +132,8 @@ public class EventsProcessor extends HttpServlet implements ServletProcessor {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+        m_error_logger.info("EventsProcessor: Processing GET REQUEST...");
+        processRequest(request, response, true);
     }
 
     /**
@@ -120,6 +148,7 @@ public class EventsProcessor extends HttpServlet implements ServletProcessor {
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        m_error_logger.info("EventsProcessor: Processing PUT REQUEST...");
         processRequest(request, response);
     }
 
@@ -135,6 +164,7 @@ public class EventsProcessor extends HttpServlet implements ServletProcessor {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        m_error_logger.info("EventsProcessor: Processing POST REQUEST...");
         processRequest(request, response);
     }
 
@@ -150,6 +180,7 @@ public class EventsProcessor extends HttpServlet implements ServletProcessor {
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        m_error_logger.info("EventsProcessor: Processing DELETE REQUEST...");
         processRequest(request, response);
     }
 
