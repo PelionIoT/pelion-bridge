@@ -53,10 +53,10 @@ public class LongPollProcessor extends Thread {
     // initialize the poller
     public void startPolling() {
         // DEBUG
-        this.errorLogger().info("LongPollProcessor: Removing previous webhook (if any)...");
+        this.errorLogger().info("LongPollProcessor: Resetting the notification channel...");
         
-        // delete any older webhooks
-        this.m_pelion_processor.removeWebhook();
+        // reset our notification channel
+        this.m_pelion_processor.resetNotificationChannel();
         
         // DEBUG
         this.errorLogger().info("LongPollProcessor: Beginning long polling...");

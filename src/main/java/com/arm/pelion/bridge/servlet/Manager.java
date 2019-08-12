@@ -122,12 +122,12 @@ public final class Manager {
         this.m_orchestrator.stopPeerListener();
     }
 
-    public void initWebhooks() {
-        this.m_orchestrator.initializeDeviceServerWebhook();
+    public void initializeNotificationChannel() {
+        this.m_orchestrator.initializeNotificationChannel();
     }
 
-    public void removeWebhook() {
-        this.m_orchestrator.removeWebhook();
+    public void resetNotificationChannel() {
+        this.m_orchestrator.resetNotificationChannel();
     }
     
     public int getActiveThreadCount() {

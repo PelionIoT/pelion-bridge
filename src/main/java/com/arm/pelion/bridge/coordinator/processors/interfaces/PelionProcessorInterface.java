@@ -60,8 +60,9 @@ public interface PelionProcessorInterface {
     // initial device discovery on startup
     public void initDeviceDiscovery();
     
-    // Webhook management
-    public boolean setWebhook();
-    public boolean resetWebhook();
-    public void removeWebhook();
+    // intialize the notification channel
+    public void initializeNotificationChannel();
+    
+    // remove any reset notification channel
+    public void resetNotificationChannel();
 }

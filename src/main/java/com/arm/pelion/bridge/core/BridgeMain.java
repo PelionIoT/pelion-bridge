@@ -152,8 +152,8 @@ public class BridgeMain implements Runnable {
                     errorLogger().warning("Main: Stopping Listeners...");
                     m_manager.stopListeners();
 
-                    errorLogger().warning("Main: Removing webhook...");
-                    m_manager.removeWebhook();
+                    errorLogger().warning("Main: Resetting notification channel...");
+                    m_manager.resetNotificationChannel();
                 }
             }
         );
@@ -204,8 +204,8 @@ public class BridgeMain implements Runnable {
                 }
             }
             
-            // Direct the manager to establish the webhooks to Connector/mDS/Cloud
-            this.m_manager.initWebhooks();
+            // Direct the manager to establish the notification channel to Pelion
+            this.m_manager.initializeNotificationChannel();
             
             // Start statistics generation
             this.m_manager.startStatisticsMonitoring();

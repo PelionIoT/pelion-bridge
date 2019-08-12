@@ -25,13 +25,12 @@ package com.arm.pelion.bridge.coordinator.processors.core;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
-import java.io.IOException;
+import java.net.HttpCookie;
 import java.net.URI;
-import java.util.concurrent.Future;
+import org.eclipse.jetty.client.ProtocolHandler;
 import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
+import org.eclipse.jetty.websocket.api.WebSocketListener;
+import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 
 /**
@@ -39,7 +38,7 @@ import org.eclipse.jetty.websocket.client.WebSocketClient;
  *
  * @author Doug Anson
  */
-public class WebSocketProcessor extends Thread {
+public class WebSocketProcessor extends Thread implements WebSocketListener {
     private static final int WEBSOCKET_TIMEOUT_MS = 6000000;            // set a very long timeout... 
        private PelionProcessor m_pelion_processor = null;
     private boolean m_running = false;
@@ -104,17 +103,17 @@ public class WebSocketProcessor extends Thread {
             if (this.m_ws == null) {
                 // create the websocket...
                 this.m_ws = new WebSocketClient();
+                this.m_ws.start();
+                
+                // set the Header information
+                ClientUpgradeRequest request = new ClientUpgradeRequest();
+                request.setHeader("Authorization", "Bearer " + this.m_pelion_processor.apiToken());
                 
                 // start if created...
                 try {
-                    this.errorLogger().warning("WebSocketProcessor: Starting websocket client...");
-                    if (this.m_ws != null) {
-                        this.m_ws.start();
-                    }
-
                     // connect the websocket...
                     this.errorLogger().warning("WebSocketProcessor: Connecting websocket: " + this.m_uri + "...");
-                    this.m_ws.connect(this,new URI(this.m_uri));
+                    this.m_ws.connect(this,new URI(this.m_uri),request);
                     return true;
                 }
                 catch (Exception ex2) {
@@ -189,8 +188,52 @@ public class WebSocketProcessor extends Thread {
         }
     }
     
-    @OnWebSocketConnect
-    public void onConnect(Session session) throws IOException {
+    // process notification
+    private void processNotification(String message) {
+        // DEBUG
+        this.errorLogger().info("WebSocketProcessor: processing recevied message: " + message);
+
+        // send whatever we get back as if we have received it via the webhook...
+        this.m_pelion_processor.processDeviceServerMessage(message,null);
+    }
+   
+    @Override
+    public void onWebSocketBinary(byte[] data, int i, int i1) {
+        // DEBUG
+        this.errorLogger().info("WebSocketProcessor: onMessageBinary(): MESSAGE: " + new String(data));
+        
+        // process the message...
+        this.processNotification(new String(data));
+    }
+
+    @Override
+    public void onWebSocketText(String message) {
+        // DEBUG
+        this.errorLogger().info("WebSocketProcessor: onMessageText(): MESSAGE: " + message);
+        
+        // process the message...
+        this.processNotification(message);
+    }
+
+    @Override
+    public void onWebSocketClose(int statusCode, String reason) {
+        // DEBUG
+        this.errorLogger().warning("WebSocketProcessor: onClose(): Disconnected: " + statusCode + " Reason: " + reason);
+        
+        // disconnect
+        if (this.m_ws != null) {
+            this.m_ws.destroy();
+            this.m_ws = null;
+        }
+        
+        // end our processing loop
+        this.m_session = null;
+        this.m_ws = null;
+        this.m_running = false;
+    }
+
+    @Override
+    public void onWebSocketConnect(Session session) {
         // DEBUG
         this.errorLogger().warning("WebSocketProcessor: onConnect(): CONNECTED");
         this.m_session = session;
@@ -210,28 +253,9 @@ public class WebSocketProcessor extends Thread {
         }
     }
 
-    @OnWebSocketMessage
-    public void onMessage(String message) {
+    @Override
+    public void onWebSocketError(Throwable tr) {
         // DEBUG
-        this.errorLogger().warning("WebSocketProcessor: onMessage(): MESSAGE: " + message);
-        
-        // process the message...
-    }
-
-    @OnWebSocketClose
-    public void onClose(int statusCode, String reason) {
-        // DEBUG
-        this.errorLogger().warning("WebSocketProcessor: onClose(): Disconnected: " + statusCode + " Reason: " + reason);
-        
-        // disconnect
-        if (this.m_ws != null) {
-            this.m_ws.destroy();
-            this.m_ws = null;
-        }
-        
-        // end our processing loop
-        this.m_session = null;
-        this.m_ws = null;
-        this.m_running = false;
+        this.errorLogger().warning("WebSocketProcessor: onWebSocketError(): Exception: " + tr.getMessage());
     }
 }

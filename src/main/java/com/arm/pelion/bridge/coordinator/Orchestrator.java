@@ -334,10 +334,10 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         }
     }
 
-    // initialize the Pelion webhook
-    public void initializeDeviceServerWebhook() {
+    // initialize the Pelion notification channel
+    public void initializeNotificationChannel() {
         if (this.m_pelion_processor != null) {
-            this.m_pelion_processor.setWebhook();
+            this.m_pelion_processor.initializeNotificationChannel();
         }
     }
 
@@ -434,29 +434,6 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
             return this.pelion_processor().processEndpointResourceOperation(verb, ep_name, uri, value, options);
         }
         return null;
-    }
-
-    @Override
-    public boolean setWebhook() {
-        if (this.m_pelion_processor != null) {
-            return this.pelion_processor().setWebhook();
-        }
-        return false;
-    }
-
-    @Override
-    public boolean resetWebhook() {
-        if (this.m_pelion_processor != null) {
-            return this.pelion_processor().resetWebhook();
-        }
-        return false;
-    }
-    
-    @Override
-    public void removeWebhook() {
-        if (this.m_pelion_processor != null) {
-            this.pelion_processor().removeWebhook();
-        }
     }
 
     @Override
@@ -656,6 +633,14 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     private void refreshHealthStats() {
         if (this.m_health_check_service_provider != null) {
             this.m_health_check_service_provider.refreshHealthStats();
+        }
+    }
+    
+    // reset the notifications channel
+    @Override
+    public void resetNotificationChannel() {
+        if (this.m_pelion_processor != null) {
+            this.pelion_processor().resetNotificationChannel();
         }
     }
 }

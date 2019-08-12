@@ -173,10 +173,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             this.m_max_devices_per_query = PELION_MAX_DEVICES_PER_QUERY;
         }
         this.errorLogger().warning("PelionProcessor: Pagination Limit set to: " + this.m_max_devices_per_query + " device IDs per page retrieved");
-        
-        // initialize the notification mechanism
-        this.initNotificationType();
-        
+                
         // display number of webhook setup retries allowed
         this.errorLogger().warning("PelionProcessor: Number of webhook setup retries configured to: " + this.m_webook_num_retries);
 
@@ -188,6 +185,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
         // initialize the default type of URI for contacting Pelion
         this.setupPelionCloudURI();
+        
+        // initialize the notification mechanism
+        this.initializeNotificationChannelType();
        
         // configure the callback type based on the version of mDS (only if not using long polling)
         if (this.webSocketEnabled() == false && this.longPollEnabled() == false) {
@@ -249,8 +249,8 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
     
     // initialize the notification type
-    private void initNotificationType() {
-        String notification_type = this.prefValue("mds_notfication_type");
+    private void initializeNotificationChannelType() {
+        String notification_type = this.prefValue("mds_notification_type");
         if (notification_type != null && notification_type.length() > 0) {
             // explicit 
             if (notification_type.equalsIgnoreCase("webhook")) {
@@ -285,6 +285,47 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 this.m_long_poll_uri = null;
             }
         }
+    }
+    
+    // initialize the notification channel
+    @Override
+    public synchronized void initializeNotificationChannel() {
+        if (this.isConfiguredAPIKey()) {
+            if (this.webSocketEnabled()) {
+                // 1. websockets
+                this.errorLogger().info("PelionProcessor: Notification Channel: WEBSOCKET...");
+                
+                // do nothing...
+            }
+            else if (this.longPollEnabled()) {
+                // 2. long polling
+                this.errorLogger().info("PelionProcessor: Notification Channel: LONG POLL...");
+                
+                // do nothing...
+            }
+            else if (this.webHookEnabled()) {
+                // 3. webhooks
+                this.errorLogger().info("PelionProcessor: Notification Channel: WEBHOOK...");
+                
+                // establish the webhook
+                this.setWebhook();
+            }
+            else {
+                // no notification channel type set
+                this.errorLogger().warning("PelionProcessor: Notification Channel: UNSET (ERROR)");
+            }
+        }
+        else {
+            // API key unconfigured
+            this.errorLogger().info("PelionProcessor: Notification Channel: No API Key set (OK)");
+        }
+    }
+    
+    // reset the notification channel
+    @Override
+    public synchronized void resetNotificationChannel() {
+        // simply remove the webhook if there is one...
+        this.removeWebhook();
     }
     
     // long polling enabled
@@ -372,8 +413,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
     
     // remove the Pelion webhook
-    @Override
-    public synchronized void removeWebhook() {
+    private void removeWebhook() {
         // create the dispatch URL
         String delete_webhook_url = this.createWebhookDispatchURL();
 
@@ -386,7 +426,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
 
     // reset the Pelion Notification Callback URL
-    @Override
     public boolean resetWebhook() {        
         // delete the webhook
         this.removeWebhook();
@@ -396,14 +435,13 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
     
     // set our Pelion Notification Callback URL
-    @Override
-    public boolean setWebhook() {
+    private boolean setWebhook() {
         // external interface will invoke device discovery...
         return this.setWebhook(true);
     }
 
     // set our Pelion Notification Callback URL (with device discovery option)
-    private synchronized boolean setWebhook(boolean do_discovery) {
+    private boolean setWebhook(boolean do_discovery) {
         boolean ok = false;
         boolean do_restart = true;
         
@@ -670,7 +708,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
             else if (http_code == 404) {
                 // no webhook record found
-                this.orchestrator().errorLogger().warning("PelionProcessor: no webhook record found (404)");
+                this.orchestrator().errorLogger().warning("PelionProcessor: No webhook record has been found. (OK)");
 
                 // none set
                 success = false;
@@ -1619,9 +1657,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // configure Pelion to use web sockets
     public boolean enableWebSockets() {
         if (this.isConfiguredAPIKey() == true) {
-            String url = "https://" + this.m_pelion_api_hostname + "/v" + this.m_connect_api_version + "/websocket/notification";
+            String url = "https://" + this.m_pelion_api_hostname + "/v" + this.m_connect_api_version + "/notification/websocket";
             String result = this.httpsPut(url);
             int http_code = this.getLastResponseCode();
+            
+            // DEBUG
+            this.errorLogger().warning("PelionProcessor: Websocket ENABLED: URL(PUT): " + url + " CODE: " + http_code + " RESULT: " + result);
+            
+            // check our response code...
             if (Utils.httpResponseCodeOK(http_code)) {
                 // announce
                 this.errorLogger().warning("Pelion: WebSocket notification channel ENABLED");
