@@ -32,8 +32,8 @@ import com.arm.pelion.bridge.core.Utils;
  * @author Doug Anson
  */
 public class LongPollProcessor extends Thread {
-    private static final int LONG_POLL_SHORT_WAIT_MAX = 2000;           // max ms after normal long poll operation
-    private static final int LONG_POLL_SHORT_WAIT_MIN = 500;            // min ms after normal long poll operation
+    private static final int LONG_POLL_SHORT_WAIT_MAX = 3000;           // max ms after normal long poll operation
+    private static final int LONG_POLL_SHORT_WAIT_MIN = 1000;           // min ms after normal long poll operation
     private static final int API_KEY_UNCONFIGURED_WAIT_MS = 600000;     // pause for 5 minutes if an unconfigured API key is detected
     private static final int API_KEY_CONFIGURED_WAIT_MS = 10000;        // pause for 10 seconds if a configured API key is detected
     private PelionProcessor m_pelion_processor = null;
@@ -105,29 +105,35 @@ public class LongPollProcessor extends Thread {
             Utils.waitForABit(this.errorLogger(),API_KEY_UNCONFIGURED_WAIT_MS);
         }
         else {
-            // OK
-            this.errorLogger().info("LongPollProcessor: (OK). http_code=" + this.m_pelion_processor.getLastResponseCode());
-            
-            // make sure we have a message to process...
-            if (response != null && response.length() > 0) {
-                // DEBUG
-                this.errorLogger().info("LongPollProcessor: processing recevied message: " + response + " http_code=" + this.m_pelion_processor.getLastResponseCode());
-                
-                // send whatever we get back as if we have received it via the webhook...
-                this.m_pelion_processor.processDeviceServerMessage(response,null);
-                
-                // wait briefly... just to slow things down a little bit...
-                Utils.waitForABit(this.errorLogger(),Utils.createRandomNumberWithinRange(LONG_POLL_SHORT_WAIT_MIN, LONG_POLL_SHORT_WAIT_MAX));
+            if (Utils.httpResponseCodeOK(last_code)) {
+                // make sure we have a message to process...
+                if (response != null && response.length() > 0) {
+                    // DEBUG
+                    this.errorLogger().info("LongPollProcessor: processing recevied message: " + response + " http_code=" + last_code);
+
+                    // send whatever we get back as if we have received it via the webhook...
+                    this.m_pelion_processor.processDeviceServerMessage(response,null);
+
+                    // wait briefly... just to slow things down a little bit...
+                    Utils.waitForABit(this.errorLogger(),Utils.createRandomNumberWithinRange(LONG_POLL_SHORT_WAIT_MIN, LONG_POLL_SHORT_WAIT_MAX));
+                }
+                else {
+                    // DEBUG
+                    this.errorLogger().info("LongPollProcessor: received message: <empty>. http_code=" + last_code);
+
+                    // nothing to process
+                    this.errorLogger().info("LongPollProcessor: Nothing to process (OK). http_code=" + last_code);
+
+                    // wait briefly... just to slow things down a little bit...
+                    Utils.waitForABit(this.errorLogger(),Utils.createRandomNumberWithinRange(LONG_POLL_SHORT_WAIT_MIN, LONG_POLL_SHORT_WAIT_MAX));
+                }
             }
             else {
-                // DEBUG
-                this.errorLogger().info("LongPollProcessor: received message: <empty>. http_code=" + this.m_pelion_processor.getLastResponseCode());
+                // error code but possibly OK... note the non-handled code
+                this.errorLogger().warning("LongPollProcessor: Received CODE: " + last_code);
                 
-                // nothing to process
-                this.errorLogger().info("LongPollProcessor: Nothing to process (OK). http_code=" + this.m_pelion_processor.getLastResponseCode());
-                
-                // wait briefly... just to slow things down a little bit...
-                Utils.waitForABit(this.errorLogger(),Utils.createRandomNumberWithinRange(LONG_POLL_SHORT_WAIT_MIN, LONG_POLL_SHORT_WAIT_MAX));
+                // wait briefly... just to slow things down a little bit more...
+                Utils.waitForABit(this.errorLogger(),Utils.createRandomNumberWithinRange(2*LONG_POLL_SHORT_WAIT_MIN,4*LONG_POLL_SHORT_WAIT_MAX));
             }
         }
     }

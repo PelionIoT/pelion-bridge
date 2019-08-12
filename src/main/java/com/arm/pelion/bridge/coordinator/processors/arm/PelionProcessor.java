@@ -174,12 +174,8 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         this.errorLogger().warning("PelionProcessor: Pagination Limit set to: " + this.m_max_devices_per_query + " device IDs per page retrieved");
         
-        // LongPolling Support
-        this.m_enable_long_poll = this.prefBoolValue("mds_enable_long_poll");
-        this.m_long_poll_uri = this.prefValue("mds_long_poll_uri");
-        
-        // WebSocket Support
-        this.m_enable_web_socket = this.prefBoolValue("mds_enable_web_socket");
+        // initialize the notification mechanism
+        this.initNotificationType();
         
         // display number of webhook setup retries allowed
         this.errorLogger().warning("PelionProcessor: Number of webhook setup retries configured to: " + this.m_webook_num_retries);
@@ -248,6 +244,45 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             else {
                 // No API Key set
                 this.errorLogger().warning("PelionProcessor: Webhook validator not started. API KEY not set (OK)");
+            }
+        }
+    }
+    
+    // initialize the notification type
+    private void initNotificationType() {
+        String notification_type = this.prefValue("mds_notfication_type");
+        if (notification_type != null && notification_type.length() > 0) {
+            // explicit 
+            if (notification_type.equalsIgnoreCase("webhook")) {
+                // 1. using webhooks
+                this.m_enable_long_poll = false;
+                this.m_enable_web_socket = false;
+                this.m_long_poll_uri = null;
+            }
+            else if (notification_type.equalsIgnoreCase("websocket")) {
+                // 2. using websockets
+                this.m_enable_long_poll = false;
+                this.m_enable_web_socket = true;
+                this.m_long_poll_uri = null;
+            }
+            else if (notification_type.contains("poll") || notification_type.contains("Poll")) {
+                // 3. LongPolling Support
+                this.m_enable_long_poll = true;
+                this.m_long_poll_uri = this.prefValue("mds_long_poll_uri");
+            }
+        }
+        else {
+            // BC LongPolling Support
+            this.m_enable_long_poll = this.prefBoolValue("mds_enable_long_poll");
+            this.m_long_poll_uri = this.prefValue("mds_long_poll_uri");
+
+            // BC WebSocket Support
+            this.m_enable_web_socket = this.prefBoolValue("mds_enable_web_socket");
+
+            // BC Prioritize: Websocket, LongPoll, Webhook
+            if (this.m_enable_web_socket) {
+                this.m_enable_long_poll = false;
+                this.m_long_poll_uri = null;
             }
         }
     }
@@ -1504,13 +1539,42 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
     
     // Long polling enabled or disabled?
-    private boolean longPollEnabled() {
+    public boolean longPollEnabled() {
         return (this.m_enable_long_poll == true && this.m_long_poll_uri != null && this.m_long_poll_uri.length() > 0);
     }
     
     // Web socket enabled or disabled?
-    private boolean webSocketEnabled() {
+    public boolean webSocketEnabled() {
         return this.m_enable_web_socket;
+    }
+    
+    // Reconnect the websocket
+    public boolean reconnectWebsocket() {
+        if (this.webSocketEnabled() == true && this.m_web_socket_processor != null) {
+            try {
+                // stop the socket processor
+                this.m_web_socket_processor.disconnect();
+                
+                // re-join
+                this.m_web_socket_processor.join();
+                
+                // destroy
+                this.m_web_socket_processor = null;
+            }
+            catch (Exception ex) {
+                // DEBUG
+                this.errorLogger().warning("PelionProcessor: Exception in reconnectWebsocket: " + ex.getMessage(),ex);
+                
+                // silent
+                return false;
+            }
+            
+            // now restart the websocket
+            this.m_web_socket_processor = new WebSocketProcessor(this);
+            this.m_web_socket_processor.startWebSocketListener();
+            return true;
+        }
+        return false;
     }
     
     // get the long polling URL
