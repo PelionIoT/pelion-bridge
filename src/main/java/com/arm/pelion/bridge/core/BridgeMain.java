@@ -95,8 +95,8 @@ public class BridgeMain implements Runnable {
         }
         
         // Override
-        max_pool_size = DEF_MAX_POOL_SIZE;
-        core_pool_size = DEF_CORE_POOL_SIZE;
+        //max_pool_size = DEF_MAX_POOL_SIZE;
+        //core_pool_size = DEF_CORE_POOL_SIZE;
         
         // Threading Pool Config
         this.errorLogger().warning("Main: Jetty Thread Executor Pool: initial pool: " + core_pool_size + " max: " + max_pool_size);
