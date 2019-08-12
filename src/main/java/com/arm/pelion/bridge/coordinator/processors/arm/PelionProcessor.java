@@ -1662,7 +1662,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             int http_code = this.getLastResponseCode();
             
             // DEBUG
-            this.errorLogger().warning("PelionProcessor: Websocket ENABLED: URL(PUT): " + url + " CODE: " + http_code + " RESULT: " + result);
+            this.errorLogger().info("PelionProcessor: Websocket ENABLED: URL(PUT): " + url + " CODE: " + http_code + " RESULT: " + result);
             
             // check our response code...
             if (Utils.httpResponseCodeOK(http_code)) {
