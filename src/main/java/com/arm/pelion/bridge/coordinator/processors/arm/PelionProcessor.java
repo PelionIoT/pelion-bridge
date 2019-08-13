@@ -383,29 +383,38 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // process the notification
     @Override
-    public synchronized void processNotificationMessage(HttpServletRequest request, HttpServletResponse response) {
-        // read the request...
-        String json = this.read(request);
-        if (json != null && json.length() > 0 && json.equalsIgnoreCase("{}") == false) {
-            // DEBUG
-            this.errorLogger().warning("PelionProcessor: processNotificationMessage: MESSAGE: " + json);
+    public void processNotificationMessage(HttpServletRequest request, HttpServletResponse response) {
+        try {
+            // read the request...
+            String json = this.read(request);
+            if (json != null && json.length() > 0 && json.equalsIgnoreCase("{}") == false) {
+                // DEBUG
+                this.errorLogger().info("PelionProcessor: processNotificationMessage: MESSAGE: " + json);
 
-            // Check for message duplication... 
-            if (this.isDuplicateMessage(json) == false) {
-                // record the "last" message
-                this.m_last_message = json;
-                
-                // process and route the Pelion message
-                this.processDeviceServerMessage(json, request);
+                // Check for message duplication... 
+                if (this.isDuplicateMessage(json) == false) {
+                    // record the "last" message
+                    this.m_last_message = json;
+
+                    // process and route the Pelion message
+                    this.processDeviceServerMessage(json, request);
+                }
+                else {
+                    // DUPLICATE!  So ignore it
+                    this.errorLogger().info("PelionProcessor: Duplicate message discovered... Ignoring(OK)...");
+                }
             }
             else {
-                // DUPLICATE!  So ignore it
-                this.errorLogger().info("PelionProcessor: Duplicate message discovered... Ignoring(OK)...");
+                // note that the message is trivial
+                this.errorLogger().info("PelionProcessor: Message is empty: " + json + "...(OK)");
             }
+            
+            // DEBUG
+            this.errorLogger().info("PelionProcessor: processNotificationMessage: MESSAGE: " + json);
         }
-        else {
-            // note that the message is trivial
-            this.errorLogger().info("PelionProcessor: Message is empty: " + json + "...(OK)");
+        catch (Exception ex) {
+            // DEBUG
+            this.errorLogger().warning("PelionProcessor: processNotificationMessage: EXCEPTION: " + ex.getMessage(),ex);
         }
         
         // ALWAYS send the response back as an ACK to Pelion
