@@ -219,17 +219,34 @@ public class WebSocketProcessor extends Thread implements WebSocketListener {
     public void onWebSocketClose(int statusCode, String reason) {
         // DEBUG
         this.errorLogger().warning("WebSocketProcessor: onClose(): Disconnected: " + statusCode + " Reason: " + reason);
+        try {
+            if (this.m_session != null) {
+                this.m_session.close();
+                this.m_session.disconnect();
+            }
+        }
+        catch(Exception ex) {
+            // silent
+        }
         
         // disconnect
-        if (this.m_ws != null) {
-            this.m_ws.destroy();
-            this.m_ws = null;
+        try {
+            if (this.m_ws != null) {
+                this.m_ws.destroy();
+                this.m_ws = null;
+            }
+        }
+        catch (Exception ex) {
+            // silent
         }
         
         // end our processing loop
         this.m_session = null;
         this.m_ws = null;
         this.m_running = false;
+       
+        // notify PelionProcessor that the websocket needs reconnecting...
+        this.m_pelion_processor.reconnectWebsocket();
     }
 
     @Override

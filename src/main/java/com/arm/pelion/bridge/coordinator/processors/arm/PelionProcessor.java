@@ -102,7 +102,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // websocket support
     private boolean m_enable_web_socket = false;
-    private WebSocketProcessor m_web_socket_processor = null;
+    private WebSocketProcessor m_websocket_processor = null;
     
     // maximum number of grouped device shadow create threads
     private int m_mds_max_shadow_create_threads = DEFAULT_MAX_SHADOW_CREATE_THREADS;
@@ -1588,16 +1588,16 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // Reconnect the websocket
     public boolean reconnectWebsocket() {
-        if (this.webSocketEnabled() == true && this.m_web_socket_processor != null) {
+        if (this.webSocketEnabled() == true && this.m_websocket_processor != null) {
             try {
                 // stop the socket processor
-                this.m_web_socket_processor.disconnect();
+                this.m_websocket_processor.disconnect();
                 
                 // re-join
-                this.m_web_socket_processor.join();
+                this.m_websocket_processor.join();
                 
                 // destroy
-                this.m_web_socket_processor = null;
+                this.m_websocket_processor = null;
             }
             catch (Exception ex) {
                 // DEBUG
@@ -1608,8 +1608,8 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
             
             // now restart the websocket
-            this.m_web_socket_processor = new WebSocketProcessor(this);
-            this.m_web_socket_processor.startWebSocketListener();
+            this.m_websocket_processor = new WebSocketProcessor(this);
+            this.m_websocket_processor.startWebSocketListener();
             return true;
         }
         return false;
@@ -1643,9 +1643,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
 
             // now begin to web socket listener for Pelion
-            if (this.m_web_socket_processor == null) {
-                this.m_web_socket_processor = new WebSocketProcessor(this);
-                this.m_web_socket_processor.startWebSocketListener();
+            if (this.m_websocket_processor == null) {
+                this.m_websocket_processor = new WebSocketProcessor(this);
+                this.m_websocket_processor.startWebSocketListener();
             }
         }
         else {
