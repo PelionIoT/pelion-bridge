@@ -692,7 +692,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             http_code = this.getLastResponseCode();
             
             // DEBUG
-            this.orchestrator().errorLogger().warning("PelionProcessor: getWebhook(): dispatch: " + dispatch_url + " CODE: " + http_code + " RESPONSE: " + json);
+            this.orchestrator().errorLogger().info("PelionProcessor: getWebhook(): dispatch: " + dispatch_url + " CODE: " + http_code + " RESPONSE: " + json);
             
             // see what the response is
             if (json != null && json.length() > 0) {
@@ -1596,8 +1596,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 // re-join
                 this.m_websocket_processor.join();
                 
+                // stop
+                this.m_websocket_processor.stop();
+                
                 // destroy
                 this.m_websocket_processor = null;
+                
+                // GC
+                System.gc();
             }
             catch (Exception ex) {
                 // DEBUG
