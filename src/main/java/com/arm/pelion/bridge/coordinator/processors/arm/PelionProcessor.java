@@ -162,6 +162,16 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             this.m_device_attribute_uri_list = list;
         }
         
+        // announce attribute settings
+        if (this.m_enable_attribute_gets == true) {
+            // enabled
+            this.errorLogger().warning("PelionProcessor: Attribute Retrieval ENABLED. URIs: " + Utils.stringListToString(list));
+        }
+        else {
+            // disabled
+            this.errorLogger().warning("PelionProcessor: Attribute Retrieval DISABLED. Defaults will be used (OK)");
+        }
+        
         // allocate the device attribute retrieval dispatch manager map
         this.m_dardm_map = new HashMap<>();
         this.m_dardm_thread_map = new HashMap<>();

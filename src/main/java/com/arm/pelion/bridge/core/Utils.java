@@ -1338,4 +1338,17 @@ public class Utils {
         }
         return str;
     }
+    
+    // convert a string list to a single string
+    public static String stringListToString(String list[]) {
+        String str = "{";
+        for(int i=0;list != null && i<list.length;++i) {
+            str = str + list[i];
+            if (i < (list.length -1)) {
+                str = str + ",";
+            }
+        }
+        str = str + "}";
+        return str;
+    }
 }
