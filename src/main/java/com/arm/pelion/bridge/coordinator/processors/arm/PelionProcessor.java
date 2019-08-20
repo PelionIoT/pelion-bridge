@@ -24,6 +24,7 @@ package com.arm.pelion.bridge.coordinator.processors.arm;
 
 import com.arm.pelion.bridge.coordinator.processors.core.LongPollProcessor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
+import com.arm.pelion.bridge.coordinator.processors.core.DeviceAttributeRetrievalDispatchManager;
 import com.arm.pelion.bridge.coordinator.processors.core.HttpProcessor;
 import com.arm.pelion.bridge.coordinator.processors.core.ShadowDeviceThreadDispatcher;
 import com.arm.pelion.bridge.coordinator.processors.core.WebSocketProcessor;
@@ -38,7 +39,6 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
-import com.google.api.client.util.Base64;
 import java.util.ArrayList;
 
 /**
@@ -46,7 +46,7 @@ import java.util.ArrayList;
  *
  * @author Doug Anson
  */
-public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface, AsyncResponseProcessor {
+public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface {
     // sanitize EPT (default is false)
     private static final boolean SANITIZE_EPT = false;
     
@@ -78,6 +78,13 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // Enable/Disable retrieval of device attributes (default is OFF)
     private boolean m_enable_attribute_gets = false;                            // true - enable device attribute retrieval, false - use defaults
+
+    // manufacturer, model, serial are the defaults... (key device metadata to retrieve...if enabled...)
+    private String m_device_attribute_uri_list[] = {"/3/0/0","/3/0/1","/3/0/2"};
+    
+    // device attribute retrieval manager (if enabled above)
+    private HashMap<String,DeviceAttributeRetrievalDispatchManager> m_dardm_map = null;
+    private HashMap<String,Thread> m_dardm_thread_map = null;
 
     // device metadata resource URI from configuration
     private String m_device_manufacturer_res = null;
@@ -134,9 +141,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // Maximum # of devices to query per GET
     private int m_max_devices_per_query = PELION_MAX_DEVICES_PER_QUERY;
     
-    // manufacturer, model, serial are the defaults...
-    private String m_device_attribute_uri_list[] = {"/3/0/0","/3/0/1","/3/0/2"};
-
     // constructor
     public PelionProcessor(Orchestrator orchestrator, HttpTransport http) {
         super(orchestrator, http);
@@ -151,6 +155,17 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // Last message buffer init
         this.m_last_message = null;
         
+        // configure attribute retrieval
+        this.m_enable_attribute_gets = orchestrator.preferences().booleanValueOf("mds_enable_attribute_gets");
+        String[] list = this.initAttributeURIList(orchestrator.preferences().valueOf("mds_attribute_uri_list"));
+        if (list != null && list.length > 0) {
+            this.m_device_attribute_uri_list = list;
+        }
+        
+        // allocate the device attribute retrieval dispatch manager map
+        this.m_dardm_map = new HashMap<>();
+        this.m_dardm_thread_map = new HashMap<>();
+
         // configure the maximum number of device shadow creates per group
         this.m_mds_max_shadow_create_threads = orchestrator.preferences().intValueOf("mds_max_shadow_create_threads");
         if (this.m_mds_max_shadow_create_threads <= 0) {
@@ -166,7 +181,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         
         // determine if the API key is configured or not
         this.setAPIKeyConfigured(this.apiToken());
-        
+                
         // get the requested pagination value
         this.m_max_devices_per_query = orchestrator.preferences().intValueOf("pelion_pagination_limit");
         if (this.m_max_devices_per_query <= 0) {
@@ -246,6 +261,30 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 this.errorLogger().warning("PelionProcessor: Webhook validator not started. API KEY not set (OK)");
             }
         }
+    }
+    
+    // initialize the attribute list 
+    private String[] initAttributeURIList(String json) {
+        String[] str_list = null;
+        
+        List list = this.orchestrator().getJSONParser().parseJsonToArray(json);
+        if (list != null && list.size() > 0) {
+            str_list = new String[list.size()];
+        }
+        for(int i=0;list != null && i<list.size() && str_list != null;++i) {
+            try {
+                 str_list[i] = (String)list.get(i);
+            }
+            catch (Exception ex) {
+                // malformed entry
+                this.errorLogger().warning("PelionProcessor: Exception in initAttributeURIList: " + ex.getMessage());
+                
+                // nullify
+                str_list = null;
+            }
+        }
+        
+        return str_list;
     }
     
     // initialize the notification type
@@ -1067,7 +1106,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                     Map resource = (Map) resources.get(i);
                     if (resource != null) {
                         // get the path value
-                        String path = (String) resource.get("path");
+                        String path =  Utils.valueFromValidKey(resource,"path","uri");
 
                         // look for /3/0
                         if (path != null && path.contains(this.m_device_attributes_path) == true && this.m_enable_attribute_gets == true) {
@@ -1094,37 +1133,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // return our status
         return has_device_attributes;
     }
-
-    // retrieve the actual device attributes
-    private void retrieveDeviceAttributes(Map endpoint, AsyncResponseProcessor processor) {
-        // get the device ID and device Type
-        String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
-        
-        // loop through the ur
-        for(int i=0;i<this.m_device_attribute_uri_list.length;++i) {
-            // Create the Device Attributes URL
-            String url = this.createCoAPURL(device_id, this.m_device_attribute_uri_list[i]);
-
-            // DEBUG
-            this.errorLogger().info("ATTRIBUTES: Calling GET to receive: " + url);
-
-            // Dispatch and get the response (an AsyncId)
-            String json_response = this.httpsGet(url,"text/plain", this.apiToken());
-            
-            // add the URI to the ID for the response
-            Map response = this.orchestrator().getJSONParser().parseJson(json_response);
-            response.put("uri",this.m_device_attribute_uri_list[i]);
-            json_response = this.orchestrator().getJSONGenerator().generateJson(response);
-            
-            // DEBUG
-            this.errorLogger().info("ATTRIBUTES: Saving RESPONSE: " + json_response);
-            
-            // record the response to get processed later
-            if (json_response != null) {
-                this.orchestrator().recordAsyncResponse(json_response, url, endpoint, processor);
-            }
-        }
-    }
     
     // Device Attribute Retrieval enabled/disabled
     public boolean deviceAttributeRetrievalEnabled() {
@@ -1132,57 +1140,114 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
 
     // check and dispatch the appropriate GETs to retrieve the actual device attributes
-    private void getActualDeviceAttributes(Map endpoint, AsyncResponseProcessor processor) {
+    private void getActualDeviceAttributes(Map endpoint) {
+        String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+        String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+        
         // dispatch GETs to retrieve the attributes from the endpoint... 
         if (this.hasDeviceAttributes(endpoint)) {
             // dispatch GETs to to retrieve and parse those attributes
-            this.retrieveDeviceAttributes(endpoint,processor);
+            this.retrieveDeviceAttributes(endpoint);
         }
         else {
-            // device does not have device attributes... so just use the defaults... 
-            AsyncResponseProcessor peer_processor = (AsyncResponseProcessor) endpoint.get("peer_processor");
-            if (peer_processor != null) {
-                // call the AsyncResponseProcessor within the peer...
-                peer_processor.processAsyncResponse(endpoint);
+           // call the orchestrator to complete any new device registration
+           this.errorLogger().warning("PelionProcessor: Completing device registration(no attributes): " + device_id);
+           this.orchestrator().completeNewDeviceRegistration(endpoint);
+        }
+    }
+    
+    // retrieve the actual device attributes
+    private void retrieveDeviceAttributes(Map endpoint) {
+        String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+        String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
+        
+        // see if we already have a retrieval manager for this device...
+        DeviceAttributeRetrievalDispatchManager manager = this.m_dardm_map.get(device_id);
+        
+        // initiate the manager and trigger all device attribute gets...
+        if (manager == null) {
+            try {
+                // DEBUG
+                this.errorLogger().info("PelionProcessor: Allocating device retrieval dispatch manager...");
+
+                // allocate the manager...start it and add it to the list...
+                manager = new DeviceAttributeRetrievalDispatchManager(this,endpoint,this.m_device_attribute_uri_list);
+                Thread t = new Thread(manager);
+                t.start();
+                this.m_dardm_map.put(device_id,manager);
+                this.m_dardm_thread_map.put(device_id,t);
             }
-            else {
-                // error - no peer AsyncResponseProcessor...
-                this.errorLogger().warning("PelionProcessor: No peer AsyncResponse processor. Device may not get addeded within peer.");
+            catch (Exception ex) {
+                this.errorLogger().warning("PelionProcessor: Exception during launch of dispatch manager: " + device_id + " MSG: " + ex.getMessage(),ex);
             }
+        }
+        else {
+            // already allocated... so ignore
+            this.errorLogger().warning("PelionProcessor: DispatchManager already allocated for device: " + device_id);
         }
     }
 
-    // parse the device attributes
-    private Map parseDeviceAttributes(Map response, Map endpoint) {
-        // Get the original URI from the request...
-        Map response_map = (Map)response.get("response_map");
-        Map orig_record = (Map)response.get("orig_record");
-        Map orig_endpoint = (Map)orig_record.get("orig_endpoint");
-        String uri = (String)response_map.get("uri");
+    // update our device attributes
+    public void updateDeviceAttributes(Map endpoint,ArrayList<HashMap<String,Object>> entries) {
+        String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+        String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
         
-        // Decode the payload
-        String b64_payload = (String)response.get("payload");
-        String payload = new String(Base64.decodeBase64(b64_payload));
+        // all attribute gets are complete... re-assemble here...
+        for(int i=0;entries != null && i<entries.size();++i) {
+            // get the ith payload value and URI
+            HashMap<String,Object> entry = entries.get(i);
+            String uri = (String)entry.get("uri");
+            Object value = entry.get("value");
+            
+            // update the appropriate value
+            if (uri != null && value != null) {
+                try {
+                    // XXX specific mappings - we should fix this longer term...
+                    if (uri.contains("3/0/0")) {
+                        endpoint.put("meta_mfg", (String)value);
+                        
+                        // DEBUG
+                        this.errorLogger().info("PelionProcessor(" + device_id +"): Device Manufacturer: " + value);
+                    }
+                    if (uri.contains("3/0/1")) {
+                        endpoint.put("meta_model", (String)value);
+                        
+                        // DEBUG
+                        this.errorLogger().info("PelionProcessor(" + device_id +"): Device Model: " + value);
+                    }
+                    if (uri.contains("3/0/2")) {
+                        endpoint.put("meta_serial", (String)value);
+                        
+                        // DEBUG
+                        this.errorLogger().info("PelionProcessor(" + device_id +"): Device Serial: " + value);
+                    }
+                }
+                catch (Exception ex) {
+                    // casting exception
+                    this.errorLogger().warning("PelionProcessor: Exception while parsing device attributes. URI: " + uri + " VALUE: " + value + " MSG: " + ex.getMessage(),ex);
+                }
+            }  
+        }
         
-        // DEBUG
-        this.errorLogger().warning("parseDeviceAttributes: RESPONSE: " + response);
-        this.errorLogger().warning("parseDeviceAttributes: URI: " + uri + " VALUE: " + payload);
-        
-        // update the appropriate value
-        if (uri != null && payload != null) {
-            if (uri.contains("3/0/0")) {
-                endpoint.put("meta_mfg", payload);
-            }
-            if (uri.contains("3/0/1")) {
-                endpoint.put("meta_model", payload);
-            }
-            if (uri.contains("3/0/2")) {
-                endpoint.put("meta_serial", payload);
-            }
-        }  
+        // clean up the manager list
+        try {
+            // pull from the list...
+            this.m_dardm_map.remove(device_id);
 
-        // return the updated endpoint
-        return endpoint;
+            // halt and join
+            Thread t = this.m_dardm_thread_map.get(device_id);
+            this.m_dardm_thread_map.remove(device_id);
+            if (t != null) {
+                t.join();
+            }
+        }
+        catch (InterruptedException ex) {
+            // silent
+        }
+        
+        // process as new device registration...
+        this.errorLogger().warning("PelionProcessor: Completing device registration(with attributes): " + device_id);
+        this.orchestrator().completeNewDeviceRegistration(endpoint);
     }
     
     // pull the initial device metadata from Pelion.. add it to the device endpoint map
@@ -1194,7 +1259,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
         // record the device type for the device ID
         this.orchestrator().getEndpointTypeManager().setEndpointTypeFromEndpointName(device_id, device_type);
-            
 
         // initialize the endpoint with defaulted device attributes
         this.initDeviceWithDefaultAttributes(endpoint);
@@ -1203,7 +1267,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         endpoint.put("peer_processor", processor);
 
         // invoke GETs to retrieve the actual attributes (we are the processor for the callbacks...)
-        this.getActualDeviceAttributes(endpoint, this);
+        this.getActualDeviceAttributes(endpoint);
     }
 
     //
@@ -1262,49 +1326,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private void pullDeviceTotalMemoryInfo(Map endpoint) {
         //this.m_device_descriptive_location_res
         endpoint.put("meta_total_mem", "n/a");
-    }
-    
-    // callback for device attribute processing... 
-    @Override
-    public boolean processAsyncResponse(Map response) {
-        // DEBUG
-        //this.errorLogger().info("processAsyncResponse(MDS): RESPONSE: " + response);
-
-        // Get the originating record
-        HashMap<String, Object> record = (HashMap<String, Object>) response.get("orig_record");
-        if (record != null) {
-            Map orig_endpoint = (Map) record.get("orig_endpoint");
-            if (orig_endpoint != null) {
-                // Get the peer processor
-                AsyncResponseProcessor peer_processor = (AsyncResponseProcessor) orig_endpoint.get("peer_processor");
-                if (peer_processor != null) {
-                    // parse the device attributes
-                    this.errorLogger().info("PelionProcessor: ORIG endpoint: " + orig_endpoint);
-                    this.errorLogger().info("PelionProcessor: RESPONSE: " + response);
-                    Map endpoint = this.parseDeviceAttributes(response,orig_endpoint);
-                    
-                    // DEBUG
-                    this.errorLogger().info("PelionProcessor: endpoint: " + endpoint);
-                    
-                    // call the AsyncResponseProcessor within the peer to finalize the device
-                    peer_processor.processAsyncResponse(endpoint);
-                }
-                else {
-                    // error - no peer AsyncResponseProcessor...
-                    this.errorLogger().warning("PelionProcessor: No peer AsyncResponse processor. Device may not get addeded within peer: " + record);
-                }
-            }
-            else {
-                // error - no peer AsyncResponseProcessor...
-                this.errorLogger().warning("PelionProcessor: No peer AsyncResponse processor. Device may not get addeded within peer: " + orig_endpoint);
-            }
-
-            // return processed status (defaulted)
-            return true;
-        }
-
-        // return non-processed
-        return false;
     }
     
     // init any device discovery
@@ -1368,8 +1389,8 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // Save ept for ep in the peers...
         this.orchestrator().getEndpointTypeManager().setEndpointTypeFromEndpointName(device_id, device_type);
 
-        // process as new device registration...
-        this.orchestrator().completeNewDeviceRegistration(endpoint);
+        // get the device metadata
+        this.pullDeviceMetadata(endpoint, null);
     }
     
     // create the registered devices retrieval URL
@@ -1572,7 +1593,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
 
     // create the CoAP operation URL
-    private String createCoAPURL(String ep_name, String uri) {
+    public String createCoAPURL(String ep_name, String uri) {
         String url = this.createBaseURL() + "/endpoints/" + ep_name + uri;
         return url;
     }
@@ -1614,7 +1635,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 // GC
                 System.gc();
             }
-            catch (Exception ex) {
+            catch (InterruptedException ex) {
                 // DEBUG
                 this.errorLogger().warning("PelionProcessor: Exception in reconnectWebsocket: " + ex.getMessage(),ex);
                 

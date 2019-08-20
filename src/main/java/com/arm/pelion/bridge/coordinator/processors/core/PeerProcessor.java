@@ -107,6 +107,9 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
 
             // set the endpoint type for this endpoint name
             this.setEndpointTypeFromEndpointName(device_id, device_type);
+            
+            // pull our metadata and complete the new registration
+            this.orchestrator().pullDeviceMetadata(endpoint,null);
          }
     }
     
