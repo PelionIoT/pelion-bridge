@@ -275,9 +275,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // initialize the attribute list 
     private String[] initAttributeURIList(String json) {
-        String[] str_list = null;
+        String str_list[] = null;
         
-        List list = this.orchestrator().getJSONParser().parseJsonToArray(json);
+        List list = this.orchestrator().getJSONParser().parseJsonToStringArray(json);
         if (list != null && list.size() > 0) {
             str_list = new String[list.size()];
         }
@@ -293,7 +293,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 str_list = null;
             }
         }
-        
+                
         return str_list;
     }
     
