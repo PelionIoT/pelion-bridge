@@ -662,7 +662,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
 
     // OVERRIDE: Connection stock MQTT...
     protected boolean connectMQTT() {
-        if (this.mqtt() != null) {
+        if (this.mqtt() != null && this.m_mqtt_host != null && this.m_mqtt_host.length() > 0 && this.m_mqtt_host.equalsIgnoreCase("Your_MQTT_broker_IP_address_Goes_Here") == false) {
             return this.mqtt().connect(this.m_mqtt_host, this.m_mqtt_port, null, true);
         }
         return false;
