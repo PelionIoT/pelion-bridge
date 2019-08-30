@@ -71,6 +71,10 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // default endpoint type
     public static String DEFAULT_ENDPOINT_TYPE = "default";                    // default endpoint type
     
+    // skip validation checks (default is false - ENABLE validation checks...)
+    private boolean m_skip_validation_check = false;
+    
+    // pelion Host and Port
     private String m_pelion_api_hostname = null;
     private int m_pelion_api_port = 0;
     private String m_pelion_cloud_uri = null;
@@ -160,6 +164,17 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String[] list = this.initAttributeURIList(orchestrator.preferences().valueOf("mds_attribute_uri_list"));
         if (list != null && list.length > 0) {
             this.m_device_attribute_uri_list = list;
+        }
+        
+        // configure override of validation checks
+        this.m_skip_validation_check = orchestrator.preferences().booleanValueOf("mds_skip_validation_checks");
+        if (this.m_skip_validation_check == true) {
+            // Disable validation checks...
+            this.errorLogger().warning("PelionProcessor: Validation Checks for notifications are DISABLED");
+        }
+        else {
+            // default
+            this.errorLogger().warning("PelionProcessor: Validation Checks for notifications are ENABLED");
         }
         
         // announce attribute settings
@@ -1799,28 +1814,35 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // validate the notification
     private Boolean validateNotification(HttpServletRequest request) {
-        if (request != null) {
-            boolean validated = false;
-            if (request.getHeader("Authentication") != null) {
-                String calc_hash = this.orchestrator().createAuthenticationHash();
-                String header_hash = request.getHeader("Authentication");
-                validated = Utils.validateHash(header_hash, calc_hash);
+        if (this.m_skip_validation_check == false) {
+            if (request != null) {
+                boolean validated = false;
+                if (request.getHeader("Authentication") != null) {
+                    String calc_hash = this.orchestrator().createAuthenticationHash();
+                    String header_hash = request.getHeader("Authentication");
+                    validated = Utils.validateHash(header_hash, calc_hash);
 
-                // DEBUG
-                if (!validated) {
-                    this.errorLogger().warning("PelionProcessor: Notification Validation FAILED: calc: " + calc_hash + " header: " + header_hash);
+                    // DEBUG
+                    if (!validated) {
+                        this.errorLogger().warning("PelionProcessor: Notification Validation FAILED: calc: " + calc_hash + " header: " + header_hash);
+                    }
+
+                    // return validation status
+                    return validated;
                 }
-
-                // return validation status
-                return validated;
+                else {
+                    // using push-url. No authentication possible.
+                    return true;
+                }
             }
             else {
-                // using push-url. No authentication possible.
+                // no request - so assume we are validated
                 return true;
             }
         }
         else {
-            // no request - so assume we are validated
+            // skip validation check...always return true
+            this.errorLogger().info("PelionProcessor: Validation Check OFF. Not checked (OK).");
             return true;
         }
     }
