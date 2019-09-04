@@ -25,9 +25,9 @@ package com.arm.pelion.bridge.coordinator.processors.core;
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.core.Utils;
-import java.net.HttpCookie;
+import java.io.IOException;
 import java.net.URI;
-import org.eclipse.jetty.client.ProtocolHandler;
+import java.net.URISyntaxException;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
@@ -40,7 +40,7 @@ import org.eclipse.jetty.websocket.client.WebSocketClient;
  */
 public class WebSocketProcessor extends Thread implements WebSocketListener {
     private static final int WEBSOCKET_TIMEOUT_MS = 6000000;            // set a very long timeout... 
-       private PelionProcessor m_pelion_processor = null;
+    private PelionProcessor m_pelion_processor = null;
     private boolean m_running = false;
     private String m_uri = null;
     private String m_auth = null;
@@ -116,7 +116,7 @@ public class WebSocketProcessor extends Thread implements WebSocketListener {
                     this.m_ws.connect(this,new URI(this.m_uri),request);
                     return true;
                 }
-                catch (Exception ex2) {
+                catch (IOException | URISyntaxException ex2) {
                     this.errorLogger().warning("WebSocketProcessor: Exception in connect: " + ex2.getMessage());
                 }
             }
@@ -133,12 +133,22 @@ public class WebSocketProcessor extends Thread implements WebSocketListener {
         if (this.m_session != null) {
             try {
                 this.m_session.disconnect();
-                this.m_session.close();
+                this.m_session.close();        
+            }
+            catch (IOException ex) {
+                // silent
+            }
+        }
+        if (this.m_ws != null) {
+            try {
+                this.m_ws.destroy();
             }
             catch (Exception ex) {
                 // silent
             }
         }
+        this.m_session = null;
+        this.m_ws = null;
     }
 
     // initialize the websocket
@@ -225,7 +235,7 @@ public class WebSocketProcessor extends Thread implements WebSocketListener {
                 this.m_session.disconnect();
             }
         }
-        catch(Exception ex) {
+        catch(IOException ex) {
             // silent
         }
         
