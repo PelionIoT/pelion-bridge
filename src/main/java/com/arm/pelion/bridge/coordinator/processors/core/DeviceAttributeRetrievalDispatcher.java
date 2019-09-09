@@ -27,6 +27,7 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProc
 import com.arm.pelion.bridge.core.BaseClass;
 import com.arm.pelion.bridge.core.Utils;
 import com.google.api.client.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -102,16 +103,29 @@ public class DeviceAttributeRetrievalDispatcher extends BaseClass implements Asy
         int http_code = this.m_processor.getLastResponseCode();
 
         // add the URI to the ID for the response
-        Map response = this.m_processor.orchestrator().getJSONParser().parseJson(json_response);
-        response.put("uri",this.m_uri);
-        json_response = this.m_processor.orchestrator().getJSONGenerator().generateJson(response);
+        Map response = new HashMap<String,Object>();
+        try {
+            // make sure we have something to parse...
+            if (json_response == null || json_response.length() == 0) {
+                this.errorLogger().info("PelionDeviceAttributeDispatcher(" + this.m_uri + "): RESPONSE is NULL");
+            }
+            else {
+                response = this.m_processor.orchestrator().getJSONParser().parseJson(json_response);
+                response.put("uri",this.m_uri);
+                json_response = this.m_processor.orchestrator().getJSONGenerator().generateJson(response);
 
-        // DEBUG
-        this.errorLogger().info("PelionDeviceAttributeDispatcher(" + this.m_uri + "): URL: " + url + " CODE: " + http_code + " RESPONSE: " + response);
+                // DEBUG
+                this.errorLogger().info("PelionDeviceAttributeDispatcher(" + this.m_uri + "): URL: " + url + " CODE: " + http_code + " RESPONSE: " + response);
 
-        // record the response to get processed later
-        if (json_response != null) {
-            this.m_processor.orchestrator().recordAsyncResponse(json_response, url, this.m_endpoint, this);
+                // record the response to get processed later
+                if (json_response != null) {
+                    this.m_processor.orchestrator().recordAsyncResponse(json_response, url, this.m_endpoint, this);
+                }
+            }
+        }
+        catch (Exception ex) {
+            // error
+            this.errorLogger().warning("DeviceAttributeRetrievalDispatcher: Exception: " + ex.getMessage(),ex);
         }
         
         // Sleep until done
