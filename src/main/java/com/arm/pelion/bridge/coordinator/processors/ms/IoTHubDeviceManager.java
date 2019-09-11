@@ -162,15 +162,9 @@ public class IoTHubDeviceManager extends DeviceManager {
     }
     
     // create the device twin's reported properties JSON
-    private String createDeviceTwinReportedPropertiesJSON(Map message) {
-        return this.createDeviceTwinReportedPropertiesJSON(new HashMap<String,Object>(), message);
-    }
-    
-    // create the device twin's reported properties JSON
-    private String createDeviceTwinReportedPropertiesJSON(Map device, Map message) {
+    private String createDeviceTwinReportedPropertiesJSON(String device_id, String etag, Map message) {
         // DEBUG
         this.errorLogger().info("createDeviceTwinReportedPropertiesJSON: Message: " + message);
-        this.errorLogger().info("createDeviceTwinReportedPropertiesJSON: DEVICE: " + device);
         
         // create the desired map
         HashMap<String,Object> desired = new HashMap<>();
@@ -199,11 +193,51 @@ public class IoTHubDeviceManager extends DeviceManager {
         // create the digital twin map
         HashMap<String,Object> twin = new HashMap<>();
         twin.put("properties", properties);
-        twin.put("deviceId",device.get("deviceId"));
-        twin.put("etag",device.get("etag"));
+        twin.put("deviceId",device_id);
+        twin.put("etag",etag);
 
         // create the JSON string
         return this.orchestrator().getJSONGenerator().generateJson(twin);
+    }
+    
+    // setup initial twin resource values
+    public boolean establishInitialTwinProperties(String device_id,String etag, String url,Map message) {
+        // DEBUG
+        this.errorLogger().info("IoTHub(DT): deviceId: " + device_id + " ETAG: " + etag + " URL: " + url + " MESSAGE: " + message);
+        
+        // only if enabled...
+        if (this.m_enable_twin_properties == true && etag != null && url != null && message != null && message.isEmpty() == false) {
+            // now we need to update the device twin with desired propertes
+            String twin_update_url = this.createDeviceTwinURLFromDeviceURL(url);
+
+            // create the new reported properties JSON as the payload
+            String twin_update_payload = this.createDeviceTwinReportedPropertiesJSON(device_id,etag,message);
+
+            // dispatch via PATCH
+            String twin_result = this.httpsPatch(twin_update_url, twin_update_payload);
+            int http_code = this.m_http.getLastResponseCode();
+
+            // DEBUG
+            this.errorLogger().warning("IoTHub: registerNewDevice(twin patch): URL: " + twin_update_url + " CODE: " + http_code +  " DATA: " + twin_update_payload + " RESULT: " + twin_result);
+
+            // check the result
+            if (Utils.httpResponseCodeOK(http_code)) {
+                // DEBUG
+                this.errorLogger().info("IoTHub: registerNewDevice(twin patch): SUCCESS. RESULT: " + twin_result);
+                return true;
+            }
+            else {
+                // Unable to update twin details
+                this.errorLogger().warning("IoTHub: registerNewDevice (unable to update twin properties): FAILURE: " + this.m_http.getLastResponseCode() + " RESULT: " + twin_result);
+                return false;
+            }
+        }
+        else if (this.m_enable_twin_properties == true) {
+            // missing parameters... so skip
+            this.errorLogger().warning("IoTHub: Missing parameters for Digital Twin Properties Integration... skipping... (OK)");
+            return true;
+        }
+        return true;
     }
 
     // create and register a new device
@@ -234,63 +268,19 @@ public class IoTHubDeviceManager extends DeviceManager {
         if (Utils.httpResponseCodeOK(http_code)) {
             // DEBUG
             this.errorLogger().info("IoTHub: registerNewDevice(create device): SUCCESS. RESULT: " + device_result);
-            if (this.m_enable_twin_properties == true) {
-                // first we have to activate the twin message processor (MQTT-only)
-                com.arm.pelion.bridge.coordinator.processors.ms.mqtt.IoTHubProcessor mqtt_processor = (com.arm.pelion.bridge.coordinator.processors.ms.mqtt.IoTHubProcessor)this.m_processor;
-                boolean processor_running = mqtt_processor.activateTwinDeviceSideMessageProcessor(iothub_ep_name, ep_name);
-                if (processor_running == true) {
-                    // now we need to update the device twin with desired propertes
-                    String twin_update_url = this.createDeviceTwinURLFromDeviceURL(url);
+            
+            // save off a few things for the digital twin support
+            HashMap<String,Object> edit_message = (HashMap<String,Object>)message;
+            Map device = this.orchestrator().getJSONParser().parseJson(device_result);
+            edit_message.put("etag",(String)device.get("etag"));
+            edit_message.put("dev_url",url);
+            
+            // DEBUG
+            this.errorLogger().info("IoTHub: registerNewDevice: saving off device details...");
 
-                    // create the new reported properties JSON as the payload
-                    Map device = (HashMap<String,Object>)this.orchestrator().getJSONParser().parseJson(device_result);
-                    String twin_update_payload = this.createDeviceTwinReportedPropertiesJSON(device,message);
-
-                    // dispatch via PATCH
-                    String twin_result = this.httpsPatch(twin_update_url, twin_update_payload);
-                    http_code = this.m_http.getLastResponseCode();
-
-                    // DEBUG
-                    this.errorLogger().info("IoTHub: registerNewDevice(twin patch): URL: " + twin_update_url + " CODE: " + http_code +  " DATA: " + twin_update_payload + " RESULT: " + twin_result);
-
-                    // check the result
-                    if (Utils.httpResponseCodeOK(http_code)) {
-                        // DEBUG
-                        this.errorLogger().info("IoTHub: registerNewDevice(twin patch): SUCCESS. RESULT: " + device_result);
-
-                        // DEBUG
-                        this.errorLogger().info("IoTHub: registerNewDevice: saving off device details...");
-
-                        // save off device details...
-                        this.saveAddDeviceDetails(iothub_ep_name, device_type, device_result);
-                        status = true;
-                    }
-                    else {
-                        // Unable to update twin details
-                        this.errorLogger().warning("IoTHub: registerNewDevice (unable to update twin properties): FAILURE: " + this.m_http.getLastResponseCode() + " RESULT: " + twin_result);
-
-                        // but save off anyway
-                        this.saveAddDeviceDetails(iothub_ep_name, device_type, device_result);
-                        status = true;
-                    }
-                }
-                else {
-                    // MQTT processor not running to process twin resource operations
-                    this.errorLogger().warning("IoTHub: registerNewDevice (twin):  MQTT twin message processor not running... unable to process twin property changes... (OK)");
-                
-                    // but save off anyway
-                    this.saveAddDeviceDetails(iothub_ep_name, device_type, device_result);
-                    status = true;
-                }
-            }
-            else {
-                // DEBUG
-                this.errorLogger().info("IoTHub: registerNewDevice: saving off device details...");
-
-                // save off device details...
-                this.saveAddDeviceDetails(iothub_ep_name, device_type, device_result);
-                status = true;
-            }
+            // save off device details...
+            this.saveAddDeviceDetails(iothub_ep_name, device_type, device_result);
+            status = true;
         }
         else if (http_code == 409) {
             // DEBUG

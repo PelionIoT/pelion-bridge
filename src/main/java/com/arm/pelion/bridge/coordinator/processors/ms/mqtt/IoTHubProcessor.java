@@ -49,6 +49,9 @@ import org.fusesource.mqtt.client.Topic;
  * @author Doug Anson
  */
 public class IoTHubProcessor extends GenericConnectablePeerProcessor implements Runnable, DeviceManagerToPeerProcessorInterface, ReconnectionInterface, ConnectionCreator, Transport.ReceiveListener, PeerProcessorInterface, AsyncResponseProcessor {    
+    // Digital Twin Notification Topic
+    private static final String DT_NOTIFICATION_TOPIC = "$iothub/twin/res/#";
+    
     // maximum number of IoTHub device shadows per worker
     private static final int MAX_IOTHUB_DEVICE_SHADOWS = 25000;                             // limitation: # ephemeral ports
     
@@ -57,7 +60,7 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     private static final long SAS_TOKEN_RECREATE_INTERVAL_MS = 360 * 24 * 60 * 60 * 1000;   // number of days to wait before re-creating the SAS Token
     private static final String IOTHUB_AUTH_QUALIFIER = "SharedAccessSignature";            // IoTHub SAS Token qualifier
     
-    private int m_num_coap_topics = 1;                                  // # of MQTT Topics for CoAP verbs in IoTHub implementation
+    private int m_num_coap_topics = 2;                                                      // # of MQTT Topics for CoAP verbs in IoTHub implementation
     private String m_iot_hub_observe_notification_topic = null;
     private String m_iot_hub_coap_cmd_topic_base = null;
     private String m_iot_hub_name = null;
@@ -152,13 +155,23 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         return MAX_IOTHUB_DEVICE_SHADOWS;
     }
     
-    // setup the twin sync for this device 
-    public boolean activateTwinDeviceSideMessageProcessor(String iothub_ep_name,String ep) {
+    // is this a digital twin notification?
+    private boolean isDigitalTwinNotification(String topic,String message) {
+        if (topic != null && topic.contains("twin/res") == true) {
+            return true;
+        }
+        return false;
+    }
+    
+    // process the digital twin notification
+    private void processDigitalTwinNotification(String topic,String message) {
         // DEBUG
-        this.errorLogger().warning("IoTHub(MQTT): Activating properties change processor for: " + iothub_ep_name + "(" + ep + ")");
+        this.errorLogger().warning("IoTHub(MQTT): Twin Notification TOPIC: " + topic + " MESSAGE: " + message);
         
-        // return our status
-        return true;
+        // publish changes down to device via CoAP PUT
+        
+        // publish completion of patch back to IoTHub
+        // $iothub/twin/PATCH/properties/reported/?$rid="{RID}
     }
     
     // initialize the SAS Token
@@ -642,6 +655,15 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         // IOTHUB DeviceIDPrefix
         String iothub_ep_name = this.getEndpointNameFromTopic(topic);
         
+        // process any digital twin notifications
+        if (this.isDigitalTwinNotification(topic,message)) {
+            // process the digital twin notification 
+            this.processDigitalTwinNotification(topic,message);
+            
+            // return... we are done
+            return;
+        }
+        
         // process any API requests...
         if (this.isApiRequest(message)) {
             // process the message
@@ -758,6 +780,13 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
                 // if successful, validate (i.e. add...) an MQTT Connection
                 if (success == true) {
                     success = this.validateMQTTConnection(this, device_id, device_type, null);
+                }
+                
+                // if successsful... initialize the device twin
+                if (success == true) {
+                    String etag = (String)message.get("etag");
+                    String url = (String)message.get("dev_url");
+                    success = this.m_device_manager.establishInitialTwinProperties(iothub_ep_name,etag,url,message);
                 }
             }
 
@@ -945,14 +974,24 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
             // IOTHUB DeviceID Prefix
             String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
 
+            // for IoTHub, there is only 1 topic for all CoAP verbs...
             topic_string_list[0] = this.customizeTopic(this.m_iot_hub_coap_cmd_topic_base, iothub_ep_name);
+            
+            // We add the Digital Twin Notification Topic... 
+            topic_string_list[1] = DT_NOTIFICATION_TOPIC;
+            
+            // create the topics...
             for (int i = 0; i < m_num_coap_topics; ++i) {
                 list[i] = new Topic(topic_string_list[i], QoS.AT_LEAST_ONCE);
             }
+            
+            // save for later...
             topic_data = new HashMap<>();
             topic_data.put("topic_list", list);
             topic_data.put("topic_string_list", topic_string_list);
         }
+        
+        // return the topic data
         return topic_data;
     }
     
