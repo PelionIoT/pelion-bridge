@@ -120,7 +120,7 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
             this.m_iot_hub_coap_cmd_topic_base = this.orchestrator().preferences().valueOf("iot_event_hub_coap_cmd_topic", this.m_suffix).replace("__COMMAND_TYPE__", "#");
 
             // IoTHub Device Manager - will initialize and upsert our IoTHub bindings/metadata
-            this.m_device_manager = new IoTHubDeviceManager(this.m_suffix, http, this, this.m_iot_hub_name, this.m_iot_hub_sas_token);
+            this.m_device_manager = new IoTHubDeviceManager(this.m_suffix, http, this, this.m_iot_hub_name, this.m_iot_hub_sas_token, true);
 
             // set the MQTT password template
             this.m_iot_hub_password_template = this.orchestrator().preferences().valueOf("iot_event_hub_mqtt_password", this.m_suffix).replace("__IOT_EVENT_HUB__", this.m_iot_hub_name);
@@ -150,6 +150,15 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     @Override
     protected int getMaxNumberOfShadows() {
         return MAX_IOTHUB_DEVICE_SHADOWS;
+    }
+    
+    // setup the twin sync for this device 
+    public boolean activateTwinDeviceSideMessageProcessor(String iothub_ep_name,String ep) {
+        // DEBUG
+        this.errorLogger().warning("IoTHub(MQTT): Activating properties change processor for: " + iothub_ep_name + "(" + ep + ")");
+        
+        // return our status
+        return true;
     }
     
     // initialize the SAS Token
