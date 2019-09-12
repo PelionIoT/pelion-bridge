@@ -492,6 +492,13 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         // IOTHUB DeviceID Prefix
         this.errorLogger().info("IoTHub(MQTT): subscribing to topics...");
         String iothub_ep_name = this.addDeviceIDPrefix(ep_name);
+        
+        // DEBUG
+        this.errorLogger().warning("IoTHub(MQTT): subscribing to topics for: " + iothub_ep_name);
+        for(int i=0;i<topics.length;++i) {
+            this.errorLogger().warning("IoTHub(MQTT): Topic[" + i + "]: " + topics[i].toString());
+        }
+        
         this.mqtt(iothub_ep_name).subscribe(topics);
         
         // for IoTHub, we dont have to subscribe to any special topics for API requests... 
@@ -774,19 +781,10 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
                 // get the device ID and device Type
                 String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
                 String device_id = Utils.valueFromValidKey(message, "id", "ep");
-                // IOTHUB DeviceID Prefix
-                String iothub_ep_name = this.addDeviceIDPrefix(device_id);
-
+                
                 // if successful, validate (i.e. add...) an MQTT Connection
                 if (success == true) {
                     success = this.validateMQTTConnection(this, device_id, device_type, null);
-                }
-                
-                // if successsful... initialize the device twin
-                if (success == true) {
-                    String etag = (String)message.get("etag");
-                    String url = (String)message.get("dev_url");
-                    success = this.m_device_manager.establishInitialTwinProperties(iothub_ep_name,etag,url,message);
                 }
             }
 
@@ -913,23 +911,38 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         
         try {
             // create the device in IoTHub
-            this.errorLogger().info("completeNewDeviceRegistration: calling registerNewDevice(): " + endpoint);
             this.registerNewDevice(endpoint);
-            this.errorLogger().info("IoTHub(MQTT): registerNewDevice() completed");
+            this.errorLogger().info("IoTHub(MQTT): completeNewDeviceRegistration() completed");
         }
         catch (Exception ex) {
-            this.errorLogger().warning("IoTHub(MQTT): caught exception in registerNewDevice(): " + endpoint, ex);
+            this.errorLogger().warning("IoTHub(MQTT): caught exception in completeNewDeviceRegistration(): " + endpoint, ex);
         }
 
         try {
             // subscribe for IoTHub as well..
-            this.errorLogger().info("IoTHub(MQTT): calling subscribe(): " + endpoint);
+            this.errorLogger().info("IoTHub(MQTT): subscribing to MQTT topics in completeNewDeviceRegistration()... ");
             this.subscribe(device_id, device_type);
-            this.errorLogger().info("IoTHub(MQTT): subscribe() completed");
+            this.errorLogger().info("IoTHub(MQTT): subscribe to MQTT topics completed in completeNewDeviceRegistration()");
         }
         catch (Exception ex) {
-            this.errorLogger().warning("IoTHub(MQTT): caught exception in subscribe(): " + endpoint, ex);
+            this.errorLogger().warning("IoTHub(MQTT): caught subscribe exception in completeNewDeviceRegistration(): " + endpoint, ex);
         }
+        
+        try {
+            // initialize the device twin properties...
+            String etag = (String)endpoint.get("etag");
+            String url = (String)endpoint.get("dev_url");
+            String iothub_ep_name = this.addDeviceIDPrefix(device_id);
+            this.errorLogger().info("IoTHub(MQTT): initialzing DT integration in completeNewDeviceRegistration()... ");
+            this.m_device_manager.establishInitialTwinProperties(iothub_ep_name,etag,url,endpoint);
+            this.errorLogger().info("IoTHub(MQTT): initialzing DT integration completed in completeNewDeviceRegistration()... ");
+        }
+        catch (Exception ex) {
+             this.errorLogger().warning("IoTHub(MQTT): caught DT property init exception in completeNewDeviceRegistration(): " + endpoint, ex);
+        }
+        
+        // DEBUG
+        this.errorLogger().info("IoTHub(MQTT): completeNewDeviceRegistration() DONE. (OK) ");
     }
     
     // MS IoTHub Specific: DeviceID Prefix enabler
@@ -1092,7 +1105,10 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
                         // if we have topics in our param list, lets go ahead and subscribe
                         if (topics != null) {
                             // DEBUG
-                            this.errorLogger().info("IoTHub(MQTT): re-subscribing to topics...");
+                            this.errorLogger().info("IoTHub(MQTT): re-subscribing to topics for: " + iothub_ep_name);
+                            for(int i=0;i<topics.length;++i) {
+                                this.errorLogger().info("IoTHub(MQTT): Topic[" + i + "]: " + topics[i].toString());
+                            }
 
                             // re-subscribe
                             this.mqtt(iothub_ep_name).subscribe(topics);

@@ -206,7 +206,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         this.errorLogger().info("IoTHub(DT): deviceId: " + device_id + " ETAG: " + etag + " URL: " + url + " MESSAGE: " + message);
         
         // only if enabled...
-        if (this.m_enable_twin_properties == true && etag != null && url != null && message != null && message.isEmpty() == false) {
+        if (this.m_enable_twin_properties == true && etag != null && etag.length() > 0 && url != null && url.length() > 0 && message != null && message.isEmpty() == false) {
             // now we need to update the device twin with desired propertes
             String twin_update_url = this.createDeviceTwinURLFromDeviceURL(url);
 
@@ -237,7 +237,11 @@ public class IoTHubDeviceManager extends DeviceManager {
             this.errorLogger().warning("IoTHub: Missing parameters for Digital Twin Properties Integration... skipping... (OK)");
             return true;
         }
-        return true;
+        else {
+            // Disabled
+            this.errorLogger().warning("IoTHub: Digital Twin Properties Integration DISABLED... skipping... (OK)");
+            return true;
+        }
     }
 
     // create and register a new device
