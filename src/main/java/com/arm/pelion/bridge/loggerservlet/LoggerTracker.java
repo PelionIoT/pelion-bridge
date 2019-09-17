@@ -36,18 +36,32 @@ import java.util.Queue;
  */
 public class LoggerTracker implements Runnable {
     private static final int RECHECK_INTERVAL_MS = 800;            // sleep interval for draining log queue
-    private static final LoggerTracker me = new LoggerTracker();
-    private static Thread me_thread = new Thread(me);
-    private boolean is_running = true;
-    private Queue<String> m_log_queue = new LinkedList<String>();
-    private List<LoggerWebSocket> m_members = new ArrayList<>();
+    private static LoggerTracker m_instance = null;
+    private Thread me_thread = null;
+    private boolean is_running = false;
+    private Queue<String> m_log_queue = null;
+    private List<LoggerWebSocket> m_members = null;
     private ErrorLogger m_logger = null;
     
     public static LoggerTracker getInstance() {
-        if (me_thread.isAlive() == false) {
-            me_thread.start();
+        if (LoggerTracker.m_instance == null) {
+            LoggerTracker.m_instance = new LoggerTracker();
         }
-        return me;
+        return LoggerTracker.m_instance;
+    }
+    
+    // constuctor
+    public LoggerTracker() {
+        try {
+            this.m_log_queue = new LinkedList<String>();
+            this.m_members = new ArrayList<>();
+            this.is_running = true;
+            this.me_thread = new Thread(this);
+            this.me_thread.start();
+        }
+        catch (Exception ex) {
+            // silent
+        }
     }
     
     public void setErrorLogger(ErrorLogger logger) {
@@ -58,20 +72,23 @@ public class LoggerTracker implements Runnable {
         return this.m_logger;
     }
     
-    public void join(LoggerWebSocket socket) {
+    public synchronized void join(LoggerWebSocket socket) {
         socket.setErrorLogger(this.m_logger);
-        m_members.add(socket);
+        this.m_members.add(socket);
     }
 
-    public void leave(LoggerWebSocket socket) {
-        m_members.remove(socket);
+    public synchronized void leave(LoggerWebSocket socket) {
+        if (socket != null) {
+            this.m_members.remove(socket);
+            socket.close();
+        }
     }
 
-    public void write(String message) {
+    public synchronized void write(String message) {
         this.putMessage(message);
     }
     
-    private synchronized void putMessage(String message) {
+    private void putMessage(String message) {
         this.m_log_queue.add(message);
     }
     
@@ -86,14 +103,19 @@ public class LoggerTracker implements Runnable {
     private void writeLogCache() {
         while(this.is_running == true) {
             while(this.getMessageCount() > 0) {
-                String message = this.getNextMessage();
-                for(LoggerWebSocket member: m_members) {
-                    for (int i=0;member != null && i<member.m_sessions.size();++i) {
-                        if (member.m_sessions.get(i).isOpen() == true) {
-                            // dump the message and remove
-                            member.m_sessions.get(i).getRemote().sendStringByFuture(message);
+                try {
+                    String message = this.getNextMessage();
+                    for(LoggerWebSocket member: m_members) {
+                        for (int i=0;member != null && i<member.m_sessions.size();++i) {
+                            if (member.m_sessions.get(i).isOpen() == true) {
+                                // dump the message and remove
+                                member.m_sessions.get(i).getRemote().sendStringByFuture(message);
+                            }
                         }
                     }
+                }
+                catch (Exception ex) {
+                    // silent...
                 }
             }
             

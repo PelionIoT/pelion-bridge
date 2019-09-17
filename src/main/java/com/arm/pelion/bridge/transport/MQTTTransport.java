@@ -88,7 +88,7 @@ public class MQTTTransport extends Transport implements GenericSender {
     private static final int DEFAULT_BACKOFF_MS = 10000; // 10 seconds
     
     // initial backoff in ms
-    private int m_backoff_ms = DEFAULT_BACKOFF_MS;    
+    private int m_backoff_ms = DEFAULT_BACKOFF_MS;       
     
     // Access our instance 
     private static volatile MQTTTransport m_self = null;
@@ -114,9 +114,9 @@ public class MQTTTransport extends Transport implements GenericSender {
     private boolean m_set_mqtt_version = true;  
     private String[] m_unsubscribe_topics = null;
     private boolean m_retain = DEFAULT_RETAIN_ENABLED;
-
+    
     // port remapping option
-    private boolean m_port_remap = true; // default is true...
+    private boolean m_port_remap = true;
     
     // reset mode/state
     private boolean m_is_in_reset = false;
@@ -145,7 +145,7 @@ public class MQTTTransport extends Transport implements GenericSender {
     private String m_pubkey_pem_filename = null;
     
     // Debug X.509 Auth Creds
-    private boolean m_debug_creds = false;
+    private boolean m_debug_creds = true;
     
     // connection details
     private String m_ep_name = null;
@@ -189,7 +189,7 @@ public class MQTTTransport extends Transport implements GenericSender {
         this.m_has_connected = false;
         this.m_is_in_reset = false;
         this.m_retain = false;
-        this.m_port_remap = true; 
+        this.m_port_remap = true;
         
         this.m_mqtt_use_ssl = this.prefBoolValue("mqtt_use_ssl", this.m_suffix);
         this.m_debug_creds = this.prefBoolValue("mqtt_debug_creds", this.m_suffix);
@@ -628,7 +628,7 @@ public class MQTTTransport extends Transport implements GenericSender {
      * @param id 
      * @return
      */
-    public boolean connect(String host, int port, String clientID, boolean clean_session, String id) {
+    public synchronized boolean connect(String host, int port, String clientID, boolean clean_session, String id) {
         int num_tries = this.prefIntValue("mqtt_connect_retries", this.m_suffix);
         
         // build out the URL connection string
@@ -776,7 +776,12 @@ public class MQTTTransport extends Transport implements GenericSender {
                     try {
                         // wait a bit
                         //Utils.waitForABit(this.errorLogger(), this.m_sleep_time);
-                            
+                        
+                        // DEBUG
+                        if (this.m_debug_creds == true) {
+                            this.showConnectionInfo(url,clean_session);
+                        }
+                        
                         // attempt connection...record our connection status
                         this.m_connected = false;
                         this.m_endpoint = endpoint;
@@ -799,6 +804,7 @@ public class MQTTTransport extends Transport implements GenericSender {
                                 this.m_connect_client_id = this.m_client_id;
                                 this.m_connect_clean_session = clean_session;
                                 this.m_connect_id = id;
+                                this.m_backoff_ms = DEFAULT_BACKOFF_MS;
                             }
                             else {
                                 // connection failure
@@ -880,7 +886,7 @@ public class MQTTTransport extends Transport implements GenericSender {
      * @return true - processed (or empty), false - failure
      */
     @Override
-    public boolean receiveAndProcess() {
+    public synchronized boolean receiveAndProcess() {
         if (this.isConnected()) {
             try {
                 // receive the MQTT message and process it...
@@ -1004,10 +1010,10 @@ public class MQTTTransport extends Transport implements GenericSender {
             if (this.m_reconnector != null) {
                 // DEBUG
                 this.errorLogger().info("resetConnection(MQTT): restarting MQTT connection for device: " + this.m_ep_name);
-
+                
                 // disconnect
                 this.disconnect(true);
-                
+
                 // end us, restart with a new connection... so adios... 
                 this.m_reconnector.startReconnection(this.m_ep_name,this.m_ep_type,this.m_subscribe_topics);
 
@@ -1132,7 +1138,7 @@ public class MQTTTransport extends Transport implements GenericSender {
      * @param qos
      * @return send status
      */
-    public boolean sendMessage(String topic, String message, QoS qos) {
+    public synchronized boolean sendMessage(String topic, String message, QoS qos) {
         boolean sent = false;
         if (this.m_connection != null && this.m_connection.isConnected() == true && message != null) {
             try {
@@ -1154,7 +1160,7 @@ public class MQTTTransport extends Transport implements GenericSender {
         }
         else if (this.m_connection != null && message != null) {
             // unable to send (not connected yet)
-            this.errorLogger().warning("sendMessage: NOT CONNECTED. Unable to send message: " + message);
+            this.errorLogger().warning("sendMessage: Send Failed(connected?). Unable to send message: " + message);
             
             // attempt reset (guarded by initial_connect vs. subsquent connect)
             this.resetConnection();
@@ -1202,7 +1208,9 @@ public class MQTTTransport extends Transport implements GenericSender {
         MQTTMessage message = null;
         try {
             // DEBUG
-            this.errorLogger().info("receiveMessage: getting next MQTT message...");
+            this.errorLogger().info("receiveAndProcessMessage(MQTT): waiting for next MQTT message...");
+            
+            // wait for the next message
             message = this.getNextMessage();
             if (this.m_listener != null && message != null) {
                 // call the registered listener to process the received message
@@ -1238,7 +1246,7 @@ public class MQTTTransport extends Transport implements GenericSender {
     }
 
     // Disconnect from MQTT broker
-    public void disconnect(boolean clear_all) {
+    public synchronized void disconnect(boolean clear_all) {
         if (this.m_connection != null) {
             // DEBUG
             this.errorLogger().info("MQTT: disconnecting from MQTT Broker.. ");
@@ -1373,7 +1381,7 @@ public class MQTTTransport extends Transport implements GenericSender {
         }
     }
     
-     // backoff on reconnection
+    // backoff on reconnection
     private void backoff() {
         // DEBUG
         this.errorLogger().warning("MQTTTransport: Backing off connection attempt: " + this.m_backoff_ms + " (ms)...");

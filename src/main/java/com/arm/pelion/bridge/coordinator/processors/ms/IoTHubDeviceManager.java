@@ -50,7 +50,7 @@ public class IoTHubDeviceManager extends DeviceManager {
     private String m_iot_event_hub_device_id_prefix = null;
     
     // toggle to enable/disable use of device twin resource properties
-    private boolean m_enable_twin_properties = true;
+    private boolean m_enable_twin_properties = false;
 
     // constructor
     public IoTHubDeviceManager(DeviceManagerToPeerProcessorInterface processor, HttpTransport http, String hub_name, String sas_token, boolean enable_twin_properties) {
@@ -168,11 +168,13 @@ public class IoTHubDeviceManager extends DeviceManager {
         
         // create the desired map
         HashMap<String,Object> desired = new HashMap<>();
-        desired.put("endpointName",(String)message.get("ep"));
-        desired.put("endpointType",(String)message.get("ept"));
+        HashMap<String,Object> pelion = new HashMap<>();
+        pelion.put("endpointName",(String)message.get("ep"));
+        pelion.put("endpointType",(String)message.get("ept"));
         
         // loop through the LWM2M resources and add them as well
         List resources = (List)message.get("resources");
+        HashMap<String,Object> lwm2m_resources = new HashMap<>();
         for(int i=0;resources != null && i<resources.size();++i) {
             Map resource = (Map)resources.get(i);
             String uri = (String)resource.get("path");
@@ -181,10 +183,16 @@ public class IoTHubDeviceManager extends DeviceManager {
             if (Utils.isHandledURI(uri) == false) {
                 if (rt != null && rt.length() > 0) {
                     // interesting resource... so add it...
-                    desired.put(rt,"n/a");
+                    HashMap<String,Object> lwm2m = new HashMap<>();
+                    lwm2m.put("rt",rt);
+                    lwm2m.put("value","n/a");
+                    lwm2m.put("obs",obs);
+                    lwm2m_resources.put(uri,lwm2m);
                 }
             }
         }
+        pelion.put("lwm2m",lwm2m_resources);
+        desired.put("pelion",pelion);
         
         // create the properties map
         HashMap<String,Object> properties = new HashMap<>();

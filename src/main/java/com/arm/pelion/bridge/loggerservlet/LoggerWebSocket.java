@@ -40,33 +40,58 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket;
  */
 @WebSocket
 public class LoggerWebSocket {
-    public ArrayList<Session> m_sessions = new ArrayList<>();
+    public ArrayList<Session> m_sessions = null;
     private ErrorLogger m_logger = null;
+    
+    // constructor
+    public LoggerWebSocket() {
+        this.m_sessions = new ArrayList<>();
+        this.m_logger = null;
+    }
     
     public void setErrorLogger(ErrorLogger logger) {
         this.m_logger = logger;
+    }
+    
+    // close
+    public void close() {
+        for(int i=0;i<this.m_sessions.size();++i) {
+            try {
+                Session s = this.m_sessions.get(i);
+                s.disconnect();
+                s.close();
+            }
+            catch (IOException ex) {
+                // silent
+            }
+        }
+        this.m_sessions.clear();
     }
     
     @OnWebSocketConnect
     public void onConnect(Session session) throws IOException {
         this.m_sessions.add(session);
         LoggerTracker.getInstance().join(this);
-        
-        // DEBUG
-        //this.m_logger.info("LoggerWebSocket: Connected to: " + session.getRemoteAddress());
     }
 
     @OnWebSocketClose
     public void onClose(Session session, int status, String reason) {
-        LoggerTracker.getInstance().leave(this);
-        this.m_sessions.remove(session);
-        
-        // DEBUG
-        //this.m_logger.info("LoggerWebSocket: Disconnected from: " + session.getRemoteAddress());
+        // close and remove...
+        this.onError(session, null);
     }
 
     @OnWebSocketError
     public void onError(Session session, Throwable error) {
-        this.m_logger.info("LoggerWebSocket: Exception caught: " + error.getMessage() + ". Session: " + session);
+        try {
+            if (LoggerTracker.getInstance() != null) {
+                LoggerTracker.getInstance().leave(this);
+            }
+        }
+        catch (Exception ex) {
+            // silent
+        }
+        if (this.m_sessions != null) {
+            this.m_sessions.remove(session);
+        }
     }
 }
