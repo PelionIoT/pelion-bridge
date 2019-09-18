@@ -712,7 +712,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
     }
 
     // PROTECTED: get the MQTT transport for a given clientID
-    protected synchronized MQTTTransport mqtt(String id) {
+    protected MQTTTransport mqtt(String id) {
         if (this.m_mqtt != null) {
             return this.m_mqtt.get(id);
         }
