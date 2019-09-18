@@ -660,7 +660,7 @@ public class HttpTransport extends BaseClass {
                 this.saveETagValue(((HttpsURLConnection) connection).getHeaderFields());
                 
                 // DEBUG
-                this.errorLogger().info("HttpTransport(" + verb +"):  URL: " + url_str + " CODE: " + this.getLastResponseCode() + " DATA: " + data + " RESULT: " + result);
+                //this.errorLogger().info("HttpTransport(" + verb +"):  URL: " + url_str + " CODE: " + this.getLastResponseCode() + " DATA: " + data + " RESULT: " + result);
             }
             else {
                 // non-SSL not supported

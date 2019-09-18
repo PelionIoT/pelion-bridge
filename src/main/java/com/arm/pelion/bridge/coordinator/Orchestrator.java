@@ -437,7 +437,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     }
 
     @Override
-    public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {
+    public synchronized void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {
         if (this.m_pelion_processor != null) {
             this.pelion_processor().pullDeviceMetadata(endpoint, processor);
         }
@@ -454,7 +454,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     }
 
     @Override
-    public void recordAsyncResponse(String response, String uri, Map ep, AsyncResponseProcessor processor) {
+    public synchronized void recordAsyncResponse(String response, String uri, Map ep, AsyncResponseProcessor processor) {
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).recordAsyncResponse(response, uri, ep, processor);
         }
@@ -462,7 +462,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
 
     // Message: registration
     @Override
-    public void processNewRegistration(Map message) {
+    public synchronized void processNewRegistration(Map message) {
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).processNewRegistration(message);
         }
@@ -471,7 +471,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
 
     // Message: reg-updates
     @Override
-    public void processReRegistration(Map message) {
+    public synchronized void processReRegistration(Map message) {
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).processReRegistration(message);
         }
@@ -480,7 +480,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     
     // Message: device-deletions (mbed Cloud)
     @Override
-    public String[] processDeviceDeletions(Map message) {
+    public synchronized String[] processDeviceDeletions(Map message) {
         ArrayList<String> deletions = new ArrayList<>();
         
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
@@ -496,7 +496,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
 
     // Message: de-registrations
     @Override
-    public String[] processDeregistrations(Map message) {
+    public synchronized String[] processDeregistrations(Map message) {
         ArrayList<String> deregistrations = new ArrayList<>();
             
         // loop through the list and process the de-registrations
@@ -513,7 +513,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
 
     // Message: registrations-expired
     @Override
-    public String[] processRegistrationsExpired(Map message) {
+    public synchronized String[] processRegistrationsExpired(Map message) {
         ArrayList<String> registrations_expired = new ArrayList<>();
         
         // only if devices are removed on de-regsistration 
@@ -530,14 +530,14 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     
     // complete new device registration
     @Override
-    public void completeNewDeviceRegistration(Map message) {
+    public synchronized void completeNewDeviceRegistration(Map message) {
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).completeNewDeviceRegistration(message);
         }
     }
 
     @Override
-    public void processAsyncResponses(Map message) {
+    public synchronized void processAsyncResponses(Map message) {
         for (int i = 0; this.m_peer_processor_list != null && i < this.m_peer_processor_list.size(); ++i) {
             this.peerProcessor(i).processAsyncResponses(message);
         }

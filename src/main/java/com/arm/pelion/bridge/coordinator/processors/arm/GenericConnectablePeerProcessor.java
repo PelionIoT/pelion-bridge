@@ -688,7 +688,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
     }
 
     // add a MQTT transport instance
-    protected void addMQTTTransport(String id, MQTTTransport mqtt) {
+    protected synchronized void addMQTTTransport(String id, MQTTTransport mqtt) {
         if (this.m_mqtt != null) {
             this.m_mqtt.remove(id);
             this.m_mqtt.put(id, mqtt);
@@ -712,7 +712,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
     }
 
     // PROTECTED: get the MQTT transport for a given clientID
-    protected MQTTTransport mqtt(String id) {
+    protected synchronized MQTTTransport mqtt(String id) {
         if (this.m_mqtt != null) {
             return this.m_mqtt.get(id);
         }
@@ -720,7 +720,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
     }
 
     // PROTECTED: remove MQTT Transport for a given clientID
-    protected void remove(String id) {
+    protected synchronized void remove(String id) {
         if (this.m_mqtt != null) {
             this.m_mqtt.remove(id);
         }
