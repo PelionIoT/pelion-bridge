@@ -465,7 +465,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 }
                 else {
                     // DUPLICATE!  So ignore it
-                    this.errorLogger().info("PelionProcessor: Duplicate message discovered... Ignoring(OK)...");
+                    this.errorLogger().warning("PelionProcessor: Duplicate message discovered... Ignoring(OK)...");
                 }
             }
             else {
@@ -1134,7 +1134,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                         String path =  Utils.valueFromValidKey(resource,"path","uri");
 
                         // look for /3/0
-                        if (path != null && path.contains(this.m_device_attributes_path) == true && this.m_enable_attribute_gets == true) {
+                        if (path != null && path.contains(this.m_device_attributes_path) == true && this.deviceAttributeRetrievalEnabled() == true) {
                             // we have device attributes in this endpoint... go get 'em. 
                             has_device_attributes = true;
                         }

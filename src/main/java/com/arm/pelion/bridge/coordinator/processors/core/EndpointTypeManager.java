@@ -54,11 +54,13 @@ public class EndpointTypeManager extends BaseClass {
 
     // get the endpoint type from the endpoint name (if cached...)
     public String getEndpointTypeFromEndpointName(String ep) {
+        String ept = (String)this.m_endpoint_type_list.get(ep);
+        
         // DEBUG
-        this.errorLogger().info("EndpointTypeManager: Getting Type for: " + ep);
+        this.errorLogger().info("EndpointTypeManager: EP: " + ep + " EPT: " + ept);
         
         // return the Endpoint Type
-        return (String)this.m_endpoint_type_list.get(ep);
+        return ept;
     }    
 
     // set the endpoint type from a given endpoint name
@@ -66,7 +68,7 @@ public class EndpointTypeManager extends BaseClass {
         if (type != null && type.length() > 0) {
             if (this.isBannedDevice(endpoint) == false) {
                 // DEBUG
-                this.errorLogger().info("EndpointTypeManager: Setting Type: " + type + " for EP: " + endpoint);
+                this.errorLogger().info("EndpointTypeManager: Setting EPT: " + type + " for EP: " + endpoint);
 
                 // set the endpoint type 
                 this.m_endpoint_type_list.put(endpoint,type);

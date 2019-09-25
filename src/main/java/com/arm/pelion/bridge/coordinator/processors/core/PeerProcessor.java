@@ -184,53 +184,65 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // get the list of parsed notifications
         List notifications = (List) data.get("notifications");
         for (int i = 0; notifications != null && i < notifications.size(); ++i) {
-            Map notification = (Map) notifications.get(i);
+            try {
+                Map notification = (Map) notifications.get(i);
 
-            // decode the Payload...
-            String b64_coap_payload = (String) notification.get("payload");
-            String decoded_coap_payload = Utils.decodeCoAPPayload(b64_coap_payload);
+                // decode the Payload...
+                String b64_coap_payload = (String) notification.get("payload");
+                String decoded_coap_payload = Utils.decodeCoAPPayload(b64_coap_payload);
 
-            // DEBUG
-            //this.errorLogger().info("processIncomingDeviceServerMessage(Peer): Decoded Payload: " + decoded_coap_payload);
-            // Try a JSON parse... if it succeeds, assume the payload is a composite JSON value...
-            Map json_parsed = this.tryJSONParse(decoded_coap_payload);
-            if (json_parsed != null && json_parsed.isEmpty() == false) {
-                // add in a JSON object payload value directly... 
-                notification.put("value", Utils.retypeMap(json_parsed, this.fundamentalTypeDecoder()));             // its JSON (flat...)                                                   // its JSON 
+                // DEBUG
+                //this.errorLogger().info("processIncomingDeviceServerMessage(Peer): Decoded Payload: " + decoded_coap_payload);
+                // Try a JSON parse... if it succeeds, assume the payload is a composite JSON value...
+                Map json_parsed = this.tryJSONParse(decoded_coap_payload);
+                if (json_parsed != null && json_parsed.isEmpty() == false) {
+                    // add in a JSON object payload value directly... 
+                    notification.put("value", Utils.retypeMap(json_parsed, this.fundamentalTypeDecoder()));             // its JSON (flat...)                                                   // its JSON 
+                }
+                else {
+                    // add in a decoded payload value as a fundamental type...
+                    notification.put("value", this.fundamentalTypeDecoder().getFundamentalValue(decoded_coap_payload)); // its a Float, Integer, or String
+                }
+
+                // we will send the raw CoAP JSON... WatsonIoT can parse that... 
+                String coap_raw_json = this.jsonGenerator().generateJson(notification);
+
+                // strip off []...
+                String coap_json_stripped = this.stripArrayChars(coap_raw_json);
+
+                // get the device ID and device Type
+                String ep_type = Utils.valueFromValidKey(notification, "endpoint_type", "ept");
+                String ep_name = Utils.valueFromValidKey(notification, "id", "ep");
+                if (ep_type == null) {
+                    ep_type = this.getEndpointTypeFromEndpointName(ep_name);
+                }
+     
+                // get the resource URI
+                String uri = (String) notification.get("path");
+
+                // send it as JSON over the observation sub topic
+                String topic = this.createObservationTopic(ep_type, ep_name, uri);
+                
+                // encapsulate into a coap/device packet...
+                String coap_json = coap_json_stripped;
+
+                // DEBUG
+                this.errorLogger().info("PeerProcessor: Active subscription for ep_name: " + ep_name + " ep_type: " + ep_type + " uri: " + uri);
+                this.errorLogger().info("PeerProcessor: Publishing notification: payload: " + coap_json + " topic: " + topic);
+
+                // WARN if we have a null EPT... may have notification data processing loss...
+                if (ep_type == null || ep_type.length() == 0) {
+                    // optional warning
+                    this.errorLogger().info("PeerProcessor(processNotification): WARNING: EPT is NULL. TOPIC: " + topic + " MESSAGE: " + coap_json);
+                }
+
+                // publish to Peer...
+                this.sendMessage(topic, coap_json);
             }
-            else {
-                // add in a decoded payload value as a fundamental type...
-                notification.put("value", this.fundamentalTypeDecoder().getFundamentalValue(decoded_coap_payload)); // its a Float, Integer, or String
+            catch (Exception ex) {
+                // caught exception in processing notifications...
+                this.errorLogger().warning("PeerProcessor: Exception while processing notifications: " + ex.getMessage(),ex);
             }
-
-            // we will send the raw CoAP JSON... WatsonIoT can parse that... 
-            String coap_raw_json = this.jsonGenerator().generateJson(notification);
-
-            // strip off []...
-            String coap_json_stripped = this.stripArrayChars(coap_raw_json);
-            
-            // get the device ID and device Type
-            String ep_type = Utils.valueFromValidKey(notification, "endpoint_type", "ept");
-            String ep_name = Utils.valueFromValidKey(notification, "id", "ep");
-            if (ep_type == null) {
-                ep_type = this.getEndpointTypeFromEndpointName(ep_name);
-            }
-
-            // get the resource URI
-            String uri = (String) notification.get("path");
-
-            // send it as JSON over the observation sub topic
-            String topic = this.createObservationTopic(ep_type, ep_name, uri);
-
-            // encapsulate into a coap/device packet...
-            String coap_json = coap_json_stripped;
-
-            // DEBUG
-            this.errorLogger().info("PeerProcessor: Active subscription for ep_name: " + ep_name + " ep_type: " + ep_type + " uri: " + uri);
-            this.errorLogger().info("PeerProcessor: Publishing notification: payload: " + coap_json + " topic: " + topic);
-
-            // publish to Peer...
-            this.sendMessage(topic, coap_json);
         }
     }
     
