@@ -49,7 +49,10 @@ import java.util.UUID;
  *
  * @author Doug Anson
  */
-public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface {    
+public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface {
+    // Enable/Disable DeviceRequest API usage
+    private static final boolean DEFAULT_ENABLE_DEVICE_REQUEST_API = false;
+    
     // sanitize EPT (default is false)
     private static final boolean SANITIZE_EPT = false;
     
@@ -195,6 +198,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         
         // enable or disable DeviceRequest API
         this.m_enable_device_request_api = orchestrator.preferences().booleanValueOf("mds_enable_device_request_api");
+        if (this.m_enable_device_request_api == false) {
+            this.m_enable_device_request_api = DEFAULT_ENABLE_DEVICE_REQUEST_API;
+        }
         if (this.m_enable_device_request_api == true) {
             // enabled
             this.errorLogger().warning("PelionProcessor: DeviceRequest API ENABLED");
