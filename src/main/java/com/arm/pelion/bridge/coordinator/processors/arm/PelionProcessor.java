@@ -53,6 +53,12 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // Enable/Disable DeviceRequest API usage
     private static final boolean DEFAULT_ENABLE_DEVICE_REQUEST_API = false;
     
+    // DeviceRequest Expiry (in seconds)
+    private static final int DEVICE_REQUEST_EXPIRY_SECS = 7200;
+    
+    // DeviceRequest Retry (times...)
+    private static final int DEVICE_REQUEST_RETRY = 1;
+    
     // sanitize EPT (default is false)
     private static final boolean SANITIZE_EPT = false;
     
@@ -1099,11 +1105,12 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 
         // Determine if we are using the DeviceRequest API or the traditional v2 connect API...
         if (this.m_enable_device_request_api == true) {
-            // DeviceRequest API used
-            url = this.createDeviceRequestURL(ep_name);
-            
             // create a DeviceRequest AsyncID
             String async_id = this.createDeviceRequestAsyncID();
+            String device_request_options="&expiry-seconds=" + DEVICE_REQUEST_EXPIRY_SECS + "&retry=" + DEVICE_REQUEST_RETRY;
+            
+            // DeviceRequest API used
+            url = this.createDeviceRequestURL(ep_name,async_id,device_request_options);
             
             // create the body for the DeviceRequest
             String device_request_body_json = this.createDeviceRequestBody(verb,uri,value,options);
@@ -1705,8 +1712,8 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     }
 
     // create the DeviceRequest URL
-    private String createDeviceRequestURL(String ep_name) {
-        return this.createBaseURL() + "/device-requests/" + ep_name;
+    private String createDeviceRequestURL(String ep_name,String async_id,String options) {
+        return this.createBaseURL() + "/device-requests/" + ep_name + "?async-id=" + async_id + options;
     }
     
     // create the CoAP operation URL
