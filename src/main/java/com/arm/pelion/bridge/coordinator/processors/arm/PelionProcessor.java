@@ -33,6 +33,7 @@ import com.arm.pelion.bridge.core.ApiResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.core.Utils;
 import com.arm.pelion.bridge.transport.HttpTransport;
+import com.fasterxml.uuid.Generators;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,13 +41,15 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorInterface;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.UUID;
 
 /**
  * Pelion Peer Processor - this HTTP based processor integrates with the REST API of Pelion for the device shadow bridge functionality
  *
  * @author Doug Anson
  */
-public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface {
+public class PelionProcessor extends HttpProcessor implements Runnable, PelionProcessorInterface {    
     // sanitize EPT (default is false)
     private static final boolean SANITIZE_EPT = false;
     
@@ -102,6 +105,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     private String m_device_attributes_path = null;
     private String m_device_attributes_content_type = null;
+    
+    // enable DeviceRequest API
+    private boolean m_enable_device_request_api = false;
     
     // Long Poll vs Webhook usage
     private boolean m_using_callback_webhooks = false;
@@ -185,6 +191,17 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         else {
             // disabled
             this.errorLogger().warning("PelionProcessor: Attribute Retrieval DISABLED. Defaults will be used (OK)");
+        }
+        
+        // enable or disable DeviceRequest API
+        this.m_enable_device_request_api = orchestrator.preferences().booleanValueOf("mds_enable_device_request_api");
+        if (this.m_enable_device_request_api == true) {
+            // enabled
+            this.errorLogger().warning("PelionProcessor: DeviceRequest API ENABLED");
+        }
+        else {
+            // disabled
+            this.errorLogger().warning("PelionProcessor: DeviceRequest API DISABLED");
         }
         
         // allocate the device attribute retrieval dispatch manager map
@@ -1038,55 +1055,119 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             this.errorLogger().info("PelionProcessor: Exception during JSON parse of message: " + json + "... ignoring.", ex);
         }
     }
-
+    
+    // create the DeviceRequest AsyncID
+    private String createDeviceRequestAsyncID() {
+        UUID uuid = Generators.timeBasedGenerator().generate();
+        return uuid.toString();
+    }
+    
+    // create the DeviceRequest Body
+    private String createDeviceRequestBody(String verb, String uri, String value, String options) {
+        HashMap<String,String> body = new HashMap<>();
+        body.put("method",verb);
+        if (options != null && options.length() > 0) {
+            body.put("uri",uri + "?" + options);
+        }
+        else {
+            body.put("uri",uri);
+        }
+        if (value != null && value.length() > 0) {
+            body.put("payload-b64",Base64.getEncoder().encodeToString(value.getBytes()));
+        }
+        return this.orchestrator().getJSONGenerator().generateJson(body);
+    }
+    
+    // create the DeviceRequest AsyncResponse Message
+    private String createDeviceRequestAsyncResponseMessage(String async_id) {
+        HashMap<String,String> message = new HashMap<>();
+        message.put("async-id",async_id);
+        return this.orchestrator().getJSONGenerator().generateJson(message);
+    }
+    
     // process endpoint resource operation request
     @Override
     public String processEndpointResourceOperation(String verb, String ep_name, String uri, String value, String options) {
         String json = null;
-        String url = this.createCoAPURL(ep_name, uri);
-
-        // add our options if they are specified
-        if (options != null && options.length() > 0 && options.contains("=") == true) {
-            // There is no way to validate that these options dont break the request... there may also be security issues here. 
-            url += "?" + options;
-        }
-
-        if (verb != null && verb.length() > 0) {
-            // dispatch the Pelion REST based on CoAP verb received
-            if (verb.equalsIgnoreCase(("get"))) {
-                json = this.httpsGet(url);
-                int http_code = this.getLastResponseCode();
-                this.errorLogger().info("PelionProcessor: Invoked GET: " + url + " CODE: " + http_code);
-                if (json == null) json = "";
+        String url = null;
+                
+        // Determine if we are using the DeviceRequest API or the traditional v2 connect API...
+        if (this.m_enable_device_request_api == true) {
+            // DeviceRequest API used
+            url = this.createDeviceRequestURL(ep_name);
+            
+            // create a DeviceRequest AsyncID
+            String async_id = this.createDeviceRequestAsyncID();
+            
+            // create the body for the DeviceRequest
+            String device_request_body_json = this.createDeviceRequestBody(verb,uri,value,options);
+            
+            // dispatch the DeviceRequest as a POST with the appropriate content_type nailed...
+            json = this.httpsPost(url, value, "application/json", this.apiToken());  // nail content_type to "application/json"
+            int http_code = this.getLastResponseCode();
+            this.errorLogger().warning("PelionProcessor: Invoked (DeviceRequest) POST: " + url + " DATA: " + device_request_body_json + " CODE: " + http_code);
+            if (Utils.httpResponseCodeOK(http_code)) {
+                // construct the AsyncID Response
+                json = this.createDeviceRequestAsyncResponseMessage(async_id);
+                
+                // DEBUG
+                this.errorLogger().warning("PelionProcessor: DeviceRequest Invocation SUCCESS. Code: " + http_code + " RESPONSE: " + json);
             }
-            if (verb.equalsIgnoreCase(("put"))) {
-                json = this.httpsPut(url, value, "plain/text", this.apiToken());  // nail content_type to "plain/text"
-                int http_code = this.getLastResponseCode();
-                this.errorLogger().info("PelionProcessor: Invoked PUT: " + url + " DATA: " + value + " CODE: " + http_code);
-                if (json == null) json = "";
-            }
-            if (verb.equalsIgnoreCase(("post"))) {
-                json = this.httpsPost(url, value, "plain/text", this.apiToken());  // nail content_type to "plain/text"
-                int http_code = this.getLastResponseCode();
-                this.errorLogger().info("PelionProcessor: Invoked POST: " + url + " DATA: " + value + " CODE: " + http_code);
-                if (json == null) json = "";
-            }
-            if (verb.equalsIgnoreCase(("delete"))) {
-                json = this.httpsDelete(url, "plain/text", this.apiToken());      // nail content_type to "plain/text"
-                int http_code = this.getLastResponseCode();
-                this.errorLogger().info("PelionProcessor: Invoked DELETE: " + url + " CODE: " + http_code);
-                if (json == null) json = "";
-            }
-            if (verb.equalsIgnoreCase(("del"))) {
-                json = this.httpsDelete(url, "plain/text", this.apiToken());      // nail content_type to "plain/text"
-                int http_code = this.getLastResponseCode();
-                this.errorLogger().info("PelionProcessor: Invoked  DELETE: " + url + " CODE: " + http_code);
-                if (json == null) json = "";
+            else {
+                // errored condition
+                this.errorLogger().warning("PelionProcessor: DeviceRequest Invocation FAILED. Code: " + http_code);
+                
+                // nullify the response
+                json = null;
             }
         }
         else {
-            this.errorLogger().info("PelionProcessor: ERROR: CoAP Verb is NULL. Not processing: ep: " + ep_name + " uri: " + uri + " value: " + value);
-            json = null;
+            // Traditional v2 Connect API used
+            url = this.createCoAPURL(ep_name, uri);
+
+            // add our options if they are specified
+            if (options != null && options.length() > 0 && options.contains("=") == true) {
+                // There is no way to validate that these options dont break the request... there may also be security issues here. 
+                url += "?" + options;
+            }
+
+            if (verb != null && verb.length() > 0) {
+                // dispatch the Pelion REST based on CoAP verb received
+                if (verb.equalsIgnoreCase(("get"))) {
+                    json = this.httpsGet(url);
+                    int http_code = this.getLastResponseCode();
+                    this.errorLogger().warning("PelionProcessor: Invoked GET: " + url + " CODE: " + http_code + " RESPONSE: " + json);
+                    if (json == null) json = "";
+                }
+                if (verb.equalsIgnoreCase(("put"))) {
+                    json = this.httpsPut(url, value, "plain/text", this.apiToken());  // nail content_type to "plain/text"
+                    int http_code = this.getLastResponseCode();
+                    this.errorLogger().info("PelionProcessor: Invoked PUT: " + url + " DATA: " + value + " CODE: " + http_code);
+                    if (json == null) json = "";
+                }
+                if (verb.equalsIgnoreCase(("post"))) {
+                    json = this.httpsPost(url, value, "plain/text", this.apiToken());  // nail content_type to "plain/text"
+                    int http_code = this.getLastResponseCode();
+                    this.errorLogger().info("PelionProcessor: Invoked POST: " + url + " DATA: " + value + " CODE: " + http_code);
+                    if (json == null) json = "";
+                }
+                if (verb.equalsIgnoreCase(("delete"))) {
+                    json = this.httpsDelete(url, "plain/text", this.apiToken());      // nail content_type to "plain/text"
+                    int http_code = this.getLastResponseCode();
+                    this.errorLogger().info("PelionProcessor: Invoked DELETE: " + url + " CODE: " + http_code);
+                    if (json == null) json = "";
+                }
+                if (verb.equalsIgnoreCase(("del"))) {
+                    json = this.httpsDelete(url, "plain/text", this.apiToken());      // nail content_type to "plain/text"
+                    int http_code = this.getLastResponseCode();
+                    this.errorLogger().info("PelionProcessor: Invoked  DELETE: " + url + " CODE: " + http_code);
+                    if (json == null) json = "";
+                }
+            }
+            else {
+                this.errorLogger().info("PelionProcessor: ERROR: CoAP Verb is NULL. Not processing: ep: " + ep_name + " uri: " + uri + " value: " + value);
+                json = null;
+            }
         }
 
         return json;
@@ -1617,6 +1698,11 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         return this.m_pelion_cloud_uri + this.m_pelion_api_hostname + ":" + this.m_pelion_api_port + version;
     }
 
+    // create the DeviceRequest URL
+    private String createDeviceRequestURL(String ep_name) {
+        return this.createBaseURL() + "/device-requests/" + ep_name;
+    }
+    
     // create the CoAP operation URL
     public String createCoAPURL(String ep_name, String uri) {
         String url = this.createBaseURL() + "/endpoints/" + ep_name + uri;
