@@ -1270,7 +1270,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
         else {
            // call the orchestrator to complete any new device registration
-           this.errorLogger().warning("PelionProcessor: Completing device registration(no attributes): " + device_id);
+           this.errorLogger().info("PelionProcessor: Completing device registration(no attributes): " + device_id);
            this.orchestrator().completeNewDeviceRegistration(endpoint);
         }
     }
