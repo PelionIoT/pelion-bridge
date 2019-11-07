@@ -692,7 +692,7 @@ public class HttpTransport extends BaseClass {
         }    
         catch (IOException ex) {
             // exception note (DEBUG)
-            this.errorLogger().info("HttpTransport(" + verb + "): Exception in doHTTP(" + verb + "): URL: " + url_str +  " ERROR: " + ex.getMessage());
+            this.errorLogger().warning("HttpTransport(" + verb + "): Exception in doHTTP(" + verb + "): URL: " + url_str +  " ERROR: " + ex.getMessage(),ex);
             result = null;
 
             try {
