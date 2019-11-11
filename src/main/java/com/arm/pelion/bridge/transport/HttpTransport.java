@@ -68,15 +68,21 @@ public class HttpTransport extends BaseClass {
     private ArrayList<KeyValuePair> m_additional_headers = null;
     private SSLContext m_sc = null;
     private int m_request_timeout_ms = REQUEST_TIMEOUT_MS;
-
-    // constructor
+    private boolean m_debug_rest_calls = false;
+    
     /**
-     *
+     * Constructor
      * @param error_logger
      * @param preference_manager
      */
     public HttpTransport(ErrorLogger error_logger, PreferenceManager preference_manager) {
         super(error_logger, preference_manager);
+        
+        // DEBUG REST calls
+        this.m_debug_rest_calls = preference_manager.booleanValueOf("debug_rest_calls");
+        if (this.m_debug_rest_calls == true) {
+            this.errorLogger().warning("HTTP: Debug of rest calls ENABLED");
+        }
         
         // Pelion API address
         this.m_pelion_api_hostname = preference_manager.valueOf("mds_address");
@@ -437,7 +443,7 @@ public class HttpTransport extends BaseClass {
         return value;
     }
 
-    private void saveResponseCode(int response_code) {
+    private synchronized void saveResponseCode(int response_code) {
         this.m_last_response_code = response_code;
     }
 
@@ -702,12 +708,12 @@ public class HttpTransport extends BaseClass {
                     this.saveResponseCode(((HttpsURLConnection) connection).getResponseCode());
                 }
                 else {
-                    this.errorLogger().warning("HttpTransport(" + verb + "): ERROR in doHTTP(" + verb + "): Connection is NULL");
+                    this.errorLogger().warning("HttpTransport(" + verb + "): ERROR in doHTTP(" + verb + "): Connection is NULL. Code 597");
                     this.saveResponseCode(597);
                 }
             }
             catch (IOException ex2) {
-                this.errorLogger().info("HttpTransport(" + verb + "): Exception in doHTTP(" + verb + "): Unable to save last response code: " + ex2.getMessage());
+                this.errorLogger().critical("HttpTransport(" + verb + "): Exception in doHTTP(" + verb + "): Unable to save last response code: " + ex2.getMessage() + ". Code 599");
                 this.saveResponseCode(599);        
             }
         }
@@ -730,6 +736,11 @@ public class HttpTransport extends BaseClass {
         }
         catch (Exception ex3) {
             // silent
+        }
+        
+        // DEBUG
+        if (this.m_debug_rest_calls == true) {
+            this.errorLogger().warning("HTTP(" + verb + "): URL: " + url_str +  " CODE: " + this.getLastResponseCode() + " INPUT: " + data + " RESPONSE: " + result);
         }
 
         // return the result
