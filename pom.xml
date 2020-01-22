@@ -59,17 +59,17 @@
         <dependency>
             <groupId>org.eclipse.jetty.websocket</groupId>
             <artifactId>websocket-api</artifactId>
-            <version>9.4.25.v20191220</version>
+            <version>9.4.22.v20191022</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty.websocket</groupId>
             <artifactId>websocket-servlet</artifactId>
-            <version>9.4.25.v20191220</version>
+            <version>9.4.22.v20191022</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty.websocket</groupId>
             <artifactId>websocket-server</artifactId>
-            <version>9.4.25.v20191220</version>
+            <version>9.4.22.v20191022</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
@@ -79,7 +79,7 @@
         <dependency>
             <groupId>org.eclipse.jetty.websocket</groupId>
             <artifactId>websocket-client</artifactId>
-            <version>9.4.25.v20191220</version>
+            <version>9.4.22.v20191022</version>
             <type>jar</type>
         </dependency>
         <dependency>
