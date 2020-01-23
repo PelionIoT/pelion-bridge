@@ -305,6 +305,37 @@ public class Utils {
 
         return decoded;
     }
+    
+    // decode CoAP payload Base64 to a native Java object preserving its type
+    public static Object decodeCoAPPayloadToObject(String payload) {        
+        // decode to a String first...
+        String str_decoded = Utils.decodeCoAPPayload(payload);
+        
+        if (str_decoded != null) {
+            // attempt to ascertain which native type 
+            try {
+                if (str_decoded.contains(".")) {
+                    // try Float first
+                    return Float.parseFloat(str_decoded);
+                }
+
+                // try Integer next
+                return Integer.parseInt(str_decoded);
+            }
+            catch (NumberFormatException ex) {
+                try {
+                    // try Integer next
+                    return Integer.parseInt(str_decoded);
+                }
+                catch (NumberFormatException ex2) {
+                    // ignore
+                }
+            }
+        }
+        
+        // return the object
+        return str_decoded;
+    }
 
     // create a URL-safe Token
     public static String createURLSafeToken(String seed) {

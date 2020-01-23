@@ -1083,10 +1083,18 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // not used
     }
     
-    // GenericSender Implementation: send a message
+    // GenericSender Implementation: send a message (String)
     @Override
-    public void sendMessage(String to, String message) {
+    public boolean sendMessage(String to, String message) {
         // not used
+        return false;
+    }
+    
+    // GenericSender Implementation: send a message (byte array)
+    @Override
+    public boolean sendMessage(String to, byte[] bytes) {
+        // not used
+        return false;
     }
     
     // process new device registration

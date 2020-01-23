@@ -1126,25 +1126,46 @@ public class MQTTTransport extends Transport implements GenericSender {
      * @param message
      */
     @Override
-    public void sendMessage(String topic, String message) {
-        this.sendMessage(topic, message, QoS.AT_LEAST_ONCE);
+    public boolean sendMessage(String topic, String message) {
+        return this.sendMessage(topic, message.getBytes(), QoS.AT_LEAST_ONCE);
     }
 
     /**
      * Publish a MQTT message
      *
      * @param topic
-     * @param message
+     * @param bytes
+     */
+    @Override
+    public boolean sendMessage(String topic, byte[] bytes) {
+        return this.sendMessage(topic, bytes, QoS.AT_LEAST_ONCE);
+    }
+    
+    /**
+     * Publish a MQTT message
+     *
+     * @param topic
+     * @param bytes
      * @param qos
      * @return send status
      */
     public boolean sendMessage(String topic, String message, QoS qos) {
+        return this.sendMessage(topic,message.getBytes(),qos);
+    }
+    
+    /**
+     * Publish a MQTT message
+     *
+     * @param topic
+     * @param bytes
+     * @param qos
+     * @return send status
+     */
+    public boolean sendMessage(String topic, byte[] bytes, QoS qos) {
         boolean sent = false;
-        if (this.m_connection != null && this.m_connection.isConnected() == true && message != null) {
-            try {
-                // DEBUG
-                this.errorLogger().info("sendMessage: message: " + message + " Topic: " + topic);
-                this.m_connection.publish(topic, message.getBytes(), qos, this.getRetain());
+        if (this.m_connection != null && this.m_connection.isConnected() == true && bytes != null) {
+            try {    
+                this.m_connection.publish(topic, bytes, qos, this.getRetain());
 
                 // DEBUG
                 this.errorLogger().info("sendMessage(MQTT): message sent. SUCCESS");
@@ -1152,22 +1173,22 @@ public class MQTTTransport extends Transport implements GenericSender {
             }
             catch (Exception ex) {
                 // unable to send (EOF) - final
-                this.errorLogger().warning("sendMessage:Exception in sendMessage... resetting connection. message: " + message, ex);
+                this.errorLogger().warning("sendMessage:Exception in sendMessage... resetting connection. message: " + new String(bytes), ex);
 
                 // reset the connection
                 this.resetConnection();
             }
         }
-        else if (this.m_connection != null && message != null) {
+        else if (this.m_connection != null && bytes != null) {
             // unable to send (not connected yet)
-            this.errorLogger().warning("sendMessage: Send Failed(connected?). Unable to send message: " + message);
+            this.errorLogger().warning("sendMessage: Send Failed(connected?). Unable to send message: " + new String(bytes));
             
             // attempt reset (guarded by initial_connect vs. subsquent connect)
             this.resetConnection();
         }
-        else if (message != null) {
+        else if (bytes != null) {
             // unable to send (not connected)
-            this.errorLogger().info("sendMessage: NOT CONNECTED(no handle). Unable to send message: " + message);
+            this.errorLogger().info("sendMessage: NOT CONNECTED(no handle). Unable to send message: " + new String(bytes));
         }
         else {
             // unable to send (empty message)

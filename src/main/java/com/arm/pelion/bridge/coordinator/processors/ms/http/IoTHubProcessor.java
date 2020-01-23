@@ -314,7 +314,8 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
     
     // GenericSender Implementation: send a message
     @Override
-    public void sendMessage(String topic, String message) {
+    public boolean sendMessage(String topic, String message) {
+        boolean ok = false;
         if (this.m_configured) {
             // DEBUG
             this.errorLogger().info("IoTHub(sendMessage): TOPIC: " + topic + " MESSAGE: " + message);
@@ -339,6 +340,7 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
                 if (Utils.httpResponseCodeOK(http_code)) {
                     // SUCCESS
                     this.errorLogger().info("IoTHub(sendMessage): message: " + message + " sent to device: " + ep_name + " SUCCESSFULLY. Code: " + http_code);
+                    ok = true;
                 }
                 else if (http_code != 404) {
                     // FAILURE
@@ -353,6 +355,7 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
             // not configured
             this.errorLogger().info("IoTHub(sendMessage): IoTHub Auth Token is UNCONFIGURED. Please configure and restart the bridge (OK).");
         }
+        return ok;
     }
     
     // process a device deletion

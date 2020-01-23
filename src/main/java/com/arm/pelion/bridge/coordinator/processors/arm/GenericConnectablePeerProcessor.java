@@ -37,6 +37,12 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.ConnectionCreator
 import com.arm.pelion.bridge.coordinator.processors.interfaces.DeviceManagerToPeerProcessorInterface;
 import java.util.List;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
+import com.arm.pelion.bridge.core.Utils;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
+import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.fusesource.mqtt.client.QoS;
@@ -48,6 +54,12 @@ import org.fusesource.mqtt.client.Topic;
  * @author Doug Anson
  */
 public class GenericConnectablePeerProcessor extends PeerProcessor implements DeviceManagerToPeerProcessorInterface, Transport.ReceiveListener, PeerProcessorInterface {
+    // enable/disable DRAFT MQTT standard compliance
+    public static final boolean ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT = true;   // enable: true, disable(default): false
+    
+    // default tenant ID
+    private static final String DEFAULT_TENANT_ID = "pelion";                   // defaulted pelion tenant ID
+    
     // default HTTP auth qualifier
     public static final String DEFAULT_AUTH_TOKEN_QUALIFIER = "Bearer";         // Bearer tokens used by default
     
@@ -84,6 +96,8 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
     private String m_default_tr_key = null;
     protected int m_reconnect_sleep_time_ms = DEFAULT_RECONNNECT_SLEEP_TIME_MS;
     protected int m_max_shadows = MAX_DEVICE_SHADOWS;
+    protected boolean m_enable_draft_mqtt_formats = ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT;
+    protected String m_tenant_id = DEFAULT_TENANT_ID;
     
     private HashMap<String, MQTTTransport> m_mqtt = null;
     protected SerializableHashMap m_endpoints = null;
@@ -171,6 +185,28 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
 
         // auto-subscribe behavior
         this.initAutoSubscribe("mqtt_obs_auto_subscribe");
+        
+        // MQTT Draft format enable/disable
+        this.m_enable_draft_mqtt_formats = orchestrator.preferences().booleanValueOf("mqtt_draft_format_enabled",this.m_suffix);
+        if (this.m_enable_draft_mqtt_formats == false) {
+            this.m_enable_draft_mqtt_formats = ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT;
+        }
+        
+        // debug 
+        if (this.m_enable_draft_mqtt_formats == true) {
+            this.errorLogger().warning("GenericConnectablePeerProcessor: Draft MQTT formatting ENABLED");
+        }
+        else {
+            this.errorLogger().warning("GenericConnectablePeerProcessor: Draft MQTT formatting DISABLED");
+        }
+        
+        // get the configured tenant ID
+        this.m_tenant_id = orchestrator().preferences().valueOf("pelion_tenant_id",this.m_suffix);
+        if (this.m_tenant_id == null || this.m_tenant_id.length() == 0) {
+            this.m_tenant_id = DEFAULT_TENANT_ID;
+        }
+        this.errorLogger().warning("GenericConnectablePeerProcessor: Configured Tenant ID: " + this.m_tenant_id);
+        
 
         // setup our defaulted MQTT transport if given one
         this.setupDefaultMQTTTransport(mqtt);
@@ -627,14 +663,104 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         }
     }
     
+    // convert to JSON from CBOR
+    protected String cborToJson(byte[] cbor_bytes) {
+        try {
+            CBORFactory factory = new CBORFactory();
+            ObjectMapper mapper = new ObjectMapper(factory);
+            JsonNode json = mapper.readValue(cbor_bytes, JsonNode.class);
+            return json.asText();
+        } 
+        catch (IOException e) {
+            this.errorLogger().warning("GenericProcessor: Exception converting CBOR to JSON", e);
+        }
+        return null;
+    }
+    
+    // convert to CBOR from JSON
+    protected byte[] jsonToCbor(String json) {
+	try {
+            CBORFactory factory = new CBORFactory();
+            ObjectMapper mapper = new ObjectMapper(factory);
+            return mapper.writeValueAsBytes(json);
+	} 
+        catch (JsonProcessingException e) {
+            this.errorLogger().warning(":GenericProcessor: Exception converting JSON to CBOR", e);
+	}
+        return null;
+    }
+    
+    // reformat topic to fit draft MQTT standard
+    private String draftObservationTopicReformat(String topic, String message) {
+        String reformatted_topic = topic;
+    
+        // parse the actual message...
+        Map parsed = this.orchestrator().getJSONParser().parseJson(message);
+        
+        // get the endpoint name
+        String ep = Utils.valueFromValidKey(parsed, "ep", "deviceId");
+        
+        // construct the modified observation topic
+        reformatted_topic = this.m_tenant_id + "/lwm2m/ob/" + ep; 
+        
+        // return the reformatted topic
+        return reformatted_topic;
+    }
+    
+    // reformat message to fit draft MQTT standard
+    private byte[] draftMessageReformat(String topic, String message) {        
+        // parse the actual message...
+        Map parsed = this.orchestrator().getJSONParser().parseJson(message);
+        
+        // get the uri/paths
+        String paths = Utils.valueFromValidKey(parsed, "path", "uri");
+        
+        // construct the new message format...
+        HashMap<String,Object> msg = new HashMap<>();
+        msg.put("operation",19);
+        msg.put("token",0);
+        msg.put("paths",paths);
+        
+        // process the CoAP payload back into native JSON format
+        String b64_coap_payload = (String)parsed.get("payload");
+        Object obj = Utils.decodeCoAPPayloadToObject(b64_coap_payload);
+        msg.put("payload",obj);
+        
+        // Create the JSON...
+        String json_str = this.orchestrator().getJSONGenerator().generateJson(msg);
+        
+        // Convert the JSON to CBOR and return the raw bytes
+        return this.jsonToCbor(json_str);
+    }
+    
     // GenericSender Implementation: send a message
     @Override
-    public void sendMessage(String topic, String message) {
-        // send a message over Google Cloud...
-        this.errorLogger().info("GenericConnectablePeerProcessor(sendMessage): Sending Message to: " + topic + " message: " + message);
+    public boolean sendMessage(String topic, String bytes) {  
+        boolean sent = false;
+        
+        // reformat if MQTT DRAFT formats are enabled
+        if (this.m_enable_draft_mqtt_formats == true) {
+            // reformat topic
+            String reformatted_topic = this.draftObservationTopicReformat(topic,new String(bytes));
+            
+            // reformat message
+            byte[] reformatted_bytes = this.draftMessageReformat(topic,new String(bytes));
+            
+            // send a message over MQTT (reformatted)
+            this.errorLogger().warning("GenericProcessor(DRAFT_FORMAT): topic: " + reformatted_topic + " message: " + new String(reformatted_bytes));
+            
+            // send the message over MQTT
+            this.mqtt().sendMessage(reformatted_topic, reformatted_bytes);
+        }
+       
+        // send a message over MQTT
+        this.errorLogger().warning("GenericProcessor(): topic: " + topic + " message: " + new String(bytes));
         
         // send the message over MQTT
-        this.mqtt().sendMessage(topic, message);
+        sent = this.mqtt().sendMessage(topic, bytes);
+        
+        // return our status
+        return sent;
     }
     
     // process an inbound command message to this peer

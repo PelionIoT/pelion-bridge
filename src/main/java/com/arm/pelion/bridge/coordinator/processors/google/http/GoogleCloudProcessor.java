@@ -410,7 +410,8 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     
     // GenericSender Implementation: send a message
     @Override
-    public void sendMessage(String topic, String message) {
+    public boolean sendMessage(String topic, String message) {
+        boolean ok = false;
         if (this.m_configured) {
             // DEBUG
             this.errorLogger().info("GoogleCloudIoT(HTTP): sendMessage: TOPIC: " + topic + " MESSAGE: " + message);
@@ -435,6 +436,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                 if (Utils.httpResponseCodeOK(http_code)) {
                     // SUCCESS
                     this.errorLogger().info("GoogleCloudIoT(HTTP): message: " + message + " sent to device: " + ep_name + " SUCCESSFULLY. Code: " + http_code);
+                    ok = true;
                 }
                 else if (http_code == 403 || http_code == 404) {
                     // FAILURE - forbidden/not found
@@ -457,6 +459,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
             // not configured
             this.errorLogger().info("GoogleCloudIoT(HTTP): Google CloudIoT Auth Token is UNCONFIGURED. Please configure and restart the bridge (OK).");
         }
+        return ok;
     }
     
     // send the API Response back through the topic

@@ -26,6 +26,9 @@ package com.arm.pelion.bridge.coordinator.processors.interfaces;
  * @author Doug Anson
  */
 public interface GenericSender {
-    // send a message
-    public void sendMessage(String to,String message);
+    // send a message (String)
+    public boolean sendMessage(String to,String message);
+    
+    // send a message (byte array)
+    public boolean sendMessage(String to,byte[] bytes);
 }

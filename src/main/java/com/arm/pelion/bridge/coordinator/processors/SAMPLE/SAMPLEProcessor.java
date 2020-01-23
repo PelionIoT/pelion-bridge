@@ -155,16 +155,32 @@ public class SAMPLEProcessor extends GenericConnectablePeerProcessor implements 
     
     // GenericSender Implementation: send a message
     @Override
-    public void sendMessage(String to, String message) {
+    public boolean sendMessage(String to, String message) {
         if (this.m_configured) {
             // DEBUG
             this.errorLogger().warning("SAMPLE(sendMessage): TO: " + to + " MESSAGE: " + message);
-            
+            return true;
         }
         else {
             // not configured
             this.errorLogger().warning("SAMPLE(sendMessage): SAMPLE Auth Token is UNCONFIGURED. Please configure and restart the bridge (OK).");
         }
+        return false;
+    }
+    
+    // GenericSender Implementation: send a message
+    @Override
+    public boolean sendMessage(String to, byte[] bytes) {
+        if (this.m_configured) {
+            // DEBUG
+            this.errorLogger().warning("SAMPLE(sendMessage): TO: " + to + " MESSAGE: " + new String(bytes));
+            return true;
+        }
+        else {
+            // not configured
+            this.errorLogger().warning("SAMPLE(sendMessage): SAMPLE Auth Token is UNCONFIGURED. Please configure and restart the bridge (OK).");
+        }
+        return false;
     }
     
     // process a device deletion

@@ -287,14 +287,15 @@ public class AWSIoTProcessor extends GenericConnectablePeerProcessor implements 
 
     // GenericSender Implementation: send a message
     @Override
-    public void sendMessage(String topic, String message) {
+    public boolean sendMessage(String topic, String message) {
+        boolean ok = false;
         if (this.m_configured) {
             // DEBUG
             this.errorLogger().info("AWSIoT(MQTT):(HTTP): sendMessage: TOPIC: " + topic + " MESSAGE: " + message);
             try {
                 // Get the endpoint name
                 String ep_name = this.getEndpointNameFromNotificationTopic(topic);
-                boolean ok = this.publish(ep_name,message);
+                ok = this.publish(ep_name,message);
                 
                 // DEBUG
                 if (ok) {
@@ -314,6 +315,7 @@ public class AWSIoTProcessor extends GenericConnectablePeerProcessor implements 
             // not configured
             this.errorLogger().info("AWSIoT(MQTT):(HTTP): AWS IoT Auth Token is UNCONFIGURED. Please configure and restart the bridge (OK).");
         }
+        return ok;
     }
     
     // CoAP command handler - processes CoAP commands coming over MQTT channel

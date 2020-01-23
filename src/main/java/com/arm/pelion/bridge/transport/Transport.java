@@ -90,12 +90,20 @@ public abstract class Transport extends BaseClass {
     public abstract boolean connect(String host, int port);
 
     /**
-     * send a message
+     * send a message (String)
      *
      * @param topic
      * @param message
      */
-    public abstract void sendMessage(String topic, String message);
+    public abstract boolean sendMessage(String topic, String message);
+    
+    /**
+     * send a message (byte array)
+     *
+     * @param topic
+     * @param bytes
+     */
+    public abstract boolean sendMessage(String topic, byte[] bytes);
 
     /**
      * disconnect
