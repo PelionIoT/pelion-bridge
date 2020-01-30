@@ -61,6 +61,9 @@ import com.arm.pelion.bridge.health.interfaces.HealthStatisticListenerInterface;
  * @author Doug Anson
  */
 public class Orchestrator implements PelionProcessorInterface, PeerProcessorInterface, HealthStatisticListenerInterface {
+    // default Tenant ID
+    private static final String DEFAULT_TENANT_ID = "pelion";
+    
     // Default Health Check Service Provider Sleep time in MS
     private static final int DEF_HEALTH_CHECK_SERVICE_PROVIDER_SLEEP_TIME_MS = (60000 * 10);    // 10 minutes
     
@@ -115,6 +118,10 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     
     // primary endpoint type manager for the bridge
     private EndpointTypeManager m_endpoint_type_manager = null;
+    
+    // Tenant ID
+    private String m_tenant_id = null;
+    private boolean m_tenant_id_pull_attempted = false;
 
     // primary constructor
     public Orchestrator(ErrorLogger error_logger, PreferenceManager preference_manager) {
@@ -185,6 +192,20 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
        
         // start device discovery in Pelion...
         this.initDeviceDiscovery();
+    }
+    
+    // get the tenant ID
+    public String getTenantID() {
+        if (this.m_tenant_id == null) {
+            if (this.m_tenant_id_pull_attempted == false) {
+                this.m_tenant_id = this.m_pelion_processor.getTenantID();
+                this.m_tenant_id_pull_attempted = true;
+            }
+        }
+        if (this.m_tenant_id == null) {
+            return DEFAULT_TENANT_ID;
+        }
+        return this.m_tenant_id;
     }
     
     // get the endpoint type manager

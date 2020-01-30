@@ -38,11 +38,6 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.DeviceManagerToPe
 import java.util.List;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.PeerProcessorInterface;
 import com.arm.pelion.bridge.core.Utils;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
-import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.fusesource.mqtt.client.QoS;
@@ -53,13 +48,7 @@ import org.fusesource.mqtt.client.Topic;
  *
  * @author Doug Anson
  */
-public class GenericConnectablePeerProcessor extends PeerProcessor implements DeviceManagerToPeerProcessorInterface, Transport.ReceiveListener, PeerProcessorInterface {
-    // enable/disable DRAFT MQTT standard compliance
-    public static final boolean ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT = true;   // enable: true, disable(default): false
-    
-    // default tenant ID
-    private static final String DEFAULT_TENANT_ID = "pelion";                   // defaulted pelion tenant ID
-    
+public class GenericConnectablePeerProcessor extends PeerProcessor implements DeviceManagerToPeerProcessorInterface, Transport.ReceiveListener, PeerProcessorInterface {    
     // default HTTP auth qualifier
     public static final String DEFAULT_AUTH_TOKEN_QUALIFIER = "Bearer";         // Bearer tokens used by default
     
@@ -96,8 +85,6 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
     private String m_default_tr_key = null;
     protected int m_reconnect_sleep_time_ms = DEFAULT_RECONNNECT_SLEEP_TIME_MS;
     protected int m_max_shadows = MAX_DEVICE_SHADOWS;
-    protected boolean m_enable_draft_mqtt_formats = ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT;
-    protected String m_tenant_id = DEFAULT_TENANT_ID;
     
     private HashMap<String, MQTTTransport> m_mqtt = null;
     protected SerializableHashMap m_endpoints = null;
@@ -185,28 +172,6 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
 
         // auto-subscribe behavior
         this.initAutoSubscribe("mqtt_obs_auto_subscribe");
-        
-        // MQTT Draft format enable/disable
-        this.m_enable_draft_mqtt_formats = orchestrator.preferences().booleanValueOf("mqtt_draft_format_enabled",this.m_suffix);
-        if (this.m_enable_draft_mqtt_formats == false) {
-            this.m_enable_draft_mqtt_formats = ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT;
-        }
-        
-        // debug 
-        if (this.m_enable_draft_mqtt_formats == true) {
-            this.errorLogger().warning("GenericConnectablePeerProcessor: Draft MQTT formatting ENABLED");
-        }
-        else {
-            this.errorLogger().warning("GenericConnectablePeerProcessor: Draft MQTT formatting DISABLED");
-        }
-        
-        // get the configured tenant ID
-        this.m_tenant_id = orchestrator().preferences().valueOf("pelion_tenant_id",this.m_suffix);
-        if (this.m_tenant_id == null || this.m_tenant_id.length() == 0) {
-            this.m_tenant_id = DEFAULT_TENANT_ID;
-        }
-        this.errorLogger().warning("GenericConnectablePeerProcessor: Configured Tenant ID: " + this.m_tenant_id);
-        
 
         // setup our defaulted MQTT transport if given one
         this.setupDefaultMQTTTransport(mqtt);
@@ -663,33 +628,6 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         }
     }
     
-    // convert to JSON from CBOR
-    protected String cborToJson(byte[] cbor_bytes) {
-        try {
-            CBORFactory factory = new CBORFactory();
-            ObjectMapper mapper = new ObjectMapper(factory);
-            JsonNode json = mapper.readValue(cbor_bytes, JsonNode.class);
-            return json.asText();
-        } 
-        catch (IOException e) {
-            this.errorLogger().warning("GenericProcessor: Exception converting CBOR to JSON", e);
-        }
-        return null;
-    }
-    
-    // convert to CBOR from JSON
-    protected byte[] jsonToCbor(String json) {
-	try {
-            CBORFactory factory = new CBORFactory();
-            ObjectMapper mapper = new ObjectMapper(factory);
-            return mapper.writeValueAsBytes(json);
-	} 
-        catch (JsonProcessingException e) {
-            this.errorLogger().warning(":GenericProcessor: Exception converting JSON to CBOR", e);
-	}
-        return null;
-    }
-    
     // reformat topic to fit draft MQTT standard
     private String draftObservationTopicReformat(String topic, String message) {
         String reformatted_topic = topic;
@@ -701,7 +639,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         String ep = Utils.valueFromValidKey(parsed, "ep", "deviceId");
         
         // construct the modified observation topic
-        reformatted_topic = this.m_tenant_id + "/lwm2m/ob/" + ep; 
+        reformatted_topic = this.orchestrator().getTenantID() + "/lwm2m/ob/" + ep; 
         
         // return the reformatted topic
         return reformatted_topic;
@@ -733,31 +671,51 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         return this.jsonToCbor(json_str);
     }
     
-    // GenericSender Implementation: send a message
+    // GenericSender Implementation: send a message (binary)
     @Override
-    public boolean sendMessage(String topic, String bytes) {  
+    public boolean sendMessage(String topic, byte[] bytes) { 
+        String msg = null;
+        if (this.draftMQTTFormatsEnabled() == true) {
+            // CBOR format
+            msg = this.cborToJson(bytes);
+        }
+        else {
+            // String format
+            msg = new String(bytes);
+        }
+        
+        // DEBUG
+        this.errorLogger().warning("GenericProcessor(BINARY): topic: " + topic + " message: " + msg);
+
+        // send the message over MQTT
+        return this.mqtt().sendMessage(topic, bytes);
+    }
+    
+    // GenericSender Implementation: send a message (string)
+    @Override
+    public boolean sendMessage(String topic, String json_str) {  
         boolean sent = false;
         
         // reformat if MQTT DRAFT formats are enabled
-        if (this.m_enable_draft_mqtt_formats == true) {
+        if (this.draftMQTTFormatsEnabled() == true) {
             // reformat topic
-            String reformatted_topic = this.draftObservationTopicReformat(topic,new String(bytes));
+            String reformatted_topic = this.draftObservationTopicReformat(topic,new String(json_str));
             
             // reformat message
-            byte[] reformatted_bytes = this.draftMessageReformat(topic,new String(bytes));
+            byte[] reformatted_bytes = this.draftMessageReformat(topic,new String(json_str));
             
             // send a message over MQTT (reformatted)
-            this.errorLogger().warning("GenericProcessor(DRAFT_FORMAT): topic: " + reformatted_topic + " message: " + new String(reformatted_bytes));
+            this.errorLogger().warning("GenericProcessor(DRAFT_FORMAT): topic: " + reformatted_topic + " message: " + this.cborToJson(reformatted_bytes));
             
             // send the message over MQTT
             this.mqtt().sendMessage(reformatted_topic, reformatted_bytes);
         }
        
         // send a message over MQTT
-        this.errorLogger().warning("GenericProcessor(): topic: " + topic + " message: " + new String(bytes));
+        this.errorLogger().info("GenericProcessor(): topic: " + topic + " message: " + new String(json_str));
         
         // send the message over MQTT
-        sent = this.mqtt().sendMessage(topic, bytes);
+        sent = this.mqtt().sendMessage(topic, json_str);
         
         // return our status
         return sent;
@@ -786,31 +744,40 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         this.sendResponseToCommandRequestor("application/json;charset=utf-8", request, response, response_headers, response_json);
     }
 
+    // OVERRIDE: Topics for stock MQTT...
+    protected void subscribeToMQTTTopics() {
+        String request_topic_str = this.getTopicRoot() + this.getRequestTag() + "/#";
+        this.errorLogger().warning("GenericConnectablePeerProcessor(subscribeToMQTTTopics): listening on REQUEST topic: " + request_topic_str);
+        Topic request_topic = new Topic(request_topic_str, QoS.AT_LEAST_ONCE);
+        Topic[] topic_list = {request_topic};
+        this.mqtt().subscribe(topic_list);
+        
+        try {
+            // additionally add subscriptions if draft MQTT formats are enabled...
+            if (this.draftMQTTFormatsEnabled() == true) {
+                String draft_request_topic_str = this.orchestrator().getTenantID() + "/lwm2m/rd/+/uplink";
+                this.errorLogger().warning("GenericConnectablePeerProcessor(subscribeToMQTTTopics): listening on REQUEST topic (DRAFT FORMAT): " + draft_request_topic_str);
+                Topic draft_request_topic = new Topic(draft_request_topic_str, QoS.AT_LEAST_ONCE);
+                Topic[] draft_topic_list = {draft_request_topic};
+                this.mqtt().subscribe(draft_topic_list);
+            }
+        }
+        catch (Exception ex) {
+            this.errorLogger().warning("GenericConnectablePeerProcessor(subscribeToMQTTTopics): Exception: " + ex.getMessage(),ex);
+        }
+    }
+
+    // get our defaulted reply topic (defaulted)
+    public String getReplyTopic(String ep_name, String ep_type, String def) {
+        return def;
+    }
+    
     // OVERRIDE: Connection stock MQTT...
     protected boolean connectMQTT() {
         if (this.mqtt() != null && this.m_mqtt_host != null && this.m_mqtt_host.length() > 0 && this.m_mqtt_host.equalsIgnoreCase("Your_MQTT_broker_IP_address_Goes_Here") == false) {
             return this.mqtt().connect(this.m_mqtt_host, this.m_mqtt_port, null, true);
         }
         return false;
-    }
-
-    // OVERRIDE: Topics for stock MQTT...
-    protected void subscribeToMQTTTopics() {
-        String request_topic_str = this.getTopicRoot() + this.getRequestTag() + "/#";
-        this.errorLogger().info("GenericConnectablePeerProcessor(subscribeToMQTTTopics): listening on REQUEST topic: " + request_topic_str);
-        Topic request_topic = new Topic(request_topic_str, QoS.AT_LEAST_ONCE);
-        Topic[] topic_list = {request_topic};
-        this.mqtt().subscribe(topic_list);
-    }
-
-    // get HTTP if needed
-    protected HttpTransport http() {
-        return this.m_http;
-    }
-
-    // get our defaulted reply topic (defaulted)
-    public String getReplyTopic(String ep_name, String ep_type, String def) {
-        return def;
     }
 
     // add a MQTT transport instance
@@ -828,7 +795,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
             this.m_mqtt.clear();
         }
     }
-
+    
     // PROTECTED: get the MQTT transport for the default clientID
     protected MQTTTransport mqtt() {
         if (this.m_mqtt != null) {
@@ -869,21 +836,6 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         }
     }
     
-    // stop the defaulted listener thread
-    protected void stopListenerThread() {
-        this.stopListenerThread(this.m_default_tr_key);
-    }
-    
-    // stop the listener thread
-    protected void stopListenerThread(String ep_name) {
-        // ensure we only have 1 thread/endpoint
-        if (this.m_mqtt_thread_list.get(ep_name) != null) {
-            TransportReceiveThread listener = (TransportReceiveThread) this.m_mqtt_thread_list.get(ep_name);
-            this.m_mqtt_thread_list.remove(ep_name);
-            listener.halt();
-        }
-    }
-    
     // Health Stats: Get connection status from MQTT connection(s)
     public boolean mqttConnectionsOK() {
         boolean ok = true; 
@@ -901,17 +853,20 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         
         return ok;
     }
+
+    // stop the defaulted listener thread
+    protected void stopListenerThread() {
+        this.stopListenerThread(this.m_default_tr_key);
+    }
     
-    // validte the HTTP status if being used in this processor
-    public boolean httpStatusOK() {
-        boolean ok = true; 
-        
-        // in some instances, we are not using HTTP... so we can ignore our status
-        if (this.m_http_utilized == true) {
-            // XXX IMPLEMENT
+    // stop the listener thread
+    protected void stopListenerThread(String ep_name) {
+        // ensure we only have 1 thread/endpoint
+        if (this.m_mqtt_thread_list.get(ep_name) != null) {
+            TransportReceiveThread listener = (TransportReceiveThread) this.m_mqtt_thread_list.get(ep_name);
+            this.m_mqtt_thread_list.remove(ep_name);
+            listener.halt();
         }
-        
-        return ok;
     }
     
     // HTTP support for this peer processor 
@@ -989,5 +944,22 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         http.setIfMatchValue("*");           // If-Match header required... 
         String result = http.httpsDeleteApiTokenAuth(url, this.m_http_auth_token, payload, "application/json");
         return result;
+    }
+    
+    // get HTTP if needed
+    protected HttpTransport http() {
+        return this.m_http;
+    }
+    
+    // validte the HTTP status if being used in this processor
+    public boolean httpStatusOK() {
+        boolean ok = true; 
+        
+        // in some instances, we are not using HTTP... so we can ignore our status
+        if (this.m_http_utilized == true) {
+            // XXX IMPLEMENT
+        }
+        
+        return ok;
     }
 }

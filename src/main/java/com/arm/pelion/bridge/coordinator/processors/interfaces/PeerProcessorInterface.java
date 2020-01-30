@@ -31,8 +31,7 @@ import javax.servlet.http.HttpServletResponse;
  *
  * @author Doug Anson
  */
-public interface PeerProcessorInterface {
-
+public interface PeerProcessorInterface { 
     // create peer-centric authentication hash for Pelion webhook authentication
     public String createAuthenticationHash();
 

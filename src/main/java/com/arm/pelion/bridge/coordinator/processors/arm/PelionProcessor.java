@@ -317,6 +317,46 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
     }
     
+    // get the tenant ID from Pelion
+    @Override
+    public String getTenantID() {
+        // only if configured
+        if (this.m_api_key_is_configured == true) {
+            try {
+                // create the URL for our request
+                String url = this.createBaseURL("/v" + this.m_device_api_version) + "/accounts/me";
+
+                // execute the GET request
+                String response = this.httpsGet(url, "application/json", this.preferences().valueOf("api_key"));
+                int http_code = this.getLastResponseCode();
+
+                // process the response
+                if (Utils.httpResponseCodeOK(http_code)) {
+                    // DEBUG
+                    this.errorLogger().info("PelionProcessor: Getting Tenant ID with URL: " + url + " HTTP_CODE: " + http_code + " RESPONSE: " + response);
+
+                    // Parse
+                    Map data = this.tryJSONParse(response);
+
+                    // DEBUG
+                    this.errorLogger().warning("PelionProcessor: Tenant ID: " + (String)data.get("id"));
+
+                    // return the ID
+                    return (String)data.get("id");
+                }
+                else {
+                    // ERROR
+                    this.errorLogger().warning("PelionProcessor: WARNING: Unable to get Tenant ID from Pelion: CODE: " + http_code + " URL: " + url);
+                }
+            }
+            catch (Exception ex) {
+                // ERROR
+                this.errorLogger().warning("PelionProcessor: WARNING: Unable to get Tenant ID from Pelion: Exception: " + ex.getMessage(),ex);
+            }
+        }
+        return null;
+    }
+    
     // initialize the attribute list 
     private String[] initAttributeURIList(String json) {
         String str_list[] = null;

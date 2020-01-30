@@ -29,6 +29,10 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.TopicParseInterface;
 import com.arm.pelion.bridge.core.TypeDecoder;
 import com.arm.pelion.bridge.core.Utils;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -46,6 +50,12 @@ import org.apache.commons.codec.binary.Base64;
  * @author Doug Anson
  */
 public class PeerProcessor extends Processor implements GenericSender, TopicParseInterface {
+    // enable/disable DRAFT MQTT standard compliance
+    public static final boolean ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT = true;   // enable: true, disable(default): false
+
+    // default tenant ID
+    private static final String DEFAULT_TENANT_ID = "pelion";                   // defaulted pelion tenant ID
+
     private AsyncResponseManager m_async_response_manager = null;
     private String m_mds_topic_root = null;
     private TypeDecoder m_type_decoder = null;
@@ -55,7 +65,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     protected boolean m_auto_subscribe_to_obs_resources = true;
     
     // unified format now true by default
-    private boolean m_unified_format_enabled = true;
+    //private boolean m_unified_format_enabled = true;
     
     // enable this if you want to have re-subscription even if the subscription already exists (i.e. wipe/reset)
     protected boolean m_re_subscribe = true;
@@ -64,10 +74,13 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     private ArrayList<String> m_device_seen_list = null;
     
     // keys used to differentiate between data from CoAP observations and responses from CoAP commands 
-    protected String m_observation_key = "observation";             // legacy: "observation", unified: "notify"
-    protected String m_cmd_response_key = "cmd-response";           // common for both legacy and unified
-    protected String m_api_response_key = "api-response";           // API response tag key
-        
+    protected String m_observation_key = "notify";                  
+    protected String m_cmd_response_key = "cmd-response";           
+    protected String m_api_response_key = "api-response";           
+    
+    // LWM2M over MQTT draft integratino format enablement
+    private boolean m_enable_draft_mqtt_formats = ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT;
+    
     // default constructor
     public PeerProcessor(Orchestrator orchestrator, String suffix) {
         super(orchestrator, suffix);
@@ -90,9 +103,24 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // allocate our TypeDecoder
         this.m_type_decoder = new TypeDecoder(orchestrator.errorLogger(), orchestrator.preferences());
         
-        // unified format enabled by default
-        this.m_unified_format_enabled = true;
-        this.m_observation_key = "notify";
+        // MQTT Draft format enable/disable - this needs to be down in PeerProcessor as its shared between PelionProcessor and the peers...
+        this.m_enable_draft_mqtt_formats = orchestrator.preferences().booleanValueOf("mqtt_draft_format_enabled",this.m_suffix);
+        if (this.m_enable_draft_mqtt_formats == false) {
+            this.m_enable_draft_mqtt_formats = ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT;
+        }
+        
+        // debug 
+        if (this.m_enable_draft_mqtt_formats == true) {
+            this.errorLogger().warning("PeerProcessor: Draft MQTT formatting ENABLED");
+        }
+        else {
+            this.errorLogger().warning("PeerProcessor: Draft MQTT formatting DISABLED");
+        }
+    }
+    
+    // are draft MQTT formats enabled?
+    public boolean draftMQTTFormatsEnabled() {
+        return this.m_enable_draft_mqtt_formats;
     }
     
     // process a received new registration
@@ -246,6 +274,12 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         }
     }
     
+    // message in draft MQTT format come here and are processed...
+    private void onMessageReceiveDraftFormat(String topic, String message) {
+        // DEBUG
+        this.errorLogger().warning("PeerProcessor: onMessageReceiveDraftFormat: DRAFT FORMAT: topic: " + topic + " message: " + message);
+    }
+    
     // messages from MQTT come here and are processed...
     public void onMessageReceive(String topic, String message) {
         // DEBUG
@@ -307,9 +341,20 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                     this.sendMessage(response_topic, json);
                 }
             }
-            else {
+            else if (verb != null) {
                 // Error - no response (due to error condition)
                 this.errorLogger().warning("PeerProcessor: OnMessageReceive: no response to request VERB(" + verb + ")... null response (ERROR)");
+            }
+            else {
+                // draft formatting is enabled... it may be a draft format request... 
+                if (this.draftMQTTFormatsEnabled()) {
+                    // try processing this message as a draft message
+                    this.onMessageReceiveDraftFormat(topic,message);
+                }
+                else {
+                    // Error - format error
+                    this.errorLogger().warning("PeerProcessor: OnMessageReceive: request format error");    
+                }
             }
         }
         else {
@@ -411,9 +456,9 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         return this.m_type_decoder;
     }
 
-    // unified format enabled
+    // unified format enabled (always true)
     protected boolean unifiedFormatEnabled() {
-        return this.m_unified_format_enabled;
+        return true;
     }
     
     // not an observation or a new_registration...
@@ -870,6 +915,109 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
 
         // return the generic MQTT observation JSON...
         return coap_json;
+    }
+    
+    // reformat response topic per draft MQTT format rules
+    public String createDraftFormatReplyTopic(Map record) {
+        // DEBUG
+        this.errorLogger().info("PeerProcessor: RECORD: " + record);
+        
+        // create the draft topic 
+        String ep = (String)record.get("ep_name");
+        String topic = this.orchestrator().getTenantID() + "/lwm2m/rd/" + ep + "/downlink";
+        
+        // DEBUG
+        this.errorLogger().info("PeerProcessor(createDraftFormatReplyTopic): " + topic);
+        
+        // return the topic
+        return topic;
+    }
+    
+    // convert coap verb to operation
+    private Integer coapVerbToOperation(String verb) {
+        Integer operation = (Integer)0;
+        
+        if (verb != null && verb.length() > 0) {
+            if (verb.equalsIgnoreCase("get")) {
+                // Read
+                operation = (Integer)9; 
+            }
+            
+            if (verb.equalsIgnoreCase("put")) {
+                // Write
+                operation = (Integer)12; 
+            }
+            
+            if (verb.equalsIgnoreCase("post")) {
+                // Execute
+                operation = (Integer)15; 
+            }
+        }
+        
+        return operation;
+    }
+    
+    // reformat response payload per draft MQTT format rules
+    public byte[] createDraftFormatReplyPayload(Map record,String reply) {
+        // DEBUG
+        this.errorLogger().info("PeerProcessor: REPLY: " + reply);
+        
+        // parse the JSON
+        Map json = this.tryJSONParse(reply);
+        if (json != null) {
+            // pull out the relevant elements for the formatted payload
+            String verb = (String)json.get("coap_verb");
+            String path = (String)json.get("path");
+            
+            // process the payload
+            String b64_coap_payload = (String)json.get("payload");
+            Object payload = Utils.decodeCoAPPayloadToObject(b64_coap_payload);
+            
+            // now create the formatted response
+            HashMap<String,Object> draft_reply = new HashMap<>();
+            draft_reply.put("paths",path);
+            draft_reply.put("payload",payload);
+            
+            // token
+            draft_reply.put("token",(Integer)0);
+            
+            // map the coap verb to operation type
+            draft_reply.put("operation", this.coapVerbToOperation(verb));
+            
+            // stringify the json
+            String draft_reply_str = this.jsonGenerator().generateJson(draft_reply);
+        
+            // Convert the JSON to CBOR and return the raw bytes
+            return this.jsonToCbor(draft_reply_str);
+        }
+        return null;
+    }
+    
+    // convert to JSON from CBOR
+    protected String cborToJson(byte[] cbor_bytes) {
+        try {
+            CBORFactory factory = new CBORFactory();
+            ObjectMapper mapper = new ObjectMapper(factory);
+            JsonNode json = mapper.readValue(cbor_bytes, JsonNode.class);
+            return json.asText();
+        } 
+        catch (IOException e) {
+            this.errorLogger().warning("PeerProcessor: Exception converting CBOR to JSON", e);
+        }
+        return null;
+    }
+    
+    // convert to CBOR from JSON
+    protected byte[] jsonToCbor(String json) {
+	try {
+            CBORFactory factory = new CBORFactory();
+            ObjectMapper mapper = new ObjectMapper(factory);
+            return mapper.writeValueAsBytes(json);
+	} 
+        catch (JsonProcessingException e) {
+            this.errorLogger().warning("PeerProcessor: Exception converting JSON to CBOR", e);
+	}
+        return null;
     }
     
     // default formatter for AsyncResponse replies

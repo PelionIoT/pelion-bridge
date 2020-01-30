@@ -216,10 +216,49 @@ public class AsyncResponseManager {
                     }
 
                     // DEBUG
-                    this.errorLogger().info("processAsyncResponse: sending reply(" + verb + ") to AsyncResponse: ID: " + id + " Topic: " + target_topic + " Message: " + reply);
+                    this.errorLogger().warning("processAsyncResponse: sending reply(" + verb + ") to AsyncResponse: ID: " + id + " Topic: " + target_topic + " Message: " + reply);
 
                     // send the reply...
-                    sender.sendMessage(target_topic, reply);
+                    boolean sent = sender.sendMessage(target_topic, reply);
+                    if (sent) {
+                        // ok
+                        this.errorLogger().warning("processAsyncResponse: sendMessage(): SUCCESS");
+                    }
+                    else {
+                        // failure
+                        this.errorLogger().warning("processAsyncResponse: sendMessage(): FAILURE");
+                    }
+                    
+                    // now optionally deal with the draft mqtt formatting if enabled...
+                    try {
+                        // also publish per draft MQTT formatting, if enabled
+                        if (proc.draftMQTTFormatsEnabled() == true) {
+                            // convert the reply topic to match the draft MQTT formatting
+                            String draft_reply_topic = proc.createDraftFormatReplyTopic(record);
+                            if (draft_reply_topic != null) {
+                                // convert the reply to the draft MQTT format
+                                byte[] draft_reply_payload = proc.createDraftFormatReplyPayload(record,reply);
+                                if (draft_reply_payload != null) {
+                                    // DEBUG
+                                    this.errorLogger().warning("processAsyncResponse(DRAFT FORMAT): sending reply(" + verb + ") to AsyncResponse: ID: " + id + " Topic: " + draft_reply_topic + " Message: " + proc.cborToJson(draft_reply_payload));
+
+                                    // send the reply...
+                                    sent = sender.sendMessage(draft_reply_topic, draft_reply_payload);
+                                    if (sent) {
+                                        // ok
+                                        this.errorLogger().warning("processAsyncResponse: sendMessage(DRAFT FORMAT): SUCCESS");
+                                    }
+                                    else {
+                                        // failure
+                                        this.errorLogger().warning("processAsyncResponse: sendMessage(DRAFT FORMAT): FAILURE");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex) {
+                        this.errorLogger().warning("processAsyncResponse: Exception: " + ex.getMessage(),ex);
+                    }
                 }
                 else {
                     // DEBUG
