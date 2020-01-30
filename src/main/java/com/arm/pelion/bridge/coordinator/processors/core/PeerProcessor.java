@@ -278,12 +278,75 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     private void onMessageReceiveDraftFormat(String topic, String message) {
         // DEBUG
         this.errorLogger().warning("PeerProcessor: onMessageReceiveDraftFormat: DRAFT FORMAT: topic: " + topic + " message: " + message);
+        
+        // parse the json 
+        Map parsed = this.tryJSONParse(message);
+        if (parsed != null) {
+            // split the topic so we can get the endpoint name. POSITION SENSITIVE: <tenant_id>/lwmwm/rd/<endpoint_name>/uplink
+            String[] items = topic.split("/");
+            
+            // endpoint name
+            String ep_name = items[items.length - 2];
+            
+            // uri (ensure we have a forward slash...)
+            String uri = (String)parsed.get("paths");
+            if (uri != null && uri.charAt(0) != '/') {
+                uri = "/" + uri;
+            }
+            
+            // get the endpoint type from the endpoint name
+            String ep_type = this.getEndpointTypeFromEndpointName(ep_name);
+            
+            // CoAP verb
+            String verb = this.operationToCoapVerb((Integer)parsed.get("operation"));
+            
+            // Options (not used)
+            String options = "";
+            
+            // get the value (TO DO: what format is this payload supposed to be in?)
+            String value = (String)parsed.get("payload");
+            
+            // perform the operation
+            String json = this.orchestrator().processEndpointResourceOperation(verb, ep_name, uri, value, options);
+            
+            // send a response back if we have one...
+            if (json != null) {
+                // Strip the request tag
+                String response_topic = this.createResourceResponseTopic(ep_type, ep_name, uri);
+
+                // SYNC: here we have to handle AsyncResponses. if mDS returns an AsyncResponse... handle it
+                if (this.isAsyncResponse(json) == true) {
+                    if (verb.equalsIgnoreCase("get") == true || verb.equalsIgnoreCase("put") == true) {
+                        // DEBUG
+                        this.errorLogger().info("PeerProcessor: onMessageReceiveDraftFormat: saving async response (" + verb + ") on topic: " + response_topic + " value: " + json);
+
+                        // its an AsyncResponse to a GET or PUT.. so record it... 
+                        this.recordAsyncResponse(json, verb, response_topic, message, ep_name, uri);
+                    }
+                    else {
+                        // we dont process AsyncResponses to POST and DELETE
+                        this.errorLogger().info("PeerProcessor: onMessageReceiveDraftFormat: AsyncResponse (" + verb + ") ignored (OK).");
+                    }
+                }
+                else {
+                    // DEBUG
+                    this.errorLogger().info("PeerProcessor: onMessageReceiveDraftFormat: sending immediate reply (" + verb + ") on topic: " + response_topic + " value: " + json);
+
+                    // not an AsyncResponse... so just emit it immediately... (GET only)
+                    this.sendMessage(response_topic, json);
+                }
+            }
+            else {
+                // Error - no response (due to error condition)
+                this.errorLogger().warning("PeerProcessor: onMessageReceiveDraftFormat: no response to request VERB(" + verb + ")... null response (ERROR)");
+            }
+        }
     }
     
     // messages from MQTT come here and are processed...
     public void onMessageReceive(String topic, String message) {
         // DEBUG
-        this.errorLogger().info("PeerProcessor: OnMessageReceive: Topic: " + topic + " message: " + message);
+        this.errorLogger().info("PeerProcessor: onMessageReceive: Topic: " + topic + " message: " + message);
         
         // Get/Put/Post Endpoint Resource Value...
         if (this.isEndpointResourceRequest(topic)) {
@@ -323,19 +386,19 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                 if (this.isAsyncResponse(json) == true) {
                     if (verb.equalsIgnoreCase("get") == true || verb.equalsIgnoreCase("put") == true) {
                         // DEBUG
-                        this.errorLogger().info("PeerProcessor: OnMessageReceive: saving async response (" + verb + ") on topic: " + response_topic + " value: " + json);
+                        this.errorLogger().info("PeerProcessor: onMessageReceive: saving async response (" + verb + ") on topic: " + response_topic + " value: " + json);
 
                         // its an AsyncResponse to a GET or PUT.. so record it... 
                         this.recordAsyncResponse(json, verb, response_topic, message, ep_name, uri);
                     }
                     else {
                         // we dont process AsyncResponses to POST and DELETE
-                        this.errorLogger().info("PeerProcessor: OnMessageReceive: AsyncResponse (" + verb + ") ignored (OK).");
+                        this.errorLogger().info("PeerProcessor: onMessageReceive: AsyncResponse (" + verb + ") ignored (OK).");
                     }
                 }
                 else {
                     // DEBUG
-                    this.errorLogger().info("PeerProcessor: OnMessageReceive: sending immediate reply (" + verb + ") on topic: " + response_topic + " value: " + json);
+                    this.errorLogger().info("PeerProcessor: onMessageReceive: sending immediate reply (" + verb + ") on topic: " + response_topic + " value: " + json);
 
                     // not an AsyncResponse... so just emit it immediately... (GET only)
                     this.sendMessage(response_topic, json);
@@ -343,7 +406,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             }
             else if (verb != null) {
                 // Error - no response (due to error condition)
-                this.errorLogger().warning("PeerProcessor: OnMessageReceive: no response to request VERB(" + verb + ")... null response (ERROR)");
+                this.errorLogger().warning("PeerProcessor: onMessageReceive: no response to request VERB(" + verb + ")... null response (ERROR)");
             }
             else {
                 // draft formatting is enabled... it may be a draft format request... 
@@ -353,13 +416,13 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                 }
                 else {
                     // Error - format error
-                    this.errorLogger().warning("PeerProcessor: OnMessageReceive: request format error");    
+                    this.errorLogger().warning("PeerProcessor: onMessageReceive: request format error");    
                 }
             }
         }
         else {
             // not a recognized notification
-            this.errorLogger().warning("PeerProcessor: OnMessageReceive: not a recognized notification/request: MESSAGE: " + message + " TOPIC: " + topic + "... ignoring (OK)");
+            this.errorLogger().warning("PeerProcessor: onMessageReceive: not a recognized notification/request: MESSAGE: " + message + " TOPIC: " + topic + "... ignoring (OK)");
         }
     }
     
@@ -933,7 +996,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         return topic;
     }
     
-    // convert coap verb to operation
+    // MQTT DRAFT: convert coap verb to operation
     private Integer coapVerbToOperation(String verb) {
         Integer operation = (Integer)0;
         
@@ -955,6 +1018,20 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         }
         
         return operation;
+    }
+    
+    // MQTT DRAFT: convert operation to coap verb
+    private String operationToCoapVerb(Integer operation) {
+        if (operation == 9) {
+            return "get";
+        }
+        if (operation == 12) {
+            return "put";
+        }
+        if (operation == 15) {
+            return "post";
+        }
+        return null;
     }
     
     // reformat response payload per draft MQTT format rules
