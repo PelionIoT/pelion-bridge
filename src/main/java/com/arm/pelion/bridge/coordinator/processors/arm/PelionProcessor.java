@@ -1189,7 +1189,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 if (verb.equalsIgnoreCase(("get"))) {
                     json = this.httpsGet(url);
                     int http_code = this.getLastResponseCode();
-                    this.errorLogger().warning("PelionProcessor: Invoked GET: " + url + " CODE: " + http_code + " RESPONSE: " + json);
+                    this.errorLogger().info("PelionProcessor: Invoked GET: " + url + " CODE: " + http_code + " RESPONSE: " + json);
                     if (json == null) json = "";
                 }
                 if (verb.equalsIgnoreCase(("put"))) {

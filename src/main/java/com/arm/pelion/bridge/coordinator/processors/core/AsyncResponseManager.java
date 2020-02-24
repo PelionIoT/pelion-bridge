@@ -216,13 +216,13 @@ public class AsyncResponseManager {
                     }
 
                     // DEBUG
-                    this.errorLogger().warning("processAsyncResponse: sending reply(" + verb + ") to AsyncResponse: ID: " + id + " Topic: " + target_topic + " Message: " + reply);
+                    this.errorLogger().info("processAsyncResponse: sending reply(" + verb + ") to AsyncResponse: ID: " + id + " Topic: " + target_topic + " Message: " + reply);
 
                     // send the reply...
                     boolean sent = sender.sendMessage(target_topic, reply);
                     if (sent) {
                         // ok
-                        this.errorLogger().warning("processAsyncResponse: sendMessage(): SUCCESS");
+                        this.errorLogger().info("processAsyncResponse: sendMessage(): SUCCESS");
                     }
                     else {
                         // failure
@@ -240,13 +240,13 @@ public class AsyncResponseManager {
                                 byte[] draft_reply_payload = proc.createDraftFormatReplyPayload(record,reply);
                                 if (draft_reply_payload != null) {
                                     // DEBUG
-                                    this.errorLogger().warning("processAsyncResponse(DRAFT FORMAT): sending reply(" + verb + ") to AsyncResponse: ID: " + id + " Topic: " + draft_reply_topic + " Message: " + proc.cborToJson(draft_reply_payload));
+                                    this.errorLogger().info("processAsyncResponse(DRAFT FORMAT): sending reply(" + verb + ") to AsyncResponse: ID: " + id + " Topic: " + draft_reply_topic + " Message: " + proc.cborToJson(draft_reply_payload));
 
                                     // send the reply...
                                     sent = sender.sendMessage(draft_reply_topic, draft_reply_payload);
                                     if (sent) {
                                         // ok
-                                        this.errorLogger().warning("processAsyncResponse: sendMessage(DRAFT FORMAT): SUCCESS");
+                                        this.errorLogger().info("processAsyncResponse: sendMessage(DRAFT FORMAT): SUCCESS");
                                     }
                                     else {
                                         // failure

@@ -659,10 +659,26 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         msg.put("token",0);
         msg.put("paths",paths);
         
-        // process the CoAP payload back into native JSON format
-        String b64_coap_payload = (String)parsed.get("payload");
-        Object obj = Utils.decodeCoAPPayloadToObject(b64_coap_payload);
-        msg.put("payload",obj);
+        try { 
+            // DEBUG
+            this.errorLogger().info("GenericConnectablePeerProcessor(DRAFT): PAYLOAD: " + parsed.get("payload"));
+            
+            // process the CoAP payload back into native JSON format
+            String b64_coap_payload = (String)parsed.get("payload");
+            Object obj = Utils.decodeCoAPPayloadToObject(b64_coap_payload);
+            msg.put("payload",obj);
+        }
+        catch (Exception ex) {
+            // warn that we were unable to process the payload... so just attach
+            if (parsed != null && parsed.get("payload") != null) {
+                msg.put("payload",parsed.get("payload"));
+            }
+            else {
+                // unable to transfer payload
+                this.errorLogger().warning("GenericConnectablePeerProcessor(DRAFT): EMPTY payload found.");
+                msg.put("payload",new HashMap<String,Object>());
+            }
+        }
         
         // Create the JSON...
         String json_str = this.orchestrator().getJSONGenerator().generateJson(msg);
@@ -685,7 +701,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
         }
         
         // DEBUG
-        this.errorLogger().warning("GenericProcessor(BINARY): topic: " + topic + " message: " + msg);
+        this.errorLogger().info("GenericProcessor(BINARY): topic: " + topic + " message: " + msg);
 
         // send the message over MQTT
         return this.mqtt().sendMessage(topic, bytes);
@@ -705,7 +721,7 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
             byte[] reformatted_bytes = this.draftMessageReformat(topic,new String(json_str));
             
             // send a message over MQTT (reformatted)
-            this.errorLogger().warning("GenericProcessor(DRAFT_FORMAT): topic: " + reformatted_topic + " message: " + this.cborToJson(reformatted_bytes));
+            this.errorLogger().info("GenericProcessor(DRAFT_FORMAT): topic: " + reformatted_topic + " message: " + this.cborToJson(reformatted_bytes));
             
             // send the message over MQTT
             this.mqtt().sendMessage(reformatted_topic, reformatted_bytes);

@@ -277,7 +277,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     // message in draft MQTT format come here and are processed...
     private void onMessageReceiveDraftFormat(String topic, String message) {
         // DEBUG
-        this.errorLogger().warning("PeerProcessor: onMessageReceiveDraftFormat: DRAFT FORMAT: topic: " + topic + " message: " + message);
+        this.errorLogger().info("PeerProcessor: onMessageReceiveDraftFormat: DRAFT FORMAT: topic: " + topic + " message: " + message);
         
         // parse the json 
         Map parsed = this.tryJSONParse(message);
@@ -304,7 +304,24 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             String options = "";
             
             // get the value (TO DO: what format is this payload supposed to be in?)
-            String value = (String)parsed.get("payload");
+            String value = "";
+            
+            // decode the Payload...
+            String b64_coap_payload = (String) parsed.get("payload");
+            String decoded_coap_payload = Utils.decodeCoAPPayload(b64_coap_payload);
+
+            // DEBUG
+            //this.errorLogger().info("processIncomingDeviceServerMessage(Peer): Decoded Payload: " + decoded_coap_payload);
+            // Try a JSON parse... if it succeeds, assume the payload is a composite JSON value...
+            Map json_parsed = this.tryJSONParse(decoded_coap_payload);
+            if (json_parsed != null && json_parsed.isEmpty() == false) {
+                // add in a JSON object payload value directly... 
+                value += Utils.retypeMap(json_parsed, this.fundamentalTypeDecoder());
+            }
+            else {
+                // add in a decoded payload value as a fundamental type...
+                value += this.fundamentalTypeDecoder().getFundamentalValue(decoded_coap_payload);
+            }
             
             // perform the operation
             String json = this.orchestrator().processEndpointResourceOperation(verb, ep_name, uri, value, options);
