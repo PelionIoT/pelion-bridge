@@ -174,6 +174,26 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         // return the type
         return type;
     }
+    
+     // does this device already exist in Watson IoT?
+    public boolean deviceExists(String device_id,String device_type) {
+        boolean device_exists = false;
+        String url = this.createDeviceRetrievalURL(device_type,device_id);
+        String result = this.get(url);
+        if (result != null && result.length() > 0) {
+            Map parsed = this.m_orchestrator.getJSONParser().parseJson(result);
+            if (parsed != null) {
+                String id = (String)parsed.get("deviceId");
+                if (id != null && device_id.equalsIgnoreCase(id)) {
+                    // device exists!
+                    device_exists = true;
+                }
+            }
+        }
+        
+        // return existance status
+        return device_exists;
+    }
 
     // ensure we have a gateway device type
     private Boolean hasGatewayDeviceType(String device_type) {
@@ -301,6 +321,11 @@ public class WatsonIoTDeviceManager extends DeviceManager {
     // build out the REST URL for device management
     private String createDevicesURL(String device_type) {
         return "https://" + this.m_watson_iot_rest_hostname + this.buildDevicesURI(device_type);
+    }
+    
+    // build out the REST URL for individual device access
+    private String createDeviceRetrievalURL(String device_type,String device_id) {
+        return this.createDevicesURL(device_type) + "/devices/" + device_id;
     }
 
     // build out the REST URL for device gateway management

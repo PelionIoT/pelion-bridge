@@ -1268,7 +1268,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                         String path =  Utils.valueFromValidKey(resource,"path","uri");
 
                         // look for /3/0
-                        if (path != null && path.contains(this.m_device_attributes_path) == true && this.deviceAttributeRetrievalEnabled() == true) {
+                        if (path != null && path.contains(this.m_device_attributes_path) == true) {
                             // we have device attributes in this endpoint... go get 'em. 
                             has_device_attributes = true;
                         }
@@ -1280,7 +1280,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             // caught exception
             this.errorLogger().info("PelionProcessor: Exception caught: " + ex.getMessage(), ex);
         }
-        
+
         // DEBUG
         if (has_device_attributes == true) {
             this.errorLogger().info("PelionProcessor: Device HAS attributes: " + endpoint);
@@ -1304,13 +1304,13 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
         
         // dispatch GETs to retrieve the attributes from the endpoint... 
-        if (this.hasDeviceAttributes(endpoint)) {
+        if (this.hasDeviceAttributes(endpoint) == true && this.deviceAttributeRetrievalEnabled() == true) {
             // dispatch GETs to to retrieve and parse those attributes
             this.retrieveDeviceAttributes(endpoint);
         }
         else {
            // call the orchestrator to complete any new device registration
-           this.errorLogger().info("PelionProcessor: Completing device registration(no attributes): " + device_id);
+           this.errorLogger().warning("PelionProcessor: Completing device registration(no attributes): " + device_id);
            this.orchestrator().completeNewDeviceRegistration(endpoint);
         }
     }

@@ -121,6 +121,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
             // create the transport
             mqtt.setUsername(this.m_watson_iot_api_key);
             mqtt.setPassword(this.m_watson_iot_auth_token);
+            mqtt.useSSLConnection(true);
 
             // add the transport
             this.initMQTTTransportList();
@@ -318,7 +319,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
             this.errorLogger().info("Watson IoT: CoAP notification: " + iotf_coap_json);
 
             // send to WatsonIoT...
-            if (this.mqtt() != null) {
+            if (this.mqtt() != null && this.mqtt().isConnected() == true) {
                 boolean status = this.mqtt().sendMessage(this.customizeTopic(this.m_watson_iot_observe_notification_topic, ep_name, this.m_device_manager.getDeviceType(ep_name)), iotf_coap_json, QoS.AT_MOST_ONCE);
                 if (status == true) {
                     // not connected
@@ -331,7 +332,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
             }
             else {
                 // not connected
-                this.errorLogger().warning("Watson IoT: CoAP notification not sent. NOT CONNECTED");
+                this.errorLogger().info("Watson IoT: CoAP notification not sent. NOT CONNECTED");
             }
         }
     }
@@ -632,7 +633,19 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
     @Override
     protected Boolean registerNewDevice(Map message) {
         if (this.m_device_manager != null) {
-            return this.m_device_manager.registerNewDevice(message);
+             // get the device ID and device Type
+            String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+            String device_id = Utils.valueFromValidKey(message, "id", "ep");
+            if (this.m_device_manager.deviceExists(device_id, device_type) == false) {
+                // device does not exist
+                this.errorLogger().info("Watson IoT: Device: " + device_id + " Type: " + device_type + " does NOT exist... Creating it...");
+                return this.m_device_manager.registerNewDevice(message);
+            }
+            else {
+                // already exists
+                this.errorLogger().info("Watson IoT: Device: " + device_id + " Type: " + device_type + " already exists (OK)");
+                return true;
+            }
         }
         return false;
     }
