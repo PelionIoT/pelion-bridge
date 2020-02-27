@@ -317,9 +317,20 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
     }
     
+    // get the tenant Name from Pelion
+    @Override
+    public String getTenantName() {
+        return this.getTenantInfo("display_name");
+    }
+    
     // get the tenant ID from Pelion
     @Override
     public String getTenantID() {
+        return this.getTenantInfo("id");
+    }
+    
+    // get specific tenant info
+    private String getTenantInfo(String key) {
         // only if configured
         if (this.m_api_key_is_configured == true) {
             try {
@@ -333,20 +344,20 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
                 // process the response
                 if (Utils.httpResponseCodeOK(http_code)) {
                     // DEBUG
-                    this.errorLogger().info("PelionProcessor: Getting Tenant ID with URL: " + url + " HTTP_CODE: " + http_code + " RESPONSE: " + response);
+                    this.errorLogger().info("PelionProcessor: Getting Tenant Info (" + key + ") with URL: " + url + " HTTP_CODE: " + http_code + " RESPONSE: " + response);
 
                     // Parse
                     Map data = this.tryJSONParse(response);
 
                     // DEBUG
-                    this.errorLogger().warning("PelionProcessor: Tenant ID: " + (String)data.get("id"));
+                    this.errorLogger().warning("PelionProcessor: Tenant Info(" + key + "): " + (String)data.get(key));
 
                     // return the ID
-                    return (String)data.get("id");
+                    return (String)data.get(key);
                 }
                 else {
                     // ERROR
-                    this.errorLogger().warning("PelionProcessor: WARNING: Unable to get Tenant ID from Pelion: CODE: " + http_code + " URL: " + url);
+                    this.errorLogger().warning("PelionProcessor: WARNING: Unable to get Tenant Info (" + key + ") from Pelion: CODE: " + http_code + " URL: " + url);
                 }
             }
             catch (Exception ex) {

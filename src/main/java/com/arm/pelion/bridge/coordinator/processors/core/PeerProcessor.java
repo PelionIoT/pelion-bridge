@@ -53,9 +53,6 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     // enable/disable DRAFT MQTT standard compliance
     public static final boolean ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT = true;   // enable: true, disable(default): false
 
-    // default tenant ID
-    private static final String DEFAULT_TENANT_ID = "pelion";                   // defaulted pelion tenant ID
-
     private AsyncResponseManager m_async_response_manager = null;
     private String m_mds_topic_root = null;
     private TypeDecoder m_type_decoder = null;

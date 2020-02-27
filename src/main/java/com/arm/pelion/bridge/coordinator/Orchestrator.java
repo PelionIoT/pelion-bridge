@@ -51,6 +51,7 @@ import com.arm.pelion.bridge.coordinator.processors.interfaces.PelionProcessorIn
 import com.arm.pelion.bridge.coordinator.processors.core.EndpointTypeManager;
 import com.arm.pelion.bridge.coordinator.processors.core.PeerProcessor;
 import com.arm.pelion.bridge.coordinator.processors.factories.SAMPLEPeerProcessorFactory;
+import com.arm.pelion.bridge.coordinator.processors.factories.TreasureDataPeerProcessorFactory;
 import com.arm.pelion.bridge.health.HealthCheckServiceProvider;
 import com.arm.pelion.bridge.health.interfaces.HealthCheckServiceInterface;
 import com.arm.pelion.bridge.health.interfaces.HealthStatisticListenerInterface;
@@ -62,7 +63,10 @@ import com.arm.pelion.bridge.health.interfaces.HealthStatisticListenerInterface;
  */
 public class Orchestrator implements PelionProcessorInterface, PeerProcessorInterface, HealthStatisticListenerInterface {
     // default Tenant ID
-    private static final String DEFAULT_TENANT_ID = "pelion";
+    private static final String DEFAULT_TENANT_ID = "1000000000000000000000000";
+    
+    // default Tenant name
+    private static final String DEFAULT_TENANT_NAME = "pelion_org_name";
     
     // Default Health Check Service Provider Sleep time in MS
     private static final int DEF_HEALTH_CHECK_SERVICE_PROVIDER_SLEEP_TIME_MS = (60000 * 10);    // 10 minutes
@@ -121,7 +125,9 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     
     // Tenant ID
     private String m_tenant_id = null;
+    private String m_tenant_name = null;
     private boolean m_tenant_id_pull_attempted = false;
+    private boolean m_tenant_name_pull_attempted = false;
 
     // primary constructor
     public Orchestrator(ErrorLogger error_logger, PreferenceManager preference_manager) {
@@ -192,6 +198,20 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
        
         // start device discovery in Pelion...
         this.initDeviceDiscovery();
+    }
+    
+    // get the tenant Name
+    public String getTenantName() {
+        if (this.m_tenant_name == null) {
+            if (this.m_tenant_name_pull_attempted == false) {
+                this.m_tenant_name = this.m_pelion_processor.getTenantName();
+                this.m_tenant_name_pull_attempted = true;
+            }
+        }
+        if (this.m_tenant_name == null) {
+            return DEFAULT_TENANT_NAME;
+        }
+        return this.m_tenant_name;
     }
     
     // get the tenant ID
@@ -289,6 +309,11 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
             this.errorLogger().info("Orchestrator: Adding Generic MQTT Processor");
             this.m_peer_processor_list.add(GenericMQTTPeerProcessorFactory.createPeerProcessor(this, new HttpTransport(this.m_error_logger, this.m_preference_manager)));
         }
+        if (this.treasureDataPeerEnabled()) {
+            // TreasureData 
+            this.errorLogger().info("Orchestrator: Adding TreasureData Processor");
+            this.m_peer_processor_list.add(TreasureDataPeerProcessorFactory.createPeerProcessor(this));
+        }
         
         // TEMPLATE FOR SAMPLE Peer
         if (this.SAMPLEPeerEnabled()) {
@@ -326,6 +351,11 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
     // use generic MQTT peer processor?
     private Boolean genericMQTTPeerEnabled() {
         return this.preferences().booleanValueOf("enable_generic_mqtt_processor");
+    }
+    
+    // use TreasureData peer processor?
+    private Boolean treasureDataPeerEnabled() {
+        return this.preferences().booleanValueOf("enable_td_addon");
     }
 
     // are the listeners active?

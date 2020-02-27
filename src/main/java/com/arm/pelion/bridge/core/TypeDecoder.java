@@ -32,10 +32,10 @@ import com.arm.pelion.bridge.preferences.PreferenceManager;
 public class TypeDecoder extends BaseClass {
 
     private Double m_d = 0.0;
-    private Float m_f;
-    private Long m_l;
+    private Float m_f = (float)0.0;
     private Boolean m_b = false;
-    private Integer m_i = 0;
+    private Long m_l = (long)0;
+    private Integer m_i = (int)0;
     private String m_s = null;
 
     // Default Constructor
@@ -48,8 +48,23 @@ public class TypeDecoder extends BaseClass {
         try {
             if (data != null && data instanceof String) {
                 if (((String) data).contains(".") == true) {
-                    Double d = Double.parseDouble(((String) data));
-                    this.m_d = d;
+                    this.m_d = Double.parseDouble(((String) data));
+                    return true;
+                }
+            }
+        }
+        catch (NumberFormatException ex) {
+            this.errorLogger().info("isDouble: Exception in Double parse: " + ex.getMessage());
+        }
+        return false;
+    }
+    
+    // Is a Double Type?
+    private boolean isFloat(Object data) {
+        try {
+            if (data != null && data instanceof String) {
+                if (((String) data).contains(".") == true) {
+                    this.m_f = Float.parseFloat(((String) data));
                     return true;
                 }
             }
@@ -60,13 +75,28 @@ public class TypeDecoder extends BaseClass {
         return false;
     }
 
+    // Is an Long Type?
+    private boolean isLong(Object data) {
+        try {
+            if (data != null && data instanceof String) {
+                if (((String) data).length() > 0) {
+                    this.m_l = Long.parseLong(((String) data));
+                    return true;
+                }
+            }
+        }
+        catch (NumberFormatException ex) {
+            this.errorLogger().info("isInteger: Exception in Integer parse: " + ex.getMessage());
+        }
+        return false;
+    }
+    
     // Is an Integer Type?
     private boolean isInteger(Object data) {
         try {
             if (data != null && data instanceof String) {
                 if (((String) data).length() > 0) {
-                    Integer i = Integer.parseInt(((String) data));
-                    this.m_i = i;
+                    this.m_i = Integer.parseInt(((String) data));
                     return true;
                 }
             }
@@ -95,21 +125,7 @@ public class TypeDecoder extends BaseClass {
     public Object getFundamentalValue(Object data) {
         if (data != null) {
             // direct comparisons first...
-            if (data instanceof Integer) {
-                // DEBUG
-                this.errorLogger().info("getFundamentalValue: Type is Integer");
-
-                this.m_i = (Integer)data;
-                return this.m_i;
-            }
-            else if (data instanceof Float) {
-                // DEBUG
-                this.errorLogger().info("getFundamentalValue: Type is Float(Double)");
-
-                this.m_d = (Double)data;
-                return this.m_d;
-            }
-            else if (data instanceof Double) {
+            if (data instanceof Double) {
                 // DEBUG
                 this.errorLogger().info("getFundamentalValue: Type is Double");
 
@@ -123,12 +139,21 @@ public class TypeDecoder extends BaseClass {
                 this.m_f = (Float)data;
                 return this.m_f;
             }
+            /*
             else if (data instanceof Long) {
                 // DEBUG
                 this.errorLogger().info("getFundamentalValue: Type is Long");
 
                 this.m_l = (Long)data;
                 return this.m_l;
+            }
+            */
+            else if (data instanceof Integer) {
+                // DEBUG
+                this.errorLogger().info("getFundamentalValue: Type is Integer");
+
+                this.m_i = (Integer)data;
+                return this.m_i;
             }
             else if (data instanceof Boolean) {
                 // DEBUG
@@ -138,44 +163,58 @@ public class TypeDecoder extends BaseClass {
                 return this.m_b;
             }
             else if (data instanceof String) {
-                // DEBUG
-                this.errorLogger().info("getFundamentalValue: Type is String");
-
-                this.m_s = (String)data;
-                return this.m_s;
-            }
-            else {
-                // secondary checks next
-                if (this.isDouble((String) data)) {
-                    // DEBUG
-                    this.errorLogger().info("getFundamentalValue: Type is Double");
-
-                    // return a Double
-                    return this.m_d;
-                }
-                else if (this.isInteger((String) data)) {
-                    // DEBUG
-                    this.errorLogger().info("getFundamentalValue: Type is Integer");
-
-                    // return an Integer
-                    return this.m_i;
-                }
-                else if (this.isString((String) data)) {
-                    // DEBUG
-                    this.errorLogger().info("getFundamentalValue: Type is String");
-
-                    // return an Integer
-                    return this.m_s;
-                }
-                else {
-                    // DEBUG
-                    this.errorLogger().info("getFundamentalValue: Type is Object");
-
-                    // return itself... not a Double, Integer, or String 
-                    return data;
-                }
+                // return its value processed as a String
+                return this.getFundamentalValueFromString((String)data);
             }
         }
         return data;
+    }
+    
+    // get the fundamental object instance from the String representation
+    public Object getFundamentalValueFromString(String data) {
+        if (this.isDouble(data)) {
+            // DEBUG
+            this.errorLogger().info("getFundamentalValue: Type is Double");
+
+            // return a Double
+            return this.m_d;
+        }
+        else if (this.isFloat(data)) {
+            // DEBUG
+            this.errorLogger().info("getFundamentalValue: Type is Float");
+
+            // return an Float
+            return this.m_f;
+        }
+        /*
+        else if (this.isLong(data)) {
+            // DEBUG
+            this.errorLogger().info("getFundamentalValue: Type is Long");
+
+            // return an Integer
+            return this.m_i;
+        }
+        */
+        else if (this.isInteger(data)) {
+            // DEBUG
+            this.errorLogger().info("getFundamentalValue: Type is Integer");
+
+            // return an Integer
+            return this.m_i;
+        }
+        else if (this.isString(data)) {
+            // DEBUG
+            this.errorLogger().info("getFundamentalValue: Type is String");
+
+            // return an Integer
+            return this.m_s;
+        }
+        else {
+            // DEBUG
+            this.errorLogger().info("getFundamentalValue: Type is Object");
+
+            // return itself... not a Double, Integer, or String 
+            return data;
+        }
     }
 }

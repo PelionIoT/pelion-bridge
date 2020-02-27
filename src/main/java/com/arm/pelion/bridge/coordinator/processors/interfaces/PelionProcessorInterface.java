@@ -36,6 +36,9 @@ public interface PelionProcessorInterface {
     // get the Tenant ID
     public String getTenantID();
     
+    // get the Tenant Name
+    public String getTenantName();
+    
     // process an API request 
     public ApiResponse processApiRequestOperation(String uri,String data,String options,String verb,int request_id,String api_key,String caller_id,String content_type);
     
