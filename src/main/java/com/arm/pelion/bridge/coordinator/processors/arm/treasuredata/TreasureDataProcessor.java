@@ -293,7 +293,7 @@ public class TreasureDataProcessor extends GenericConnectablePeerProcessor imple
             Map td_message = this.createTDObservationMessage(message);
             
             // DEBUG
-            this.errorLogger().warning("TreasureData(sendMessage): MESSAGE: " + td_message);
+            this.errorLogger().info("TreasureData(sendMessage): TD Log Message: " + td_message);
             
             try {
                 // Log it...
