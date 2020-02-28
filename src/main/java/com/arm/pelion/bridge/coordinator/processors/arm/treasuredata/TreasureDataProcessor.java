@@ -267,7 +267,7 @@ public class TreasureDataProcessor extends GenericConnectablePeerProcessor imple
     }
     
     // create TD observation update message
-    private Map createTDObservationMessage(String message) {
+    private Map createTDObservationMessage(String message,String type) {
         // pull the value from the payload
         Object value = this.nativeValueFromMessage(message);
         
@@ -276,6 +276,7 @@ public class TreasureDataProcessor extends GenericConnectablePeerProcessor imple
         
         // create the TD update message
         HashMap<String,Object> td_message = new HashMap<>();
+        td_message.put("type",type);
         td_message.put("ept",this.endpointTypeFromEndpointName((String)parsed.get("ep")));
         td_message.put("ep",(String)parsed.get("ep"));
         td_message.put("uri",(String)parsed.get("path"));
@@ -290,7 +291,7 @@ public class TreasureDataProcessor extends GenericConnectablePeerProcessor imple
     public boolean sendMessage(String topic, String message) {       
         if (this.m_configured) {
             // create the TD Message
-            Map td_message = this.createTDObservationMessage(message);
+            Map td_message = this.createTDObservationMessage(message,"obs");
             
             // DEBUG
             this.errorLogger().info("TreasureData(sendMessage): TD Log Message: " + td_message);
