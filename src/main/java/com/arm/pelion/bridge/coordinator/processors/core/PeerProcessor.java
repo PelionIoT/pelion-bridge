@@ -333,7 +333,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                     if (verb.equalsIgnoreCase("get") == true || verb.equalsIgnoreCase("put") == true) {
                         // DEBUG
                         this.errorLogger().info("PeerProcessor: onMessageReceiveDraftFormat: saving async response (" + verb + ") on topic: " + response_topic + " value: " + json);
-
+                        
                         // its an AsyncResponse to a GET or PUT.. so record it... 
                         this.recordAsyncResponse(json, verb, response_topic, message, ep_name, uri);
                     }
@@ -1050,6 +1050,8 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     
     // reformat response payload per draft MQTT format rules
     public byte[] createDraftFormatReplyPayload(Map record,String reply) {
+        Integer token = 0;
+        
         // DEBUG
         this.errorLogger().info("PeerProcessor: REPLY: " + reply);
         
@@ -1069,8 +1071,13 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             draft_reply.put("paths",path);
             draft_reply.put("payload",payload);
             
-            // token
-            draft_reply.put("token",(Integer)0);
+            // if the draft format has a token, add it to the response...
+            String message = (String)record.get("message");
+            Map parsed_message = this.tryJSONParse(message);
+            if (parsed_message != null && parsed_message.containsKey("token") == true) {
+                token = (Integer)parsed_message.get("token");
+            }
+            draft_reply.put("token",token);
             
             // map the coap verb to operation type
             draft_reply.put("operation", this.coapVerbToOperation(verb));

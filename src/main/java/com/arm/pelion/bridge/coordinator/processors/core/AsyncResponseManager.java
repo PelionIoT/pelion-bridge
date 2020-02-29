@@ -121,10 +121,10 @@ public class AsyncResponseManager {
             if (response != null) {
                 // create a new AsyncResponse record
                 HashMap<String, Object> record = new HashMap<>();
-
+                
                 // parse the response
                 JSONParser parser = this.manager().getJSONParser();
-                Map parsed = parser.parseJson(response);
+                Map parsed = parser.parseJson(response);               
                 if (parsed != null && (String) parsed.get("async-response-id") != null) {
                     // add it to the record too
                     record.put("response_map", parsed);
@@ -163,7 +163,7 @@ public class AsyncResponseManager {
                     if (orig_endpoint != null) {
                         record.put("orig_endpoint", orig_endpoint);
                     }
-
+                                        
                     // add the record to our list
                     this.m_responses.put((String) parsed.get("async-response-id"), record);
 

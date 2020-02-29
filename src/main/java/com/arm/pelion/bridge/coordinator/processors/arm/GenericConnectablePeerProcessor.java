@@ -646,17 +646,24 @@ public class GenericConnectablePeerProcessor extends PeerProcessor implements De
     }
     
     // reformat message to fit draft MQTT standard
-    private byte[] draftMessageReformat(String topic, String message) {        
+    private byte[] draftMessageReformat(String topic, String message) {
+        Integer token = 0;
+        
         // parse the actual message...
         Map parsed = this.orchestrator().getJSONParser().parseJson(message);
         
         // get the uri/paths
         String paths = Utils.valueFromValidKey(parsed, "path", "uri");
         
+        // handle the token
+        if (parsed.containsKey("token") == true) {
+            token = (Integer)parsed.get("token");
+        }
+        
         // construct the new message format...
         HashMap<String,Object> msg = new HashMap<>();
         msg.put("operation",19);
-        msg.put("token",0);
+        msg.put("token",token);
         msg.put("paths",paths);
         
         try { 
