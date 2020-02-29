@@ -221,12 +221,12 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                 // Try a JSON parse... if it succeeds, assume the payload is a composite JSON value...
                 Map json_parsed = this.tryJSONParse(decoded_coap_payload);
                 if (json_parsed != null && json_parsed.isEmpty() == false) {
-                    // add in a JSON object payload value directly... 
+                    // add in a JSON object payload value directly...
                     notification.put("value", Utils.retypeMap(json_parsed, this.fundamentalTypeDecoder()));             // its JSON (flat...)                                                   // its JSON 
                 }
                 else {
                     // add in a decoded payload value as a fundamental type...
-                    notification.put("value", this.fundamentalTypeDecoder().getFundamentalValue(decoded_coap_payload)); // its a Float, Integer, or String
+                    notification.put("value", this.fundamentalTypeDecoder().getFundamentalValueFromString(decoded_coap_payload)); // its a Float, Integer, or String
                 }
 
                 // we will send the raw CoAP JSON... WatsonIoT can parse that... 
@@ -958,10 +958,12 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         Map notification = new HashMap<>();
 
         // needs to look like this:  {"path":"/303/0/5700","payload":"MjkuNzU\u003d","max-age":"60","ep":"350e67be-9270-406b-8802-dd5e5f20","value":"29.75"}    
-        notification.put("value", this.fundamentalTypeDecoder().getFundamentalValue(value));
+        notification.put("value", this.fundamentalTypeDecoder().getFundamentalValueFromString(value));
         notification.put("payload",payload);
         notification.put("path", uri);
         notification.put("ep", ep_name);
+        
+        this.errorLogger().warning("DOUG3: notification: " + notification);
 
         // add a new field to denote its a GET
         notification.put("coap_verb", verb);
