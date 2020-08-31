@@ -67,7 +67,7 @@ public class JSONParser {
     public List parseJsonToStringArray(String json) {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
-            List<Map<String, Object>> jsonMap = objectMapper.readValue(json,new TypeReference<List<String>>(){});
+            List<String> jsonMap = objectMapper.readValue(json,new TypeReference<List<String>>(){});
             return jsonMap;
         }
         catch(Exception ex) {
