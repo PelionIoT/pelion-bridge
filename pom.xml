@@ -38,12 +38,12 @@
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
-            <version>1.15</version>
+            <version>1.14</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.11</version>
+            <version>3.9</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
@@ -88,27 +88,27 @@
         <dependency>
             <groupId>org.eclipse.jetty.websocket</groupId>
             <artifactId>websocket-api</artifactId>
-            <version>9.4.35.v20201120</version>
+            <version>9.4.25.v20191220</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty.websocket</groupId>
             <artifactId>websocket-servlet</artifactId>
-            <version>9.4.35.v20201120</version>
+            <version>9.4.25.v20191220</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty.websocket</groupId>
             <artifactId>websocket-server</artifactId>
-            <version>9.4.35.v20201120</version>
+            <version>9.4.25.v20191220</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-util</artifactId>
-            <version>9.4.32.v20200930</version>
+            <version>9.4.25.v20191220</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty.websocket</groupId>
             <artifactId>websocket-client</artifactId>
-            <version>9.4.35.v20201120</version>
+            <version>9.4.25.v20191220</version>
             <type>jar</type>
         </dependency>
         <dependency>
