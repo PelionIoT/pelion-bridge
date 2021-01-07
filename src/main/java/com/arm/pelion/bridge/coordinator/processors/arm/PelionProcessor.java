@@ -60,7 +60,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private static final int DEVICE_REQUEST_RETRY = 1;
     
     // sanitize EPT (default is false)
-    private static final boolean SANITIZE_EPT = false;
+    private static final boolean SANITIZE_EPT = true;
     
     // How many device entries to retrieve in a single /v3/devices query (discovery)
     private static final int PELION_MAX_DEVICES_PER_QUERY = 100;
@@ -1423,6 +1423,11 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // pull the initial device metadata from Pelion.. add it to the device endpoint map
     @Override
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {
+        // sanitize the endpoint type
+        if (PelionProcessor.SANITIZE_EPT == true) {
+            endpoint.put("endpoint_type",this.sanitizeEndpointType(Utils.valueFromValidKey(endpoint, "endpoint_type", "ept")));
+        }
+        
         // Get the DeviceID and DeviceType
         String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
         String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
@@ -1528,7 +1533,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         
         // sanitize the endpoint type
         if (PelionProcessor.SANITIZE_EPT == true) {
-            device.put("endpoint_type",this.sanitizeEndpointType((String)device.get("endpoint_type")));
+            device.put("endpoint_type",this.sanitizeEndpointType(Utils.valueFromValidKey(device, "endpoint_type", "ept")));
         }
 
         // get the device ID and device Type
