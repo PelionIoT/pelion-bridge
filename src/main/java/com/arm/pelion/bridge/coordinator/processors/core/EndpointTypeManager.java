@@ -68,8 +68,8 @@ public class EndpointTypeManager extends BaseClass {
         if (type != null && type.length() > 0) {
             if (this.isBannedDevice(endpoint) == false) {
                 // DEBUG
-                this.errorLogger().info("EndpointTypeManager: Setting EPT: " + type + " for EP: " + endpoint);
-
+                this.errorLogger().warning("EndpointTypeManager: Setting EPT: " + type + " for EP: " + endpoint);
+                
                 // set the endpoint type 
                 this.m_endpoint_type_list.put(endpoint,type);
 

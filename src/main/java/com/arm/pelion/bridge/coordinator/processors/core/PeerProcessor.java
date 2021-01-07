@@ -130,8 +130,10 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
             String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
 
-            // set the endpoint type for this endpoint name
-            this.setEndpointTypeFromEndpointName(device_id, device_type);
+            // set the endpoint type for this endpoint name (only if never set prior)
+            if (this.getEndpointTypeFromEndpointName(device_id) == null) {
+                this.setEndpointTypeFromEndpointName(device_id, device_type);
+            }
             
             // pull our metadata and complete the new registration
             this.orchestrator().pullDeviceMetadata(endpoint,null);
@@ -147,9 +149,14 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             // get the device ID and device Type
             String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
             String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
-                   
-            // set the endpoint type for this endpoint name
-            this.setEndpointTypeFromEndpointName(device_id, device_type);
+            
+            // DEBUG
+            //this.errorLogger().warning("ENDPOINT RECORD: " + endpoint);
+            
+            // set the endpoint type for this endpoint name (only if never set prior)
+            if (this.getEndpointTypeFromEndpointName(device_id) == null) {
+                this.setEndpointTypeFromEndpointName(device_id, device_type);
+            }
         }
     }
     
