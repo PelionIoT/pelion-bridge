@@ -24,6 +24,7 @@ package com.arm.pelion.bridge.coordinator.processors.core;
 
 import com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor;
 import com.arm.pelion.bridge.core.BaseClass;
+import com.arm.pelion.bridge.core.Utils;
 import java.util.Map;
 
 /**
@@ -33,12 +34,18 @@ import java.util.Map;
 public class CreateShadowDeviceThread extends BaseClass implements Runnable {
     private PelionProcessor m_pelion_processor = null;
     private Map m_device = null;
+    private String ep_name = "";
+    private String ep_type = "";
     
     // constructor
     public CreateShadowDeviceThread(PelionProcessor pelion_processor,Map device) {
         super(pelion_processor.errorLogger(),pelion_processor.preferences());
         this.m_pelion_processor = pelion_processor;
         this.m_device = device;
+        
+        // get the device ID and device Type
+        this.ep_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
+        this.ep_name = Utils.valueFromValidKey(device, "id", "ep");
     }
     
 
@@ -47,7 +54,7 @@ public class CreateShadowDeviceThread extends BaseClass implements Runnable {
     public void run() {
         if (this.m_pelion_processor != null && this.m_device != null) {
             // DEBUG
-            this.errorLogger().info("PelionProcessor(ShadowCreateThread): Setting up device shadow for: " + (String)this.m_device.get("id"));
+            this.errorLogger().warning("PelionProcessor(ShadowCreateThread-Run): Setting up device shadow for DeviceID: " + this.ep_name + " Type: " + this.ep_type);
             
             // create the device shadow
             this.m_pelion_processor.dispatchDeviceSetup(this.m_device);

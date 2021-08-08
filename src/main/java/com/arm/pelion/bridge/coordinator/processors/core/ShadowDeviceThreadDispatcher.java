@@ -115,8 +115,17 @@ public class ShadowDeviceThreadDispatcher extends BaseClass implements Runnable 
                 // get the ith device
                 Map device = (Map)devices.get(i);
                 
+                // get the device ID and device Type
+                String device_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
+                if (device_type == null || device_type.length() == 0) {
+                    this.errorLogger().info("ShadowDeviceThreadDispatcher: Found empty EndpointType. Setting to: " + this.m_pelion_processor.DEFAULT_ENDPOINT_TYPE);
+                    device.put("ept",this.m_pelion_processor.DEFAULT_ENDPOINT_TYPE);
+                    device.put("endpoint_type",this.m_pelion_processor.DEFAULT_ENDPOINT_TYPE);
+                }
+                String device_id = Utils.valueFromValidKey(device, "id", "ep");
+                
                 // DEBUG
-                this.errorLogger().warning("ShadowDeviceThreadDispatcher: Shadow Device task starting for deviceID: " + (String)device.get("id"));
+                this.errorLogger().warning("ShadowDeviceThreadDispatcher: Shadow Device task starting for deviceID: " + device_id + " Type: " + device_type);
                 
                 // create a thread and dispatch it to create the device shadow...
                 Thread dispatch = new Thread(new CreateShadowDeviceThread(this.m_pelion_processor,device));
@@ -144,10 +153,12 @@ public class ShadowDeviceThreadDispatcher extends BaseClass implements Runnable 
                     if (list.get(i).getState() == Thread.State.TERMINATED) {
                         --count;
                     }
-                    Utils.waitForABit(this.errorLogger(), this.m_wait_on_dispatch_group_ms); 
                 }
                 if (count <= 0) {
                     finished = true;
+                }
+                else {
+                    Utils.waitForABit(this.errorLogger(), this.m_wait_on_dispatch_group_ms); 
                 }
             }
         }

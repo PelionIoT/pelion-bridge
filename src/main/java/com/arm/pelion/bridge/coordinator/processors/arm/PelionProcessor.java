@@ -1299,6 +1299,10 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         else {
             this.errorLogger().info("PelionProcessor: Device DOES NOT have attributes: " + endpoint);
         }
+        
+        // OVERRIDE
+        // For now, we disable this... it needs to be cleaned up.
+        has_device_attributes = false;
 
         // return our status
         return has_device_attributes;
@@ -1315,13 +1319,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
         
         // dispatch GETs to retrieve the attributes from the endpoint... 
-        if (this.hasDeviceAttributes(endpoint) == true && this.deviceAttributeRetrievalEnabled() == true) {
+        if (this.deviceAttributeRetrievalEnabled() == true && this.hasDeviceAttributes(endpoint) == true) {
             // dispatch GETs to to retrieve and parse those attributes
+            this.errorLogger().warning("PelionProcessor(dispatchDeviceSetup): Fetching Attributes for DeviceID: " + device_id + " Type: " + device_type);
             this.retrieveDeviceAttributes(endpoint);
         }
         else {
            // call the orchestrator to complete any new device registration
-           this.errorLogger().warning("PelionProcessor: Completing device registration(no attributes): " + device_id);
+           this.errorLogger().info("PelionProcessor(dispatchDeviceSetup): Calling Peer completeNewDeviceRegistration() with DeviceID: " + device_id + " Type: " + device_type);
            this.orchestrator().completeNewDeviceRegistration(endpoint);
         }
     }
@@ -1423,24 +1428,25 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // pull the initial device metadata from Pelion.. add it to the device endpoint map
     @Override
     public void pullDeviceMetadata(Map endpoint, AsyncResponseProcessor processor) {
-        // sanitize the endpoint type
-        if (PelionProcessor.SANITIZE_EPT == true) {
-            endpoint.put("endpoint_type",this.sanitizeEndpointType(Utils.valueFromValidKey(endpoint, "endpoint_type", "ept")));
-        }
-        
         // Get the DeviceID and DeviceType
         String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
         String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
-
+        
+        // sanitize the endpoint type
+        if (PelionProcessor.SANITIZE_EPT == true) {
+            endpoint.put("endpoint_type",this.sanitizeEndpointType(Utils.valueFromValidKey(endpoint, "endpoint_type", "ept")));
+            device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+        }
+        
         // record the device type for the device ID
         this.orchestrator().getEndpointTypeManager().setEndpointTypeFromEndpointName(device_id, device_type);
-
+        
         // initialize the endpoint with defaulted device attributes
         this.initDeviceWithDefaultAttributes(endpoint);
-
+        
         // save off the peer processor for later
         endpoint.put("peer_processor", processor);
-
+        
         // invoke GETs to retrieve the actual attributes (we are the processor for the callbacks...)
         this.getActualDeviceAttributes(endpoint);
     }
@@ -1531,14 +1537,15 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         // endpoint to create the shadow with...
         HashMap<String,Object> endpoint = new HashMap<>();
         
-        // sanitize the endpoint type
-        if (PelionProcessor.SANITIZE_EPT == true) {
-            device.put("endpoint_type",this.sanitizeEndpointType(Utils.valueFromValidKey(device, "endpoint_type", "ept")));
-        }
-
         // get the device ID and device Type
         String device_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
         String device_id = Utils.valueFromValidKey(device, "id", "ep");
+        
+        // sanitize the endpoint type
+        if (PelionProcessor.SANITIZE_EPT == true) {
+            device.put("endpoint_type",this.sanitizeEndpointType(Utils.valueFromValidKey(device, "endpoint_type", "ept")));
+            device_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
+        }
                     
         // duplicate relevant portions for compatibility...
         endpoint.put("ep", device_id);
@@ -1551,10 +1558,13 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         }
 
         // DEBUG
-        this.errorLogger().warning("PelionProcessor: Discovered Pelion device with ID: " + device_id + " Type: " + device_type);
+        this.errorLogger().warning("PelionProcessor(dispatchDeviceSetup): Getting Resources for DeviceID: " + device_id + " Type: " + device_type + "...");
             
         // now, query Pelion again for each device and get its resources
         List resources = this.discoverDeviceResources(device_id);
+        
+        // DEBUG
+        this.errorLogger().warning("PelionProcessor(dispatchDeviceSetup): Found " + resources.size() + " LWM2M resources for DeviceID: " + device_id + " Type: " + device_type);
         
         // if we have resources, add them to the record
         if (resources != null && resources.size() > 0) {
@@ -1565,6 +1575,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         this.orchestrator().getEndpointTypeManager().setEndpointTypeFromEndpointName(device_id, device_type);
 
         // get the device metadata
+        this.errorLogger().info("PelionProcessor(dispatchDeviceSetup): calling pullDeviceMetaData() for DeviceID: " + device_id + " Type: " + device_type);
         this.pullDeviceMetadata(endpoint, null);
     }
     
@@ -1730,8 +1741,10 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
    
     // perform a discovery (JSON)
     private List performDiscovery(String url,String key) {
-        this.errorLogger().info("PelionProcessor: URL: " + url + " Key: " + key);
         if (key != null) {
+            // DEBUG
+            this.errorLogger().info("PelionProcessor: URL: " + url + " pagenation key: " + key);
+            
             // Device Discovery - handle possible pagenation
             Map response = this.performPagenatedDiscovery(url,key);
             List list = (List)response.get(key);
@@ -1743,15 +1756,18 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             return list;
         }
         else {
+            // DEBUG
+            this.errorLogger().info("PelionProcessor: URL: " + url + " (no pagenation)"); 
+            
             // Resource Discovery - no pagenation support needed
             String json = this.httpsGet(url);
             if (json != null && json.length() > 0) {
                 List list = this.jsonParser().parseJsonToArray(json);
-                this.errorLogger().info("PelionProcessor: Response: " + list);
+                this.errorLogger().info("PelionProcessor: Found " + list.size() + " LWM2M resources");
                 return list;
             }
             else {
-                this.errorLogger().info("PelionProcessor: No RESOURCE info response given for URL: " + url);
+                this.errorLogger().warning("PelionProcessor: No RESOURCE info response given for URL: " + url);
             }
         }
         return null;
@@ -1781,6 +1797,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // sanitize the endpoint type
     private String sanitizeEndpointType(String ept) {
         if (ept == null || ept.length() == 0) {
+            return this.m_def_ep_type;
+        }
+        if (ept.contains("reg-update") == true) {
             return this.m_def_ep_type;
         }
         return ept;

@@ -501,7 +501,7 @@ public class AWSIoTProcessor extends GenericConnectablePeerProcessor implements 
                 String device_id = Utils.valueFromValidKey(message, "id", "ep");
 
                 // DEBUG
-                this.errorLogger().info("AWSIoT(MQTT): Registering new device: " + device_id + " type: " + device_type);
+                this.errorLogger().warning("AWSIoT(MQTT): Registering new device: " + device_id + " type: " + device_type);
 
 
                 // create the device in AWSIoT
@@ -509,7 +509,11 @@ public class AWSIoTProcessor extends GenericConnectablePeerProcessor implements 
 
                 // if successful, validate (i.e. add...) an MQTT Connection
                 if (success == true) {
-                    this.validateMQTTConnection(this, device_id, device_type, null);
+                    this.errorLogger().warning("AWSIoT(MQTT): Creating MQTT connection for: " + device_id + " type: " + device_type);
+                    success = this.validateMQTTConnection(this, device_id, device_type, null);
+                }
+                else {
+                    this.errorLogger().warning("AWSIoT(MQTT): ERROR in Registering new device: " + device_id + " type: " + device_type);
                 }
 
                 // return status
@@ -658,7 +662,7 @@ public class AWSIoTProcessor extends GenericConnectablePeerProcessor implements 
             }
             else {
                 // already connected... just ignore
-                this.errorLogger().info("AWSIoT(MQTT): already have connection for " + ep_name + " (OK)");
+                this.errorLogger().warning("AWSIoT(MQTT): already have connection for " + ep_name + " (OK)");
                 connected = true;
             }
         }
@@ -752,33 +756,34 @@ public class AWSIoTProcessor extends GenericConnectablePeerProcessor implements 
     // complete processing of adding the new device
     @Override
     public synchronized void completeNewDeviceRegistration(Map device) {
+        String ep_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
+        String ep_name = Utils.valueFromValidKey(device, "id", "ep");
+            
         try {
             // create the device in AWSIoT
-            this.errorLogger().info("AWSIoT(MQTT): calling registerNewDevice(): " + device);
+            this.errorLogger().info("AWSIoT(MQTT): calling registerNewDevice(): ID: " + ep_name + " Type: " + ep_type);
             boolean ok = this.registerNewDevice(device);
             if (ok) {
                 // success
-                this.errorLogger().info("AWSIoT(MQTT): registerNewDevice() completed SUCCESSFULLY");
+                this.errorLogger().info("AWSIoT(MQTT): registerNewDevice() completed SUCCESSFULLY: DeviceID: " + ep_name + " Type: " + ep_type);
+                
+                try {
+                    // subscribe for AWSIoT as well..
+                    this.errorLogger().info("AWSIoT(MQTT): calling subscribe(): DeviceID: " + ep_name + " Type: " + ep_type);
+                    this.subscribe(ep_name,ep_type,this.createEndpointTopicData(ep_name, ep_type),this);
+                    this.errorLogger().info("AWSIoT(MQTT): subscribe() completed DeviceID: " + ep_name + " Type: " + ep_type);
+                }
+                catch (Exception ex2) {
+                    this.errorLogger().warning("AWSIoT(MQTT): caught exception in subscribe(): DeviceID: " + ep_name + " Type: " + ep_type);
+                }
             }
             else {
                 // failure
-                this.errorLogger().info("AWSIoT(MQTT): registerNewDevice() FAILED");
+                this.errorLogger().info("AWSIoT(MQTT): registerNewDevice() FAILED: DeviceID: " + ep_name + " Type: " + ep_type);
             };
         }
         catch (Exception ex) {
-            this.errorLogger().warning("AWSIoT(MQTT): caught exception in registerNewDevice(): " + device);
-        }
-
-        try {
-            // subscribe for AWSIoT as well..
-            String ep_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
-            String ep_name = Utils.valueFromValidKey(device, "id", "ep");
-            this.errorLogger().info("AWSIoT(MQTT): calling subscribe(): " + device);
-            this.subscribe(ep_name,ep_type,this.createEndpointTopicData(ep_name, ep_type),this);
-            this.errorLogger().info("AWSIoT(MQTT): subscribe() completed");
-        }
-        catch (Exception ex) {
-            this.errorLogger().warning("AWSIoT(MQTT): caught exception in subscribe(): " + device);
+            this.errorLogger().warning("AWSIoT(MQTT): caught exception in registerNewDevice(): DeviceID: " + ep_name + " Type: " + ep_type);
         }
     }
     
