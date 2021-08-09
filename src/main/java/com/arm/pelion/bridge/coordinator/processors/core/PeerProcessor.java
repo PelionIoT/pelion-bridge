@@ -1004,7 +1004,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String coap_json = coap_json_stripped;
 
         // DEBUG
-        this.errorLogger().warning("PeerProcessor: CoAP notification(" + verb + " REPLY): " + coap_json);
+        this.errorLogger().info("PeerProcessor: CoAP notification(" + verb + " REPLY): " + coap_json);
 
         // return the generic MQTT observation JSON...
         return coap_json;
