@@ -963,17 +963,14 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     // create the observation
     protected String createObservation(String verb, String ep_name, String uri, String payload, String value) {
         Map notification = new HashMap<>();
-
-        // needs to look like this:  {"path":"/303/0/5700","payload":"MjkuNzU\u003d","max-age":"60","ep":"350e67be-9270-406b-8802-dd5e5f20","value":"29.75"}    
-        notification.put("value", this.fundamentalTypeDecoder().getFundamentalValueFromString(value));
-        notification.put("payload",payload);
-        notification.put("path", uri);
-        notification.put("ep", ep_name);
         
-        this.errorLogger().warning("DOUG3: notification: " + notification);
-
-        // add a new field to denote its a GET
-        notification.put("coap_verb", verb);
+        // needs to look like this:  {"path":"/303/0/5700","payload":"MjkuNzU\u003d","max-age":"60","ep":"350e67be-9270-406b-8802-dd5e5f20","value":"29.75"}    
+        if (value != null) {
+            notification.put("value", this.fundamentalTypeDecoder().getFundamentalValueFromString(value));
+        }
+        if (payload != null) {
+            notification.put("payload",payload);
+        }
 
         // Unified Format?
         if (this.unifiedFormatEnabled() == true) {
@@ -986,6 +983,16 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             notification.put("deviceId", ep_name);
             notification.put("method", verb);
         }
+        else {
+            if (uri != null && uri.charAt(0) == '/') {
+                notification.put("path", uri.substring(1));
+            }
+            else {
+                notification.put("path", uri);
+            }
+            notification.put("ep", ep_name);
+            notification.put("coap_verb", verb);
+        }
 
         // we will send the raw CoAP JSON... AWSIoT can parse that... 
         String coap_raw_json = this.jsonGenerator().generateJson(notification);
@@ -997,7 +1004,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         String coap_json = coap_json_stripped;
 
         // DEBUG
-        this.errorLogger().info("PeerProcessor: CoAP notification(" + verb + " REPLY): " + coap_json);
+        this.errorLogger().warning("PeerProcessor: CoAP notification(" + verb + " REPLY): " + coap_json);
 
         // return the generic MQTT observation JSON...
         return coap_json;

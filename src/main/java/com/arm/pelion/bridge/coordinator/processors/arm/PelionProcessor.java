@@ -1144,7 +1144,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // create the DeviceRequest AsyncResponse Message
     private String createDeviceRequestAsyncResponseMessage(String async_id) {
         HashMap<String,String> message = new HashMap<>();
-        message.put("async-id",async_id);
+        message.put("async-response-id",async_id);
         return this.orchestrator().getJSONGenerator().generateJson(message);
     }
     
@@ -1158,16 +1158,16 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         if (this.m_enable_device_request_api == true) {
             // create a DeviceRequest AsyncID
             String async_id = this.createDeviceRequestAsyncID();
-            String device_request_options="&expiry-seconds=" + DEVICE_REQUEST_EXPIRY_SECS + "&retry=" + DEVICE_REQUEST_RETRY;
+            String device_request_options=""; // "&expiry-seconds=" + DEVICE_REQUEST_EXPIRY_SECS + "&retry=" + DEVICE_REQUEST_RETRY;
             
             // DeviceRequest API used
             url = this.createDeviceRequestURL(ep_name,async_id,device_request_options);
             
             // create the body for the DeviceRequest
-            String device_request_body_json = this.createDeviceRequestBody(verb,uri,value,options);
+            String device_request_body_json = this.createDeviceRequestBody(verb.toUpperCase(),uri,value,options);
             
             // dispatch the DeviceRequest as a POST with the appropriate content_type nailed...
-            json = this.httpsPost(url, value, "application/json", this.apiToken());  // nail content_type to "application/json"
+            json = this.httpsPost(url, device_request_body_json, "application/json", this.apiToken());  // nail content_type to "application/json"
             int http_code = this.getLastResponseCode();
             this.errorLogger().warning("PelionProcessor: Invoked (DeviceRequest) POST: " + url + " DATA: " + device_request_body_json + " CODE: " + http_code);
             if (Utils.httpResponseCodeOK(http_code)) {
@@ -1179,7 +1179,12 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
             }
             else {
                 // errored condition
-                this.errorLogger().warning("PelionProcessor: DeviceRequest Invocation FAILED. Code: " + http_code);
+                if (json != null) {
+                    this.errorLogger().warning("PelionProcessor: DeviceRequest Invocation FAILED. Code: " + http_code + " ERROR: " + json);
+                } else {
+                    // no error result
+                    this.errorLogger().warning("PelionProcessor: DeviceRequest Invocation FAILED. Code: " + http_code);
+                }
                 
                 // nullify the response
                 json = null;

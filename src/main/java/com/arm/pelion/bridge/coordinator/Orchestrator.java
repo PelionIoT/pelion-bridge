@@ -478,7 +478,7 @@ public class Orchestrator implements PelionProcessorInterface, PeerProcessorInte
         }
         this.refreshHealthStats();
     }
-
+    
     @Override
     public String processEndpointResourceOperation(String verb, String ep_name, String uri, String value, String options) {
         if (this.m_pelion_processor != null) {
