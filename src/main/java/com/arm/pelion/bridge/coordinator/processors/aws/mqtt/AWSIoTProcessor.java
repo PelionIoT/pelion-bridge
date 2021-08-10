@@ -298,7 +298,7 @@ public class AWSIoTProcessor extends GenericConnectablePeerProcessor implements 
                 String ep_type = this.getEndpointTypeFromEndpointName(ep_name);
 
                 // encapsulate into a coap/device packet...
-                String aws_iot_gw_coap_json = coap_json_stripped;
+                String aws_iot_gw_coap_json = this.convertToUnifiedFormat(coap_json_stripped);
 
                 // DEBUG
                 this.errorLogger().info("AWSIoT(MQTT): CoAP notification (STR): " + aws_iot_gw_coap_json);

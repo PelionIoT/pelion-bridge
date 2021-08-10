@@ -52,6 +52,9 @@ import org.apache.commons.codec.binary.Base64;
 public class PeerProcessor extends Processor implements GenericSender, TopicParseInterface {
     // enable/disable DRAFT MQTT standard compliance
     public static final boolean ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT = true;   // enable: true, disable(default): false
+    
+    // default for unified formats enabled
+    public static final boolean DEFAULT_UNIFIED_FORMAT_ENABLED = true;         // true:  ep -> deviceId, path -> resourceId, coap_verb -> method
 
     private AsyncResponseManager m_async_response_manager = null;
     private String m_mds_topic_root = null;
@@ -78,6 +81,9 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     // LWM2M over MQTT draft integratino format enablement
     private boolean m_enable_draft_mqtt_formats = ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT;
     
+    // Unified formats enabled
+    private boolean m_unified_format_enabled = DEFAULT_UNIFIED_FORMAT_ENABLED;
+    
     // default constructor
     public PeerProcessor(Orchestrator orchestrator, String suffix) {
         super(orchestrator, suffix);
@@ -100,18 +106,33 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         // allocate our TypeDecoder
         this.m_type_decoder = new TypeDecoder(orchestrator.errorLogger(), orchestrator.preferences());
         
-        // MQTT Draft format enable/disable - this needs to be down in PeerProcessor as its shared between PelionProcessor and the peers...
+        // MQTT Draft Format Enablement
         this.m_enable_draft_mqtt_formats = orchestrator.preferences().booleanValueOf("mqtt_draft_format_enabled",this.m_suffix);
         if (this.m_enable_draft_mqtt_formats == false) {
-            this.m_enable_draft_mqtt_formats = ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT;
+            if (orchestrator.preferences().valueOf("mqtt_draft_format_enabled") == null) {
+                this.m_enable_draft_mqtt_formats = ENABLE_DRAFT_MQTT_INTEGRATION_FORMAT;
+            }
         }
-        
-        // debug 
-        if (this.m_enable_draft_mqtt_formats == true) {
-            this.errorLogger().warning("PeerProcessor: Draft MQTT formatting ENABLED");
+        if (this.m_enable_draft_mqtt_formats) {
+            this.errorLogger().warning("PeerProcessor: Draft MQTT Formats ENABLED");
         }
         else {
-            this.errorLogger().warning("PeerProcessor: Draft MQTT formatting DISABLED");
+            this.errorLogger().warning("PeerProcessor: Draft MQTT Formats DISABLED");
+        }
+        
+        // Unified Data Format Enablement
+        this.m_unified_format_enabled = orchestrator.preferences().booleanValueOf("unified_format_enabled",this.m_suffix);
+        if (this.m_unified_format_enabled == false) {
+            if (orchestrator.preferences().valueOf("unified_format_enabled") == null) {
+                // unspecified in the config file - so use the defaults
+                this.m_unified_format_enabled = DEFAULT_UNIFIED_FORMAT_ENABLED;
+            }
+        }
+        if (this.m_unified_format_enabled) {
+            this.errorLogger().warning("PeerProcessor: Unified Formats ENABLED");
+        }
+        else {
+            this.errorLogger().warning("PeerProcessor: Unified Formats DISABLED");
         }
     }
     
@@ -241,7 +262,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
 
                 // strip off []...
                 String coap_json_stripped = this.stripArrayChars(coap_raw_json);
-
+                
                 // get the device ID and device Type
                 String ep_type = Utils.valueFromValidKey(notification, "endpoint_type", "ept");
                 String ep_name = Utils.valueFromValidKey(notification, "id", "ep");
@@ -256,7 +277,7 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
                 String topic = this.createObservationTopic(ep_type, ep_name, uri);
                 
                 // encapsulate into a coap/device packet...
-                String coap_json = coap_json_stripped;
+                String coap_json = this.convertToUnifiedFormat(coap_json_stripped);
 
                 // DEBUG
                 this.errorLogger().info("PeerProcessor: Active subscription for ep_name: " + ep_name + " ep_type: " + ep_type + " uri: " + uri);
@@ -540,9 +561,9 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
         return this.m_type_decoder;
     }
 
-    // unified format enabled (always true)
+    // unified format enabled checker
     protected boolean unifiedFormatEnabled() {
-        return true;
+        return this.m_unified_format_enabled;
     }
     
     // not an observation or a new_registration...
@@ -958,6 +979,46 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             this.errorLogger().info("PeerProcessor: WARNING: getURIPathFromTopic: Exception: " + ex.getMessage());
         }
         return null;
+    }
+    
+    // convert to unified format
+    protected String convertToUnifiedFormat(String json) {
+        if (this.unifiedFormatEnabled() == true) {
+            try {
+                // parse the JSON
+                Map parsed_json = this.tryJSONParse(json);
+                
+                // convert specific keys
+                if (parsed_json.get("ep") != null) {
+                    parsed_json.put("deviceId", parsed_json.get("ep"));
+                    parsed_json.remove("ep");
+                }
+                if (parsed_json.get("path") != null) {
+                    parsed_json.put("resourceId", parsed_json.get("path"));
+                    parsed_json.remove("path");
+                }
+                if (parsed_json.get("coap_verb") != null) {
+                    parsed_json.put("method", parsed_json.get("coap_verb"));
+                    parsed_json.remove("coap_verb");
+                }
+                
+                // remove these as they are never used
+                parsed_json.remove("ct");
+                parsed_json.remove("max-age");
+                
+                // convert back to String
+                return this.jsonGenerator().generateJson(parsed_json);
+            }
+            catch (Exception ex) {
+                // exception during parse
+                this.errorLogger().warning("convertToUnifiedFormat: Exception in JSON parse: " + ex.getMessage() + ". Unable to convert to unified format. Returning original format...");
+                return json;
+            }
+        }
+        else {
+            // no conversion
+            return json;
+        }
     }
     
     // create the observation

@@ -261,6 +261,9 @@ public class AWSIoTProcessor extends GenericConnectablePeerProcessor implements 
 
             // strip off []...
             String message = this.stripArrayChars(coap_raw_json);
+            
+            // unified format option
+            message = this.convertToUnifiedFormat(message);
 
             // get our endpoint name
             String ep_name = Utils.valueFromValidKey(notification, "id", "ep");

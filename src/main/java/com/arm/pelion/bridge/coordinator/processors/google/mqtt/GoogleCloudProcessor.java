@@ -456,7 +456,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
             String ep_type = this.getEndpointTypeFromEndpointName(ep_name);
 
             // encapsulate into a coap/device packet...
-            String google_cloud_gw_coap_json = coap_json_stripped;
+            String google_cloud_gw_coap_json = this.convertToUnifiedFormat(coap_json_stripped);
 
             // DEBUG
             this.errorLogger().info("GoogleCloudIOT(MQTT): CoAP notification (STR): " + google_cloud_gw_coap_json);

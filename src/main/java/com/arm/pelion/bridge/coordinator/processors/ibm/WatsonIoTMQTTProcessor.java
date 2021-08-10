@@ -310,7 +310,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
             String coap_json_stripped = this.stripArrayChars(coap_raw_json);
 
             // encapsulate into a coap/device packet...
-            String iotf_coap_json = coap_json_stripped;
+            String iotf_coap_json = this.convertToUnifiedFormat(coap_json_stripped);
             if (this.m_watson_iot_device_data_key != null && this.m_watson_iot_device_data_key.length() > 0) {
                 iotf_coap_json = "{ \"" + this.m_watson_iot_device_data_key + "\":" + coap_json_stripped + "}";
             }

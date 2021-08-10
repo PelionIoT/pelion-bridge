@@ -462,7 +462,7 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
             String coap_json_stripped = this.stripArrayChars(coap_raw_json);
 
             // encapsulate into a coap/device packet...
-            String iot_event_hub_coap_json = coap_json_stripped;
+            String iot_event_hub_coap_json = this.convertToUnifiedFormat(coap_json_stripped);
 
             // DEBUG
             this.errorLogger().info("IoTHub(MQTT): CoAP notification (STR): " + iot_event_hub_coap_json);
