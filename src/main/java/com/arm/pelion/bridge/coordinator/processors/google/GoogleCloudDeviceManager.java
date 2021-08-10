@@ -341,7 +341,7 @@ public class GoogleCloudDeviceManager extends DeviceManager implements Runnable 
         HashMap<String,String> metadata = new HashMap<>();
         PelionProcessor p = (PelionProcessor)this.orchestrator().pelion_processor();
         p.initDeviceWithDefaultAttributes(message);
-        metadata.put("device_type",Utils.valueFromValidKey(message, "ept", "endpoint_type"));
+        metadata.put("device_type",this.sanitizeEndpointType(Utils.valueFromValidKey(message, "ept", "endpoint_type")));
         metadata.put("device_id",Utils.valueFromValidKey(message, "id", "ep"));
         metadata.put("serial_number",(String)message.get("meta_serial"));
         metadata.put("device_description",(String)message.get("meta_description"));

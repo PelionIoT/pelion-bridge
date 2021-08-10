@@ -440,7 +440,7 @@ public class IoTHubProcessor extends GenericConnectablePeerProcessor implements 
         if (this.m_configured) {
             if (this.m_device_manager != null) {
                 // get the device ID and device Type
-                String device_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
+                String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(device, "endpoint_type", "ept"));
                 String device_id = Utils.valueFromValidKey(device, "id", "ep");
                     
                 // create the device twin

@@ -504,7 +504,7 @@ public class WatsonIoTDeviceManager extends DeviceManager {
         Boolean status = false;
 
         // get the device ID and device Type
-        String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+        String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(message, "endpoint_type", "ept"));
         String device_id = Utils.valueFromValidKey(message, "id", "ep");
         
         // DEBUG

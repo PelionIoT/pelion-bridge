@@ -24,6 +24,7 @@ package com.arm.pelion.bridge.coordinator.processors.core;
 
 import com.arm.pelion.bridge.core.Processor;
 import com.arm.pelion.bridge.coordinator.Orchestrator;
+import static com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor.DEFAULT_ENDPOINT_TYPE;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.AsyncResponseProcessor;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.GenericSender;
 import com.arm.pelion.bridge.coordinator.processors.interfaces.TopicParseInterface;
@@ -60,6 +61,9 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
     private String m_mds_topic_root = null;
     private TypeDecoder m_type_decoder = null;
     private String m_mds_request_tag = null;
+    
+    // defaulted endpoint type
+    private String m_def_ep_type = DEFAULT_ENDPOINT_TYPE;
     
     // auto subscribe to observable resources true by default
     protected boolean m_auto_subscribe_to_obs_resources = true;
@@ -649,6 +653,14 @@ public class PeerProcessor extends Processor implements GenericSender, TopicPars
             return caller_id;
         }
         return null;
+    }
+    
+    // sanitize the endpoint type
+    protected String sanitizeEndpointType(String ept) {
+        if (ept == null || ept.length() == 0 || ept.contains("null") || ept.contains("reg-update")) {
+            return this.m_def_ep_type;
+        }
+        return ept;
     }
     
     // sanitize the REST API Key

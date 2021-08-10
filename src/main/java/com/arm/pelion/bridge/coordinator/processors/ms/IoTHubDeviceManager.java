@@ -135,7 +135,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         boolean status = false;
 
         // httpsGet the device details
-        String ep_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+        String ep_type = this.sanitizeEndpointType(Utils.valueFromValidKey(message, "endpoint_type", "ept"));
         String ep_name = Utils.valueFromValidKey(message, "id", "ep");
 
         // see if we already have a device...
@@ -257,7 +257,7 @@ public class IoTHubDeviceManager extends DeviceManager {
         Boolean status = false;
 
         // create the new device type
-        String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+        String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(message, "endpoint_type", "ept"));
         String ep_name = Utils.valueFromValidKey(message, "id", "ep");
 
         // IOTHUB DeviceID Prefix

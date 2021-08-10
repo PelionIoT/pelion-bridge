@@ -49,7 +49,7 @@ public class TreasureDataDeviceManager extends DeviceManager {
     // create the TreasureData device twin
     public boolean createDevice(Map device,String prefix) {
         String ep = (String)device.get("ep");
-        String ept = (String)device.get("ept");
+        String ept = this.sanitizeEndpointType((String)device.get("ept"));
         this.m_processor.setEndpointTypeForEndpointName((String)device.get("ep"), (String)device.get("ept"));
         return true;
     }    

@@ -92,6 +92,9 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     private String m_pelion_cloud_uri = null;
     private long m_device_discovery_delay_ms = DEVICE_DISCOVERY_DELAY_MS;
     
+    // defaulted endpoint type
+    private String m_def_ep_type = DEFAULT_ENDPOINT_TYPE;
+    
     // Enable/Disable retrieval of device attributes (default is OFF)
     private boolean m_enable_attribute_gets = false;                            // true - enable device attribute retrieval, false - use defaults
 
@@ -135,9 +138,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // Webhook establishment retries
     private int m_webook_num_retries = PELION_WEBHOOK_RETRIES;
-    
-    // defaulted endpoint type
-    private String m_def_ep_type = DEFAULT_ENDPOINT_TYPE;
     
     // Webhook establishment retry wait time in ms
     private int m_webhook_retry_wait_ms = PELION_WEBHOOK_RETRY_WAIT_MS;
@@ -475,6 +475,14 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     // long polling enabled
     public boolean webHookEnabled() {
         return !(this.m_enable_long_poll || this.m_enable_web_socket);
+    }
+    
+    // sanitize the endpoint type
+    protected String sanitizeEndpointType(String ept) {
+        if (ept == null || ept.length() == 0 || ept.contains("null") || ept.contains("reg-update")) {
+            return this.m_def_ep_type;
+        }
+        return ept;
     }
     
     // set whether our API Key is configured or not...
@@ -1320,7 +1328,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
     // check and dispatch the appropriate GETs to retrieve the actual device attributes
     private void getActualDeviceAttributes(Map endpoint) {
-        String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+        String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(endpoint, "endpoint_type", "ept"));
         String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
         
         // dispatch GETs to retrieve the attributes from the endpoint... 
@@ -1338,7 +1346,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     
     // retrieve the actual device attributes
     private void retrieveDeviceAttributes(Map endpoint) {
-        String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+        String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(endpoint, "endpoint_type", "ept"));
         String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
         
         // see if we already have a retrieval manager for this device...
@@ -1369,7 +1377,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
 
     // update our device attributes
     public void updateDeviceAttributes(Map endpoint,ArrayList<HashMap<String,Object>> entries) {
-        String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+        String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(endpoint, "endpoint_type", "ept"));
         String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
         
         // all attribute gets are complete... re-assemble here...
@@ -1543,7 +1551,7 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
         HashMap<String,Object> endpoint = new HashMap<>();
         
         // get the device ID and device Type
-        String device_type = Utils.valueFromValidKey(device, "endpoint_type", "ept");
+        String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(device, "endpoint_type", "ept"));
         String device_id = Utils.valueFromValidKey(device, "id", "ep");
         
         // sanitize the endpoint type
@@ -1797,17 +1805,6 @@ public class PelionProcessor extends HttpProcessor implements Runnable, PelionPr
     public String createCoAPURL(String ep_name, String uri) {
         String url = this.createBaseURL() + "/endpoints/" + ep_name + uri;
         return url;
-    }
-    
-    // sanitize the endpoint type
-    private String sanitizeEndpointType(String ept) {
-        if (ept == null || ept.length() == 0) {
-            return this.m_def_ep_type;
-        }
-        if (ept.contains("reg-update") == true) {
-            return this.m_def_ep_type;
-        }
-        return ept;
     }
     
     // Long polling enabled or disabled?

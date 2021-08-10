@@ -119,7 +119,7 @@ public class AWSIoTProcessor extends GenericConnectablePeerProcessor implements 
                     Map endpoint = (Map) endpoints.get(i);
 
                     // get the device ID and device Type
-                    String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+                    String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(endpoint, "endpoint_type", "ept"));
                     String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
 
                     // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
@@ -512,7 +512,7 @@ public class AWSIoTProcessor extends GenericConnectablePeerProcessor implements 
         if (this.m_configured) {
             if (this.m_device_manager != null) {
                 // get the device ID and device Type
-                String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+                String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(message, "endpoint_type", "ept"));
                 String device_id = Utils.valueFromValidKey(message, "id", "ep");
 
                 // DEBUG

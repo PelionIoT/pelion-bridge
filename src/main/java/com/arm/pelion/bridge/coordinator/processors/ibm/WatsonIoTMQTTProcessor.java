@@ -165,7 +165,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
                     Map endpoint = (Map) endpoints.get(i);
 
                     // get the device ID and device Type
-                    String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+                    String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(endpoint, "endpoint_type", "ept"));
                     String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
 
                     // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
@@ -634,7 +634,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
     protected Boolean registerNewDevice(Map message) {
         if (this.m_device_manager != null) {
              // get the device ID and device Type
-            String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+            String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(message, "endpoint_type", "ept"));
             String device_id = Utils.valueFromValidKey(message, "id", "ep");
             if (this.m_device_manager.deviceExists(device_id, device_type) == false) {
                 // device does not exist
@@ -715,7 +715,7 @@ public class WatsonIoTMQTTProcessor extends GenericConnectablePeerProcessor impl
 
         try {
             // get the device ID and device Type
-            String ep_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+            String ep_type = this.sanitizeEndpointType(Utils.valueFromValidKey(endpoint, "endpoint_type", "ept"));
             String ep_name = Utils.valueFromValidKey(endpoint, "id", "ep");
                     
             // subscribe for WatsonIoT as well..

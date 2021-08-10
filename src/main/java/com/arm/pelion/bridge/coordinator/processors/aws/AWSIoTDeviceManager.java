@@ -146,7 +146,7 @@ public class AWSIoTDeviceManager extends DeviceManager {
     // create and register a new device
     private boolean createAndRegisterNewDevice(Map message) {
         // create the new device type
-        String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+        String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(message, "endpoint_type", "ept"));
         String device = Utils.valueFromValidKey(message, "id", "ep");
         
         // create the thing type first
@@ -546,6 +546,7 @@ public class AWSIoTDeviceManager extends DeviceManager {
     
     // create the thing type
     private void createThingType(Map ep) {
+        ep.put("ept", this.sanitizeEndpointType((String)ep.get("ept")));
         if (ep != null && this.thingTypeExists(ep) == false) {
             // create the Thing Type...
             String args = "iot create-thing-type --thing-type-name=" + (String) ep.get("ept");

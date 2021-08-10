@@ -23,6 +23,7 @@
 package com.arm.pelion.bridge.coordinator.processors.core;
 
 import com.arm.pelion.bridge.coordinator.Orchestrator;
+import static com.arm.pelion.bridge.coordinator.processors.arm.PelionProcessor.DEFAULT_ENDPOINT_TYPE;
 import com.arm.pelion.bridge.core.BaseClass;
 import com.arm.pelion.bridge.core.ErrorLogger;
 import com.arm.pelion.bridge.data.SerializableHashMapOfHashMaps;
@@ -43,6 +44,9 @@ public class DeviceManager extends BaseClass {
     protected SerializableHashMapOfHashMaps m_endpoint_details = null;
     protected int m_num_retries = DEFAULT_NUM_RETRIES;
     protected int m_get_retry_wait_ms = DEFAULT_RETRY_WAIT_MS;  
+    
+    // defaulted endpoint type
+    private String m_def_ep_type = DEFAULT_ENDPOINT_TYPE;
     
     // new constructor
     public DeviceManager(Orchestrator orchestrator, HttpTransport http, String suffix) {
@@ -72,5 +76,13 @@ public class DeviceManager extends BaseClass {
         if (this.m_get_retry_wait_ms <= 0) {
             this.m_get_retry_wait_ms = DEFAULT_RETRY_WAIT_MS;
         }
+    }
+    
+    // sanitize the endpoint type
+    protected String sanitizeEndpointType(String ept) {
+        if (ept == null || ept.length() == 0 || ept.contains("null") || ept.contains("reg-update")) {
+            return this.m_def_ep_type;
+        }
+        return ept;
     }
 }

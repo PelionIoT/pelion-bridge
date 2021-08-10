@@ -294,7 +294,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
                     Map endpoint = (Map) endpoints.get(i);
 
                     // get the device ID and device Type
-                    String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+                    String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(endpoint, "endpoint_type", "ept"));
                     String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
 
                     // invoke a GET to get the resource information for this endpoint... we will upsert the Metadata when it arrives
@@ -653,7 +653,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
     protected synchronized Boolean registerNewDevice(Map message) {
         if (this.m_device_manager != null) {
             // get the device ID and device Type
-            String device_type = Utils.valueFromValidKey(message, "endpoint_type", "ept");
+            String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(message, "endpoint_type", "ept"));
             String device_id = Utils.valueFromValidKey(message, "id", "ep");
             
             // DEBUG
@@ -1147,7 +1147,7 @@ public class GoogleCloudProcessor extends GenericConnectablePeerProcessor implem
         }
         
         // get the device ID and device Type
-        String device_type = Utils.valueFromValidKey(endpoint, "endpoint_type", "ept");
+        String device_type = this.sanitizeEndpointType(Utils.valueFromValidKey(endpoint, "endpoint_type", "ept"));
         String device_id = Utils.valueFromValidKey(endpoint, "id", "ep");
 
         // subscribe for GoogleCloud's specific topics
